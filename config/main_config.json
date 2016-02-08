@@ -1,0 +1,8 @@
+{
+    "user": "",
+    "pass": "",
+    "owner": "",
+    "connection": "ws://sim.smogon.com/showdown/websocket",
+    "log_receive": true,
+    "log_send": true
+}

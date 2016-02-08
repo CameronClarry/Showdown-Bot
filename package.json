@@ -1,0 +1,22 @@
+{
+	"name": "Showdown Bot",
+	"version": "0.0.1",
+	"dependencies": {
+		"sugar": "1.4.1",
+		"websocket": "1.0.18",
+		"colors": "1.0.3",
+		"babel": "5.2.6",
+		"request": "2.x"
+	},
+	"engines": {
+		"node": "> 0.10.1"
+	},
+	"engine-strict": true,
+	"scripts": {"start": "node main.js"},
+	"bin": "./main.js",
+	"author": {
+		"name": "Cameron Clarry",
+		"email": "cameronclarry@gmail.com"
+	},
+	"private": true
+}
