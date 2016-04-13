@@ -1,9 +1,5 @@
 [
 	"chat",
 	"rooms",
-	"auth",
-	"latexer",
-	"triviatracker",
-	"tester",
-	"search"
+	"auth"
 ]
