@@ -1,6 +1,7 @@
 let fs = getRequirement("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let auth = null;
+let formatregex = /([_~*`])\1(.+)\1\1/g;
 info("STARTING ROOMS");
 exports.onLoad = function(module, loadData){
 	self = module;
@@ -82,7 +83,7 @@ let roomActions = {
 		let normalUser = normalizeText(args[2]);
 		let rooms = self.data.rooms;
 		if(rooms[room]){
-			rooms[room].users[normalUser] = {displayName: args[2]};
+			rooms[room].users[normalUser] = {displayName: replaceAll(args[2].trim(),formatregex)};
 		}
 	},
 	L: "leave",
@@ -102,7 +103,7 @@ let roomActions = {
 		let rooms = self.data.rooms;
 		if(rooms[room]){
 			delete rooms[room].users[normalizeText(oldName)];
-			rooms[room].users[normalizeText(newName)] = {displayName: newName};
+			rooms[room].users[normalizeText(newName)] = {displayName: replaceAll(newName.trim(),formatregex)};
 		}
 	},
 	deinit: function(room, args){
@@ -123,7 +124,7 @@ let roomActions = {
 		if(self.data.rooms[room]){
 			let userlist = args[2].split(",");
 			for(var i=1;i<userlist.length;i++){
-				self.data.rooms[room].users[normalizeText(userlist[i])] = {displayName: userlist[i].trim()};
+				self.data.rooms[room].users[normalizeText(userlist[i])] = {displayName: replaceAll(userlist[i].trim(),formatregex)};
 			}
 		}
 	}
@@ -193,3 +194,10 @@ let getDisplayName = function(user, room){
 	return null;
 }
 exports.getDisplayName = getDisplayName;
+
+let replaceAll = function(text, reg){
+	while(reg.test(text)){
+  	text = text.replace(reg, "$2");
+  }
+  return text;
+}

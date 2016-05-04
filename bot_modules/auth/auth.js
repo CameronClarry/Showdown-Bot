@@ -22,7 +22,7 @@ exports.onLoad = function(module, loadData){
 					for(let i = 0;i<chatArgs.length;i++){
 						chatArgs[i] = chatArgs[i].trim();
 					}
-					if(commands[command]&&chat){
+					if(commands[command] && chat && chat.js){
 						commands[command](m, chatArgs);
 					}
 				}
@@ -31,14 +31,14 @@ exports.onLoad = function(module, loadData){
 	};
 };
 exports.onUnload = function(){
-    
+
 };
 exports.refreshDependencies = function(){
     chat = getModuleForDependency("chat", "auth");
     rooms = getModuleForDependency("rooms", "auth");
 };
 exports.onConnect = function(){
-    
+
 };
 
 let commands = {
@@ -135,7 +135,7 @@ let authCommands = {
 				numRooms++;
 			}
 		}
-		chat.js.attemptAnnounce(message.room, message.user, result, getRank(message.user, message.room));
+		chat.js.reply(message, result);
 	},
 	save: function(message, args){
 		let result = "Could not save the auth list.";
@@ -156,7 +156,7 @@ let authCommands = {
 			error(e.message);
 		}
 		if(message){
-			chat.js.attemptAnnounce(message.room, message.user, result, rank);
+			chat.js.reply(message, result);
 		}else{
 			info(result);
 		}
@@ -202,7 +202,7 @@ let authCommands = {
 			info(result);
 		}
 		if(message){
-			chat.js.attemptAnnounce(message.room, message.user, result, rank);
+			chat.js.reply(message, result);
 		}else{
 			info(result);
 		}

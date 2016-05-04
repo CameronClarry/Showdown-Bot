@@ -51,3 +51,4 @@ config/main_config.json
 bot_modules/auth/authlist.json
 bot_modules/modulemanager/modules.json
 bot_modules/rooms/roomlist.json
+logs/*

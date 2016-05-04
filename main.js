@@ -1,34 +1,43 @@
 "use strict";
 console.log("Starting the bot");
-console.log(process.env.PORT);
-console.log(process.env.IP);
 require('babel/register')({loose: 'all'});
 require('sugar');
 
 //Various logging commands for output to the console
 let colors = require('colors');
 
+let logToFile = function(text){
+	try{
+		let now = new Date();
+		let filename = "logs/" + now.getUTCFullYear() + "-" + (now.getUTCMonth()+1) + "-" + now.getUTCDay() + ".txt";
+		fs.appendFile(filename, "\n[" + new Date().toUTCString() + "]" + text);
+	}catch(err){
+		console.log("ERROR LOGGING: " + err);
+	}
+};
+
 global.info = function (text) {
+	logToFile("[INFO] " + text);
 	console.log('info'.cyan + '  ' + text);
 };
-   
-global.debug = function (text) {
-	console.log('debug'.blue + ' ' + text);
-};
-   
+
 global.recv = function (text) {
+	logToFile("[RECEIVE] " + text);
 	console.log('recv'.grey + '  ' + text);
 };
-   
+
 global.dsend = function (text) {
+	logToFile("[SEND] " + text);
 	console.log('send'.grey + '  ' + text);
 };
-   
+
 global.error = function (text) {
+	logToFile("[ERROR] " + text);
 	console.log("Error: ".red + text);
 };
-   
+
 global.ok = function (text) {
+	logToFile("[OK] " + text);
 	console.log(text.green);
 };
 
@@ -53,7 +62,7 @@ global.getRequirement = function(name){
 let fs = getRequirement("fs");
 
 //Manages config files
-global.loadConfig = function(name, defaults){
+global.getConfig = function(name, defaults){
 	let toBeLoaded = defaults;
 	try{
 		let filename = "config/" + name + "_config.json";
@@ -71,6 +80,18 @@ global.loadConfig = function(name, defaults){
 	}
 	return toBeLoaded;
 };
+global.loadConfig = function(name, defaults){
+	name = normalizeText(name);
+	if(name === "main"){
+		global.mainConfig = getConfig("main");
+		return true;
+	}else if(modules[name]){
+		let config = getConfig(name, defaults);
+		modules[name].config = config;
+		return true;
+	}
+	return false;
+}
 global.saveConfig = function(name){
 	let filename = "config/" + name + "_config.json";
 	if(modules[name]&&modules[name].config){
@@ -87,8 +108,6 @@ global.saveConfig = function(name){
 	}
 };
 
-global.mainConfig = loadConfig("main");
-
 //Manages the bot modules
 global.modules = {};
 global.loadModule = function(name, loadData){
@@ -103,10 +122,11 @@ global.loadModule = function(name, loadData){
 			module = {js:null,data:null,requiredBy:[],hooks:{},config:{}};
 		}
 		modules[name] = module;
-		module.config = loadConfig(name, {});
+		module.hooks = {};
+		module.config = getConfig(name, {});
 		module.js = require(path);
 		module.js.onLoad(module, loadData);
-		
+
 		for(let i=0;i<requiredBy.length;i++){
 			let requiredByModule = modules[requiredBy[i]];
 			if(requiredByModule&&requiredByModule.js){
@@ -138,7 +158,7 @@ global.unloadModule = function(name){
 		return true;
 	}
 	return false;
-	
+
 };
 global.getModuleForDependency = function(name, from){
 	let module = modules[name];
@@ -167,50 +187,54 @@ var connect = function (retry) {
     if (retry) {
         info('Retrying...');
     }
-   
+
     var ws = new WebSocketClient();
-   
+
     ws.on('connectFailed', function (err) {
         error('Could not connect');
         info('Retrying in one minute');
-   
+
         setTimeout(function () {
             connect(true);
         }, 60000);
     });
-   
+
     ws.on('connect', function (con) {
         Connection = con;
         ok('Connected to server');
-        
-   
+
+
         con.on('error', function (err) {
             error('Connection error: ' + err.stack);
         });
-   
+
         con.on('close', function (code, reason) {
             // Is this always error or can this be intended...?
             error('Connection closed: ' + reason + ' (' + code + ')');
             info('Retrying in one minute');
-			
+
             setTimeout(function () {
                 connect(true);
             }, 60000);
         });
-   
+
         con.on('message', function (response) {
-            if (response.type !== 'utf8'){
-            	info(JSON.stringify(response));
-            	return false;
-            }
-            var message = response.utf8Data;
-            if(mainConfig.log_receive){
-            	recv(message);
-            }
-            handle(message);
+        	try{
+	            if (response.type !== 'utf8'){
+	            	info(JSON.stringify(response));
+	            	return false;
+	            }
+	            var message = response.utf8Data;
+	            if(mainConfig.log_receive){
+	            	recv(message);
+	            }
+	            handle(message);
+        	}catch(e){
+        		error(e.message);
+        	}
         });
     });
-   
+
     // The connection itself
 
     info("Connecting to " + mainConfig.connection);
@@ -218,9 +242,9 @@ var connect = function (retry) {
 };
 
 global.send = function (data) {
-	   
+
 	if (!data || !Connection || !Connection.connected) return false;
-	   
+
 	/* var now = Date.now();
 	if (now < lastSentAt + MESSAGE_THROTTLE - 5) {
 		queue.push(data);
@@ -233,7 +257,7 @@ global.send = function (data) {
 		dsend(data);
 	}
 	Connection.send(data);
-   
+
 	/* lastSentAt = now;
 	if (dequeueTimeout) {
 		if (queue.length) {
@@ -302,10 +326,10 @@ function handle(message){
         		if(module&&module.messagehooks){
         			for(let hookname in module.messagehooks){
         				try{
-        					module.messagehooks[hookname](room, args);
+        					module.messagehooks[hookname](room, args, isInit);
         				}catch(e){
         					error(e.message);
-        					info("Exception while trying hook from " + modulename);
+        					info("Exception while trying message hook from " + modulename + "(hook: " + hookname + ")");
         				}
         			}
         		}
@@ -315,7 +339,7 @@ function handle(message){
         					module.chathooks[hookname](chatInfo);
         				}catch(e){
         					error(e.message);
-        					info("Exception while trying hook from " + modulename);
+        					info("Exception while trying chat hook from " + modulename + "(hook: " + hookname + ")");
         				}
         			}
         		}
@@ -366,11 +390,33 @@ global.normalizeText = function(text){
 	return "";
 };
 
+global.removeRank = function(text){
+	if(typeof text === "string"){
+		return text.replace(/^[\s!\+%@#&\?]/,"");
+	}
+	return "";
+}
+
 //Returns whether the two inputs are the same when normalized
 global.namesMatch = function(n1, n2){
 	return normalizeText(n1) === normalizeText(n2) && typeof n1 === "string" && typeof n2 === "string";
 };
 
+loadConfig("main");
 loadModule("modulemanager", true);
 ok("Bot has started, ready to connect");
 connect();
+
+let ping = function(){
+	//info("PINGING");
+	if(Connection){
+		try{
+			Connection.ping();
+		}catch(e){
+			error(e.message);
+		}
+	}
+	setTimeout(ping, 120000);
+}
+
+ping();

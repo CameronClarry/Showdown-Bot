@@ -5,29 +5,16 @@ let auth = null;
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
+	validateConfigs();
 	if(loadData){
-	    
+
 	}
 	self.chathooks = {
-		chathook: function(m){
-			if(m && !m.isInit){
-				let text = m.message;
-				if(text[0]==="~"){
-					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
-					let chatArgs = text.substring(command.length+2, text.length).split(",");
-					for(let i = 0;i<chatArgs.length;i++){
-						chatArgs[i] = chatArgs[i].trim();
-					}
-					if(chatCommands[command]){
-						chatCommands[command](m, chatArgs);
-					}
-				}
-			}
-		}
+
 	};
 };
 exports.onUnload = function(){
-    
+
 };
 exports.refreshDependencies = function(){
     auth = getModuleForDependency("auth","chat");
@@ -43,35 +30,32 @@ let pm = function(user, message){
 };
 exports.pm = pm;
 
-let attemptAnnounce = function(room, user, message, rank, minRank){
-	if(!rank){
-		rank = auth.js.getRank(user, room);
-	}
-	if(!minRank){
-		minRank = "+";
-	}
-	if(auth.js.rankgeq(rank,minRank)&&room){
-		say(room, message);
-	}else if(user){
-		pm(user, message);
+let reply = function(message, text, overrideRank){
+	if(auth && auth.js){
+		let rank = overrideRank ? overrideRank : auth.js.getEffectiveRoomRank(message, message.room);
+		if(auth.js.rankgeq(rank, self.config.roomResponseRank) && message.room !== ""){
+			say(message.room, text);
+		}else{
+			pm(message.user, text);
+		}
 	}else{
-		info("Could not send this message to a room or user: " + message);
-	}
-};
-exports.attemptAnnounce = attemptAnnounce;
-
-let reply = function(message, text){
-	let rank = auth.js.getEffectiveRoomRank(message, message.room);
-	if(auth.js.rankgeq(rank, "+") && message.room !== ""){
-		say(message.room, text);
-	}else{
+		info("No auth module, defaulting to PM.");
 		pm(message.user, text);
 	}
 };
 exports.reply = reply;
 
-let chatCommands = {
-	say: function(message, args){
-		reply(message, "no");
+let validateConfigs = function(){
+	let configs = self.config;
+	info("VALIDATING");
+	for(let optionName in defaultConfigs){
+		if(typeof configs[optionName] !== typeof defaultConfigs[optionName]){
+			configs[optionName] = defaultConfigs[optionName];
+		}
 	}
+	saveConfig("chat");
+};
+
+let defaultConfigs = {
+	roomResponseRank: "+"
 };

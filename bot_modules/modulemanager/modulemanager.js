@@ -15,74 +15,150 @@ exports.onLoad = function(module, loadData){
 		chathook: function(m){
 			if(m && !m.isInit){
 				let text = m.message;
-				if(text[0]==="~"){
-					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
-					let chatArgs = text.substring(command.length+2, text.length).split(",");
-					for(let i = 0;i<chatArgs.length;i++){
-						chatArgs[i] = chatArgs[i].trim();
-					}
-					if(commands[command]&&auth&&auth.js){
+				if(text[0] === "~"){
+					let words = text.split(" ");
+					let command = words.shift().trim().toLowerCase().substr(1);
+					let argText = words.join(" ");
+					let chatArgs = argText === "" ? [] : argText.split(",").map(function(item){
+						return item.trim();
+					});
+					if(commands[command] && auth && auth.js){
 						commands[command](m, chatArgs);
-					}else if(commands[command]&&namesMatch(m.user,mainConfig.owner)){
-						info("Circumventing auth check for module managing");
-						commands[command](null, chatArgs);
+					}else if(commands[command] && namesMatch(m.user,mainConfig.owner)){
+						let response = "Circumvented auth check. Result: ";
+						response += managerFuncs[command](chatArgs[0]);
+						if(chat && chat.js){
+							chat.js.reply(m, response);
+						}else{
+							info(response);
+						}
 					}
 				}
 			}
 		}
 	};
-	
+
 };
 exports.onUnload = function(){
-    
+
 };
 exports.refreshDependencies = function(){
 	chat = getModuleForDependency("chat", "modulemanager");
 	auth = getModuleForDependency("auth", "modulemanager");
 };
 exports.onConnect = function(){
-    
+
 };
 
 let commands = {
-	reload: function(message, args){
-		if(args.length>0 && ((!message && (!auth || !auth.js)) || auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#"))){
-			let moduleName = normalizeText(args[0]);
-			let result = loadModule(moduleName,false);
-			if(result && moduleName !== "modulemanager"){
-				if(self.data.modulesToLoad.indexOf(moduleName)==-1){
-					self.data.modulesToLoad.add(moduleName);
-					saveModuleList()
-				}
+	load: function(message, args){
+		let response = "Your rank is not high enough to load modules.";
+		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
+			response = "You must specify the module to be loaded.";
+			if(args.length>0){
+				response = managerFuncs.load(args[0]);
 			}
 		}
+		if(chat&&chat.js){
+			chat.js.reply(message, response);
+		}
 	},
-	load: function(message, args){
-		if(args.length>0 && ((!message && (!auth || !auth.js)) || auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#"))){
-			let moduleName = normalizeText(args[0]);
-			let result = loadModule(moduleName,true);
-			if(result && moduleName !== "modulemanager"){
-				if(self.data.modulesToLoad.indexOf(moduleName) === -1){
-					self.data.modulesToLoad.add(moduleName);
-					saveModuleList()
-				}
+	reload: function(message, args){
+		let response = "Your rank is not high enough to load modules.";
+		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
+			response = "You must specify the module to be loaded.";
+			if(args.length>0){
+				response = managerFuncs.reload(args[0]);
 			}
+		}
+		if(chat&&chat.js){
+			chat.js.reply(message, response);
 		}
 	},
 	unload: function(message, args){
-		if(args.length>0 && ((!message && (!auth || !auth.js)) || auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#"))){
-			let moduleName = normalizeText(args[0]);
-			let result = unloadModule(moduleName,true);
-			if(result){
-				let index = self.data.modulesToLoad.indexOf(moduleName);
-				if(index !== -1){
-					self.data.modulesToLoad.splice(index,1);
-					saveModuleList()
-				}
+		let response = "Your rank is not high enough to unload a module.";
+		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
+			response = "You must specify the module to unload.";
+			if(args.length>0){
+				response = managerFuncs.unload(args[0]);
 			}
+		}
+		if(chat&&chat.js){
+			chat.js.reply(message, response);
+		}
+	},
+	config: function(message, args){
+		let response = "Your rank is not high enough to reload configs.";
+		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
+			response = "You must specify the module to reload the config for.";
+			if(args.length>0){
+				response = managerFuncs.config(args[0]);
+			}
+		}
+		if(chat&&chat.js){
+			chat.js.reply(message, response);
 		}
 	}
 };
+
+let managerFuncs = {
+	load: function(name){
+		let moduleName = normalizeText(name);
+		let result = loadModule(moduleName,true);
+		let response = "Something is wrong if you see this.";
+		if(result && moduleName !== "modulemanager"){
+			if(self.data.modulesToLoad.indexOf(moduleName) === -1){
+				self.data.modulesToLoad.add(moduleName);
+				saveModuleList();
+				response = "Successfully loaded the module " + name + ".";
+			}else{
+				response = "Successfully reloaded the module " + name + " and its data.";
+			}
+		}else if(result){
+			response = "Successfully loaded the module manager.";
+		}else{
+			response = "Could not load the module " + name + ".";
+		}
+		return response;
+	},
+	reload: function(name){
+		let moduleName = normalizeText(name);
+		let response = "Could not reload the module " + name + ".";
+		if(!modules[moduleName] || (self.data.modulesToLoad.indexOf(moduleName) === -1 && moduleName !== "modulemanager")){
+			response = managerFuncs.load(moduleName);
+		}else{
+			let result = loadModule(moduleName,false);
+			if(result && moduleName !== "modulemanager"){
+				response = "Successfully reloaded the module " + name + ".";
+			}else if(result){
+				response = "Successfully reloaded the module manager.";
+			}
+		}
+		return response;
+	},
+	unload: function(name){
+		let moduleName = normalizeText(name);
+		let result = unloadModule(moduleName);
+		let response = "Could not unload the module " + name + ".";
+		if(result){
+			response = "Successfully unloaded the module " + name + ".";
+			let index = self.data.modulesToLoad.indexOf(moduleName);
+			if(index !== -1){
+				self.data.modulesToLoad.splice(index,1);
+				saveModuleList();
+			}
+		}
+		return response;
+	},
+	config: function(name){
+		let result = loadConfig(name);
+		let response = "Could not reload the config for " + name + ".";
+		if(result){
+			response = "Successfully reloaded the config for " + name + ".";
+		}
+		return response;
+	}
+}
 
 let loadModuleList = function(){
 		try{
