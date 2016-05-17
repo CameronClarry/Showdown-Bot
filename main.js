@@ -9,7 +9,7 @@ let colors = require('colors');
 let logToFile = function(text){
 	try{
 		let now = new Date();
-		let filename = "logs/" + now.getUTCFullYear() + "-" + (now.getUTCMonth()+1) + "-" + now.getUTCDay() + ".txt";
+		let filename = "logs/" + now.getUTCFullYear() + "-" + (now.getUTCMonth()+1) + "-" + now.getUTCDate() + ".txt";
 		fs.appendFile(filename, "\n[" + new Date().toUTCString() + "]" + text);
 	}catch(err){
 		console.log("ERROR LOGGING: " + err);
@@ -393,6 +393,13 @@ global.normalizeText = function(text){
 global.removeRank = function(text){
 	if(typeof text === "string"){
 		return text.replace(/^[\s!\+%@#&\?]/,"");
+	}
+	return "";
+}
+
+global.toRoomId = function(text){
+	if(typeof text === "string"){
+		return text.toLowerCase().replace(/[^a-z\d\-]/g,"");
 	}
 	return "";
 }

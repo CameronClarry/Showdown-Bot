@@ -60,7 +60,7 @@ let authCommands = {
 			let rank = args[3]==="" ? " " : args[3];
 			let speakerGlobalRank = getGlobalRank(message.user);
 			let userGlobalRank = getGlobalRank(user);
-			if(room==="Global"){
+			if(room==="global"){
 				if(rankg(speakerGlobalRank, rank) && rankg(speakerGlobalRank, userGlobalRank)){
 					if(!self.data.authlist[user]){
 						self.data.authlist[user] = {displayName: args[1], ranks:{}};

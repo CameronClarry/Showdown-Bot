@@ -58,7 +58,7 @@ exports.onConnect = function(){
 let commands = {
 	join: function(message, args){
 		if(args.length>0){
-			let roomName = normalizeText(args[0]);
+			let roomName = toRoomId(args[0]);
 			let userRank = auth.js.getEffectiveRoomRank(message, roomName);
 			if(auth.js.rankgeq(userRank,"#")){
 				send("|/join " + roomName);
@@ -67,7 +67,7 @@ let commands = {
 	},
 	leave: function(message, args){
 		if(args.length>0){
-			let roomName = normalizeText(args[0]);
+			let roomName = toRoomId(args[0]);
 			let userRank = auth.js.getEffectiveRoomRank(message, roomName);
 			if(auth.js.rankgeq(userRank,"#")){
 				send("|/leave " + roomName);
