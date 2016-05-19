@@ -22,7 +22,7 @@ exports.onLoad = function(module, loadData){
 					for(let i = 0;i<chatArgs.length;i++){
 						chatArgs[i] = chatArgs[i].trim();
 					}
-					if(commands[command] && chat && chat.js){
+					if(commands[command]){
 						commands[command](m, chatArgs);
 					}
 				}
@@ -54,53 +54,79 @@ let commands = {
 
 let authCommands = {
 	set: function(message, args){
-		if(args.length===4){
-			let room = normalizeText(args[2]);
-			let user = normalizeText(args[1]);
-			let rank = args[3]==="" ? " " : args[3];
-			let speakerGlobalRank = getGlobalRank(message.user);
-			let userGlobalRank = getGlobalRank(user);
-			if(room==="global"){
-				if(rankg(speakerGlobalRank, rank) && rankg(speakerGlobalRank, userGlobalRank)){
-					if(!self.data.authlist[user]){
-						self.data.authlist[user] = {displayName: args[1], ranks:{}};
-					}
+		let room = toRoomId(args[3]) || message.room;
+		let user = normalizeText(args[1]);
+		let response = "";
+		let rank = args[2] || " ";
+		if(!room){
+			response = "You must specify a room.";
+		}else if(!user){
+			response = "You must specify a user.";
+		}else{
+			let setterGlobalRank = getGlobalRank(message.user);
+			let setteeGlobalRank = getGlobalRank(user);
+			let entry = self.data.authlist[user];
+			if(!entry){
+				self.data.authlist[user] = {displayName: args[1], ranks:{}};
+				entry = self.data.authlist[user];
+			}
+			if(room === "global"){
+				if(!rankg(setterGlobalRank, rank)){
+					response = "You can only set someone to a rank lower than your own.";
+				}else if(!rankg(setterGlobalRank, setteeGlobalRank)){
+					response = "You can only set the ranks of users that are ranked below you.";
+				}else{
 					if(rank === " "){
-						delete self.data.authlist[user].ranks.Global;
-						authCommands.checkEmpty(user);
+						if(!entry.ranks.Global){
+							response = entry.displayName + " does not have a global rank.";
+						}else{
+							delete entry.ranks.Global;
+							authCommands.checkEmpty(user);
+							saveAuth();
+							response = "Removed " + entry.displayName + "'s global rank.";
+						}
 					}else{
-						self.data.authlist[user].ranks.Global = rank;
+						if(entry.ranks.Global === rank){
+							response = entry.displayName + "'s global rank is already " + rank + ".";
+						}else{
+							entry.ranks.Global = rank;
+							saveAuth();
+							response = "Set " + entry.displayName + "'s global rank to " + rank + ".";
+						}
 					}
-					authCommands.save();
-					info("Success");
-					return;
 				}
 			}else{
-				let userRoomRank = getRoomRank(user, room);
-				let speakerRoomRank = getRoomRank(message.user);
-				let speakerBeatsUser = rankgeq(speakerGlobalRank, userRoomRank) || rankg(speakerRoomRank, userRoomRank);
-				let speakerBeatsRank = rankgeq(speakerGlobalRank, rank) || rankg(speakerRoomRank, rank);
-				if(speakerBeatsUser&&speakerBeatsRank){
-					if(!self.data.authlist[user]){
-						self.data.authlist[user] = {displayName: args[1], ranks:{}};
-					}
+				let setteeRoomRank = getRoomRank(user, room);
+				let setterRoomRank = getRoomRank(message.user);
+				let setterBeatsSettee = rankgeq(setterGlobalRank, setteeRoomRank) || rankg(setterRoomRank, setteeRoomRank);
+				let setterBeatsRank = rankgeq(setterGlobalRank, rank) || rankg(setterRoomRank, rank);
+				if(!setterBeatsRank){
+					response = "You can only set someone to a ran lower than your own.";
+				}else if(!setterBeatsSettee){
+					response = "You can only set the ranks of users that are ranked below you.";
+				}else{
 					if(rank === " "){
-						delete self.data.authlist[user].ranks[room];
-						authCommands.checkEmpty(user);
+						if(!entry.ranks[room]){
+							response = entry.displayName + " does not have a rank in " + room + ".";
+						}else{
+							delete entry.ranks[room];
+							authCommands.checkEmpty(user);
+							saveAuth();
+							response = "Removed " + entry.displayName + "'s rank in " + room + ".";
+						}
 					}else{
-						self.data.authlist[user].ranks[room] = rank;
+						if(entry.ranks[room] === rank){
+							response = entry.displayName + "'s rank in " + room + " is already " + rank + ".";
+						}else{
+							entry.ranks[room] = rank;
+							saveAuth();
+							response = "Set " + entry.displayName + "'s rank in " + room + " to " + rank + ".";
+						}
 					}
-					authCommands.save();
-					info("Success");
-					return;
 				}
 			}
-			info("Failure");
-			return;
-		}else if(args.length===3 && message.source==="chat"){
-			let newArgs = [args[0], args[1], message.room, args[2]];
-			authCommands.set(message, newArgs);
 		}
+		tryReply(message, response);
 	},
 	checkEmpty: function(user){
 		let normalUser = normalizeText(user);
@@ -119,93 +145,40 @@ let authCommands = {
 		if(args.length > 1){
 			user = args[1];
 		}
-		let result = "Error trying to check " + user + "'s rank.";
-		if(!self.data.authlist[normalizeText(user)]){
-			result = "There is no rank information for " + user + ".";
+		let response = "";
+		let entry = self.data.authlist[normalizeText(user)];
+		if(!entry){
+			response = "There is no rank information for " + user + ".";
 		}else{
-			user = normalizeText(user);
-			let entry = self.data.authlist[user];
-			result = entry.displayName + "'s ranks are: ";
-			let numRooms = 0;
+			let ranks = [];
 			for(let room in entry.ranks){
-				if(numRooms !== 0){
-					result += ", ";
-				}
-				result += entry.ranks[room] + " in " + room;
-				numRooms++;
+				ranks.push(entry.ranks[room] + " in " + room);
 			}
+			response = ranks.length ? entry.displayName + "'s ranks are: " + ranks.join(", ") : "There is no rank information for " + user + ".";
 		}
-		chat.js.reply(message, result);
+		tryReply(message, response);
 	},
 	save: function(message, args){
-		let result = "Could not save the auth list.";
-		let rank = "";
-		if(message){
-			rank = getGlobalRank(message.user);
-			if(!rankgeq(rank,"#")){
-				return;
-			}
-		}
-		try{
-			let filename = "bot_modules/auth/authlist.json";
-			let authFile = fs.openSync(filename,"w");
-			fs.writeSync(authFile,JSON.stringify(self.data.authlist, null, "\t"));
-			fs.closeSync(authFile);
-			result = "Successfully saved the auth file.";
-		}catch(e){
-			error(e.message);
-		}
-		if(message){
-			chat.js.reply(message, result);
+		let response = "filler";
+		let rank = getGlobalRank(message.user);
+		if(!rankgeq(rank,"#")){
+			response = "You rank is not high enough.";
 		}else{
-			info(result);
+			let result = saveAuth();
+			response = result || "Successfully saved the auth file.";
 		}
+		tryReply(message, response);
 	},
 	load: function(message, args){
-		let result = "Could not load the auth list.";
-		let rank = "";
-		if(message){
-			rank = getGlobalRank(message.user);
-			if(!rankgeq(rank,"#")){
-				return;
-			}
-		}
-		try{
-			let normalOwner = normalizeText(mainConfig.owner);
-			let filename = "bot_modules/auth/authlist.json";
-			if(fs.existsSync(filename)){
-				self.data.authlist = JSON.parse(fs.readFileSync(filename, "utf8"));
-				if(!self.data.authlist[normalOwner]||!self.data.authlist[normalOwner].rooms||self.data.authlist[normalOwner].rooms.Global!=="~"){
-					self.data.authlist[normalOwner] = {
-						displayName: mainConfig.owner,
-						ranks: {
-							Global: "~"
-						}
-					};
-				}
-				result = "Found and loaded the auth list.";
-			}else{
-				self.data.authlist = {};
-				self.data.authlist[normalOwner] = {
-					displayName: mainConfig.owner,
-					ranks: {
-						Global: "~"
-					}
-				};
-				let authFile = fs.openSync(filename,"w");
-				fs.writeSync(authFile,JSON.stringify(self.data.authlist, null, "\t"));
-				fs.closeSync(filename);
-				result = "Could not find the auth list file, made a new one.";
-			}
-		}catch(e){
-			error(e.message);
-			info(result);
-		}
-		if(message){
-			chat.js.reply(message, result);
+		let response = "stuff";
+		let rank = getGlobalRank(message.user);
+		if(!rankgeq(rank,"#")){
+			response = "Your rank is not high enough.";
 		}else{
-			info(result);
+			let result = loadAuth();
+			response = result || "Successfully loaded the auth file.";
 		}
+		tryReply(message, response);
 	},
 	effRank: function(message, args){
 		info(JSON.stringify(args));
@@ -287,3 +260,58 @@ let getEffectiveRoomRank = function(message, room){
 	return rank;
 };
 exports.getEffectiveRoomRank = getEffectiveRoomRank;
+
+let saveAuth = function(){
+	try{
+		let filename = "bot_modules/auth/authlist.json";
+		let authFile = fs.openSync(filename,"w");
+		fs.writeSync(authFile,JSON.stringify(self.data.authlist, null, "\t"));
+		fs.closeSync(authFile);
+		return;
+	}catch(e){
+		error(e.message);
+		return e.message;
+	}
+};
+
+let loadAuth = function(){
+	try{
+		let normalOwner = normalizeText(mainConfig.owner);
+		let filename = "bot_modules/auth/authlist.json";
+		if(fs.existsSync(filename)){
+			self.data.authlist = JSON.parse(fs.readFileSync(filename, "utf8"));
+			if(!self.data.authlist[normalOwner]||!self.data.authlist[normalOwner].rooms||self.data.authlist[normalOwner].rooms.Global!=="~"){
+				self.data.authlist[normalOwner] = {
+					displayName: mainConfig.owner,
+					ranks: {
+						Global: "~"
+					}
+				};
+			}
+			return;
+		}else{
+			self.data.authlist = {};
+			self.data.authlist[normalOwner] = {
+				displayName: mainConfig.owner,
+				ranks: {
+					Global: "~"
+				}
+			};
+			let authFile = fs.openSync(filename,"w");
+			fs.writeSync(authFile,JSON.stringify(self.data.authlist, null, "\t"));
+			fs.closeSync(filename);
+			return "Could not find the auth list file, made a new one.";
+		}
+	}catch(e){
+		error(e.message);
+		return e.message;
+	}
+};
+
+let tryReply = function(message, text){
+	if(chat && chat.js){
+		chat.js.reply(message, text);
+	}else{
+		info("Tried to send this, but there was no chat: " + text);
+	}
+};
