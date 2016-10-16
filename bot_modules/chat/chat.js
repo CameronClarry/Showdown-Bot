@@ -32,7 +32,7 @@ exports.pm = pm;
 
 let reply = function(message, text, overrideRank){
 	if(auth && auth.js){
-		let rank = overrideRank ? overrideRank : auth.js.getEffectiveRoomRank(message, message.room);
+		let rank = overrideRank || auth.js.getEffectiveRoomRank(message, message.room);
 		if(auth.js.rankgeq(rank, self.config.roomResponseRank) && message.room !== ""){
 			say(message.room, text);
 		}else{

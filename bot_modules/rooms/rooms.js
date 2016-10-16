@@ -1,7 +1,7 @@
 let fs = getRequirement("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let auth = null;
-let formatregex = /([_~*`])\1(.+)\1\1/g;
+let formatregex = /([_~*`^])\1(.+)\1\1/g;
 info("STARTING ROOMS");
 exports.onLoad = function(module, loadData){
 	self = module;

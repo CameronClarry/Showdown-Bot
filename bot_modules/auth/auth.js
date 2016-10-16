@@ -1,6 +1,6 @@
 let fs = getRequirement("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let ranks = [" ", "+", "%", "@", "&", "#", "~"];
+let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
 let chat = null;
 let rooms = null;
 info("AUTH STARTING");
@@ -10,7 +10,7 @@ exports.onLoad = function(module, loadData){
 	if(loadData){
 		self.data = {};
 		self.data.authlist = {};
-		authCommands.load();
+		loadAuth();
 	}
 	self.chathooks = {
 		chathook: function(m){
@@ -48,6 +48,13 @@ let commands = {
 			if(authCommands[command]){
 				authCommands[command](message, args);
 			}
+		}
+	},
+	roomauth: function(message, args){
+		if(args.length>1){
+			info(args[0]);
+			info(args[1]);
+			tryReply(message,"The rank is '" + getRoomRank(args[0],args[1]) + "'");
 		}
 	}
 };
@@ -101,7 +108,7 @@ let authCommands = {
 				let setterBeatsSettee = rankgeq(setterGlobalRank, setteeRoomRank) || rankg(setterRoomRank, setteeRoomRank);
 				let setterBeatsRank = rankgeq(setterGlobalRank, rank) || rankg(setterRoomRank, rank);
 				if(!setterBeatsRank){
-					response = "You can only set someone to a ran lower than your own.";
+					response = "You can only set someone to a rank lower than your own.";
 				}else if(!setterBeatsSettee){
 					response = "You can only set the ranks of users that are ranked below you.";
 				}else{
@@ -220,14 +227,20 @@ exports.getRank = getRank;
 
 let getRoomRank = function(abnormaluser, room){
 	let user = normalizeText(abnormaluser);
-	if(!self.data.authlist[user]||!self.data.authlist[user].ranks){
-		return " ";
+	let rank = " "
+	if(self.data.authlist[user]&&self.data.authlist[user].ranks){
+		let roomRank = self.data.authlist[user].ranks[room];
+		if(rankg(roomRank, rank)){
+			rank = roomRank;
+		}
 	}
-	let roomRank = self.data.authlist[user].ranks[room];
-	if(roomRank){
-		return roomRank;
+	if(rooms){
+		let displayName = rooms.js.getDisplayName(user, room);
+		if(displayName && rankg(displayName[0], rank)){
+			rank = displayName[0];
+		}
 	}
-	return " ";
+	return rank;
 };
 exports.getRoomRank = getRoomRank;
 
