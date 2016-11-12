@@ -234,6 +234,7 @@ let commands = {
 					}
 				}
 				response = "**Undid " + i + " action" + (i === 1 ? "" : "s");
+				clearTimers(game);
 				if(history.length>0){
 					let newActive = history[history.length-1].active;
 					if(rooms.js.isInRoom(newActive, room)){
@@ -246,10 +247,6 @@ let commands = {
 							response += ". Since " + newActive + " is not in the room, BP is open.**";
 							game.bpOpen = true;
 							game.forcedOpen = true;
-							if(game.timeout){
-								clearTimeout(game.timeout);
-								game.timeout = null;
-							}
 						}
 					}
 				}else{
@@ -368,15 +365,7 @@ let commands = {
 	},
 	next: function(message, args, rank){
 		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
-		let seconds = timeDiff/1000;
-		let hours = Math.floor(seconds/3600);
-		let minutes = Math.floor((seconds-hours*3600)/60);
-		let response = "The next official is (theoretically) in ";
-		if(hours>0){
-			response += hours + " hour" + (hours === 1 ? "" : "s") + " and " + minutes + " minute" + (minutes === 1 ? "" : "s") + ".";
-		}else{
-			response += minutes + " minute" + (minutes === 1 ? "" : "s") + ".";
-		}
+		let response = "The next official is (theoretically) in " + millisToTime(timeDiff) + ".";
 		chat.js.reply(message, response);
 	},
 	alts: function(message, args, rank){
@@ -554,14 +543,20 @@ let ttCommands = {
 			}else{
 				let command = normalizeText(args[1])
 				let username = normalizeText(args[2]);
-				let entry = leaderboard.blacklist[username];
+				let entry = getBlacklistEntry(username);
 				if(command === "add"){
 					if(entry){
 						response = "The user " + entry.displayName + " is already on the blacklist.";
 					}else{
-						let reason = args.length>3 ? args[3] : "No reason given";
-						leaderboard.blacklist[username] = {displayName: args[2], reason: reason};
-						response = "Added " + args[2] + " to the blacklist.";
+						let reason = args[3] || "No reason given";
+						let duration = args[4];
+						if(duration){
+							leaderboard.blacklist[username] = {displayName: args[2], reason: reason, duration: duration*60000, time: Date.now()};
+							response = "Added " + args[2] + " to the blacklist for " + millisToTime(duration*60000) + ".";
+						}else{
+							leaderboard.blacklist[username] = {displayName: args[2], reason: reason};
+							response = "Added " + args[2] + " to the blacklist.";
+						}
 					}
 				}else if(command === "remove"){
 					if(!entry){
@@ -573,6 +568,9 @@ let ttCommands = {
 				}else if(command === "check"){
 					if(entry){
 						response = "The user " + entry.displayName + " is on the blacklist. Reason: " + (entry.reason ? entry.reason : "No reason given") + ".";
+						if(entry.duration){
+							response += " Time remaining: " + millisToTime(entry.duration - Date.now() + entry.time) + "."
+						}
 					}else{
 						response = "The user " + args[2] + " is not on the blacklist.";
 					}
@@ -670,7 +668,7 @@ let ttleaderboardCommands = {
 		let totalScore = 0;
 		for(let name in leaderboard){
 			let entry = leaderboard[name];
-			if(entry.score && entry.score>0){
+			if(entry.score && entry.score>-1){
 				entries.push(entry);
 				totalScore += entry.score;
 			}
@@ -687,7 +685,12 @@ let ttleaderboardCommands = {
 				median = entries[Math.floor(numPlayers/2)].score;
 			}
 			let mean = totalScore/numPlayers;
-			response = "Total players: " + numPlayers + ", mean score: " + mean + ", median: " + median;
+			let sd = 0;
+			for(let i=0;i<entries.length;i++){
+				sd += Math.pow(entries[i].score - mean,2);
+			}
+			sd = Math.sqrt(sd/numPlayers);
+			response = "Total players: " + numPlayers + ", mean score: " + Math.round(mean*100)/100 + ", median: " + median + ", standard deviation: " + Math.round(sd*100)/100;
 		}else{
 			response = "There is no one on the leaderboard.";
 		}
@@ -874,7 +877,7 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo){
 			response = "The user " + nextPlayer + " is not in the room " + room + ".";
 		}else if(namesMatch(nextPlayer, history[history.length-1].active)){
 			response = "It is already " + displayName + "'s turn to ask a question.";
-		}else if(isPlayerOnBlacklist(nextPlayer)){
+		}else if(getBlacklistEntry(normalizeText(nextPlayer))){
 			response = displayName + " is on the blacklist.";
 		}else if(displayName !== null){
 			let lastHist = history[history.length-1];
@@ -891,13 +894,11 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo){
 			result = true;
 			game.bpOpen = false;
 			game.forcedOpen = false;
-			clearTimers(game)
-			let rank = auth.js.getRoomRank(nextPlayer, "trivia");
-			if(!auth.js.rankgeq(rank,"+")){
-				game.remindTimer = setTimeout(()=>{
-					onRemind(game);
-				},REMIND_TIME);
-			}
+			clearTimers(game);
+
+			game.remindTimer = setTimeout(()=>{
+				onRemind(game);
+			},REMIND_TIME);
 
 			response = "**It is now " + displayName + "'s turn to ask a question.**";
 		}
@@ -907,12 +908,16 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo){
 
 let onRemind = function(game){
 	let history = game.history;
-	if(history && history.length)
-	chat.js.pm(history[history.length-1].active, "You have " + (OPEN_TIME/1000) + " seconds to ask a question.");
-	game.openTimer = setTimeout(()=>{
-		onTimeUp(game);
-	},OPEN_TIME);
-}
+	if(history && history.length){
+		chat.js.pm(history[history.length-1].active, "You have " + (OPEN_TIME/1000) + " seconds to ask a question.");
+		let rank = auth.js.getRoomRank(history[history.length-1].active, "trivia");
+		if(!auth.js.rankgeq(rank,"+")){
+			game.openTimer = setTimeout(()=>{
+				onTimeUp(game);
+			},OPEN_TIME);
+		}
+	}
+};
 
 let onTimeUp = function(game){
 	if(!game.bpOpen){
@@ -949,7 +954,13 @@ let leaderboardCheckPoints = function(username, eventname){
 	if(leaderboard){
 		let entry = leaderboard.players[normalUser];
 		if(entry){
-			response = entry.displayName + " has a score of " + entry.score + " in " + (eventname ? leaderboard.displayName : "the main leaderboard") + ".";
+			let rank = 1;
+			for(let player in leaderboard.players){
+				if(leaderboard.players[player].score > entry.score){
+					rank++;
+				}
+			}
+			response = entry.displayName + " has a score of " + entry.score + " in " + (eventname ? leaderboard.displayName : "the main leaderboard") + " (a rank of " + rank + ").";
 		}else{
 			response = username + " does not have a score in " + (eventname ? leaderboard.displayName : "the main leaderboard") + ".";
 		}
@@ -978,7 +989,7 @@ let leaderboardListPoints = function(number, eventname){
 			if(i>0){
 				response += ", ";
 			}
-			response += entries[i].displayName + ": " + entries[i].score;
+			response += "__" + entries[i].displayName + "__: " + entries[i].score;
 		}
 		response += ".";
 	}
@@ -1032,14 +1043,6 @@ let leaderboardAddPoints = function(username, numPoints){
 	}
 	saveLeaderboard();
 	return response;
-};
-
-let isPlayerOnBlacklist = function(username){
-	let leaderboard = self.data.leaderboard;
-	if(leaderboard && leaderboard.blacklist && leaderboard.blacklist[normalizeText(username)]){
-		return true;
-	}
-	return false;
 };
 
 let getEntry = function(user, eventname){
@@ -1147,6 +1150,32 @@ let transferPoints = function(fromName, toName){
 		}
 	}
 	saveLeaderboard();
+};
+
+let getBlacklistEntry = function(username){
+	let leaderboard = self.data.leaderboard;
+	let entry = leaderboard.blacklist[username];
+	if(entry && entry.duration){
+		info(Date.now() - entry.time);
+		if(Date.now() - entry.time > entry.duration){
+			delete leaderboard.blacklist[username];
+			return;
+		}
+	}
+	return entry;
+};
+
+let millisToTime = function(millis){
+	let seconds = millis/1000;
+	let hours = Math.floor(seconds/3600);
+	let minutes = Math.floor((seconds-hours*3600)/60);
+	let response;
+	if(hours>0){
+		response = hours + " hour" + (hours === 1 ? "" : "s") + " and " + minutes + " minute" + (minutes === 1 ? "" : "s");
+	}else{
+		response = minutes + " minute" + (minutes === 1 ? "" : "s");
+	}
+	return response;
 };
 
 let saveLeaderboard = function(){

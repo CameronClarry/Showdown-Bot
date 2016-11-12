@@ -192,11 +192,12 @@ var connect = function (retry) {
 
     ws.on('connectFailed', function (err) {
         error('Could not connect');
-        info('Retrying in one minute');
+        error(err)
+        info('Retrying in thirty seconds');
 
         setTimeout(function () {
             connect(true);
-        }, 60000);
+        }, 30000);
     });
 
     ws.on('connect', function (con) {
@@ -211,11 +212,11 @@ var connect = function (retry) {
         con.on('close', function (code, reason) {
             // Is this always error or can this be intended...?
             error('Connection closed: ' + reason + ' (' + code + ')');
-            info('Retrying in one minute');
+            info('Retrying in thirty seconds.');
 
             setTimeout(function () {
                 connect(true);
-            }, 60000);
+            }, 30000);
         });
 
         con.on('message', function (response) {
@@ -421,9 +422,10 @@ let ping = function(){
 			Connection.ping();
 		}catch(e){
 			error(e.message);
+
 		}
 	}
-	setTimeout(ping, 120000);
-}
+	setTimeout(ping, 30000);
+};
 
 ping();

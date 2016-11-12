@@ -574,9 +574,9 @@ let wlcommands = {
 };
 
 let questioncommands = {
-  add: function(message, args, rank){
+  add: function(message, args, rank, qwrank){
 		let response = "what";
-		if(!auth.js.rankgeq(rank,"@")){
+		if(!auth.js.rankgeq(qwrank,QUESTION_RANK)){
 			response = "Your rank is not high enough to use that command.";
 		}else if(args.length<3){
 			response = "You must give the category, the question, and at least one answer.";
@@ -725,13 +725,13 @@ let questioncommands = {
 		}
 	},
 	load: function(message, args, rank, qwrank){
-		if(auth.js.rankgeq(qwrank,"@")){
+		if(auth.js.rankgeq(qwrank,QUESTION_RANK)){
 			loadQuestions();
 			chat.js.reply(message, "Reloaded the questions.");
 		}
 	},
 	save: function(message, args, rank, qwrank){
-		if(auth.js.rankgeq(qwrank,"@")){
+		if(auth.js.rankgeq(qwrank,QUESTION_RANK)){
 			saveQuestions();
 			chat.js.reply(message, "Saved the questions.");
 		}
