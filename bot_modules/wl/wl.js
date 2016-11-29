@@ -9,10 +9,10 @@ const DECIDE_TIME = 30;
 const BANK_TIME = 5;
 const ROUND_TIME = 180;
 const BREAK_TIME = 30;
-const QUESTION_TIME = 10;
+const QUESTION_TIME = 7;
 const FINAL_BREAK = 10;
 const POT_AMOUNTS = [0, 1000, 2500, 5000, 10000, 25000, 50000, 75000, 125000];
-let GAME_RANK = "%";
+const GAME_RANK = "%";
 const QUESTION_RANK = "%";
 exports.onLoad = function(module, loadData){
 	self = module;
@@ -280,35 +280,37 @@ let commands = {
 		let response = "this should probably say something meaningful";
 		if(message.room){
 			response = "You should only use ~vote through PM.";
-		}else if(args.length < 2){
-			response = "You must specify the person you are voting for, and the game's room.";
+		}else if(args.length < 1){
+			response = "You must specify the person you are voting for.";
 		}else{
-			let room = toRoomId(args[1]);
-			let game = self.data.games[room];
-			let id = normalizeText(message.user);
 			let vote = normalizeText(args[0]);
+			let id = normalizeText(message.user);
+			let game;
+			for(let gameRoom in self.data.games){
+				let testGame = self.data.games[gameRoom];
+				if(testGame.players.filter(item=>{return item.id === id}).length > 0){
+					game = testGame;
+					break;
+				}
+			}
 			if(!game){
-				response = "There is no game in " + room + ".";
+				response = "You are not playing any games of The Weakest Link.";
 			}else if(!game.canVote){
 				response = "It is not time to vote on the weakest link.";
 			}else{
-				if(game.players.filter(item=>{return item.id === id}).length === 0){
-					response = "You are not an active player in the game."
+				let player = game.players.filter((item)=>{return item.id === vote})[0];
+				if(!player){
+					response = "That player is not in the game.";
+				}else if(game.votes[id] === vote){
+					response = "You already voted for " + player.displayName + ".";
+				}else if(!game.votes[id]){
+					game.votes[id] = vote;
+					response = "You have voted for " + player.displayName + ".";
 				}else{
-					let player = game.players.filter((item)=>{return item.id === vote})[0];
-					if(!player){
-						response = "That player is not in the game.";
-					}else if(game.votes[id] === vote){
-						response = "You already voted for " + player.displayName + ".";
-					}else if(!game.votes[id]){
-						game.votes[id] = vote;
-						response = "You have voted for " + player.displayName + ".";
-					}else{
-						game.votes[id] = vote;
-						response = "You have changed your vote to " + player.displayName + ".";
-					}
-					onVote(game);
+					game.votes[id] = vote;
+					response = "You have changed your vote to " + player.displayName + ".";
 				}
+				onVote(game);
 			}
 		}
 		chat.js.reply(message, response);
@@ -435,6 +437,7 @@ let wlcommands = {
       chat.js.reply(message, response);
     }
   },
+	addplayer: "addplayers",
 	addplayers: function(message, args, rank){
 		let room = message.room;
 		let response = "uh oh";
@@ -473,6 +476,7 @@ let wlcommands = {
 		}
 		chat.js.reply(message, response);
   },
+	removeplayer: "removeplayers",
 	removeplayers: function(message, args, rank){
 		let room = message.room;
 		let response = "uh oh";
@@ -807,7 +811,7 @@ let endRound = function(game){
 		game.roundTimer = null;
 	}
 	game.canVote = true;
-	chat.js.say(game.room, "**The round is over. PM your votes for the weakest link to me with ~vote [user], [room].**");
+	chat.js.say(game.room, "**The round is over. PM your votes for the weakest link to me with ~vote [user].**");
 }
 
 let onVote = function(game){

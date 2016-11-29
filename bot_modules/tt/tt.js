@@ -223,48 +223,53 @@ let commands = {
 		if(game){
 			let history = game.history;
 			response = "Your rank is not high enough to use that command.";
-			if(auth.js.rankgeq(rank, "+") || (namesMatch(message.user, history[history.length-1].active) && number === 1)){
 
-				success = true;
-				let i;
-				for(i=0;i<number && history.length>0;i++){
-					let curHist = history.pop();
-					if(typeof curHist.undo === "function"){
-						curHist.undo();
+			if(auth.js.rankgeq(rank, "+") || (namesMatch(message.user, history[history.length-1].active) && number === 1)){
+				if(game.lastNo && Date.now() - game.lastNo < 5000){
+					response = "There is a cooldown below uses of ~no, try again in a few seconds.";
+				}else{
+					success = true;
+					game.lastNo = Date.now();
+					let i;
+					for(i=0;i<number && history.length>0;i++){
+						let curHist = history.pop();
+						if(typeof curHist.undo === "function"){
+							curHist.undo();
+						}
 					}
-				}
-				response = "**Undid " + i + " action" + (i === 1 ? "" : "s");
-				clearTimers(game);
-				if(history.length>0){
-					let newActive = history[history.length-1].active;
-					if(rooms.js.isInRoom(newActive, room)){
-						response += ", it is now " + newActive + "'s turn to ask a question.**";
+					response = "**Undid " + i + " action" + (i === 1 ? "" : "s");
+					clearTimers(game);
+					if(history.length>0){
+						let newActive = history[history.length-1].active;
+						if(rooms.js.isInRoom(newActive, room)){
+							response += ", it is now " + newActive + "'s turn to ask a question.**";
+						}else{
+							if(user){
+								history.add({active: user, undo: null});
+								response += ". Since " + newActive + " is not in the room, it is now " + user + "'s turn to ask a question.**";
+							}else{
+								response += ". Since " + newActive + " is not in the room, BP is open.**";
+								game.bpOpen = true;
+								game.forcedOpen = true;
+							}
+						}
 					}else{
 						if(user){
 							history.add({active: user, undo: null});
-							response += ". Since " + newActive + " is not in the room, it is now " + user + "'s turn to ask a question.**";
+							response += ". Since the end of the history was reached, it is now " + message.user + "'s turn to ask a question.**";
 						}else{
-							response += ". Since " + newActive + " is not in the room, BP is open.**";
+							". Since the end of the history was reached and the person who used the command is not here for some reason, BP is open.**";
 							game.bpOpen = true;
 							game.forcedOpen = true;
+							if(game.timeout){
+								clearTimeout(game.timeout);
+								game.timeout = null;
+							}
 						}
 					}
-				}else{
-					if(user){
-						history.add({active: user, undo: null});
-						response += ". Since the end of the history was reached, it is now " + message.user + "'s turn to ask a question.**";
-					}else{
-						". Since the end of the history was reached and the person who used the command is not here for some reason, BP is open.**";
-						game.bpOpen = true;
-						game.forcedOpen = true;
-						if(game.timeout){
-							clearTimeout(game.timeout);
-							game.timeout = null;
-						}
-					}
+					game.bpOpen = false;
+					chat.js.say(room, response);
 				}
-				game.bpOpen = false;
-				chat.js.say(room, response);
 			}
 		}
 		if(!success){
@@ -359,6 +364,56 @@ let commands = {
 		if(!success){
 			chat.js.reply(message, response);
 		}
+	},
+	bl: "blacklist",
+	blacklist: function(message, args, rank){
+		let response = "Your rank is not high enough to use the blacklist command.";
+		let leaderboard = self.data.leaderboard;
+		if(auth.js.rankgeq(rank,"@")){
+			if(args.length<2){
+				response = "Not enough arguments were given for the blacklist command.";
+			}else{
+				let command = normalizeText(args[0])
+				let username = normalizeText(args[1]);
+				let entry = getBlacklistEntry(username);
+				if(command === "add"){
+					if(entry && args.length < 3){
+						response = "The user " + entry.displayName + " is already on the blacklist.";
+					}else{
+						let reason = args[2] || "No reason given";
+						let duration = args[3];
+						if(duration && duration !== "0" && typeof duration == "string" && /^\d+$/.test(duration)){
+							duration = parseInt(duration);
+							leaderboard.blacklist[username] = {displayName: args[1], reason: reason, duration: duration*60000, time: Date.now()};
+							response = "Added " + args[1] + " to the blacklist for " + millisToTime(duration*60000) + ".";
+						}else{
+							leaderboard.blacklist[username] = {displayName: args[1], reason: reason};
+							response = "Added " + args[1] + " to the blacklist.";
+						}
+					}
+				}else if(command === "remove"){
+					if(!entry){
+						response = "The user " + args[1] + " is not on the blacklist.";
+					}else{
+						delete leaderboard.blacklist[username];
+						response = "Removed " + entry.displayName + " from the blacklist.";
+					}
+				}else if(command === "check"){
+					if(entry){
+						response = "The user " + entry.displayName + " is on the blacklist. Reason: " + (entry.reason ? entry.reason : "No reason given") + ".";
+						if(entry.duration){
+							response += " Time remaining: " + millisToTime(entry.duration - Date.now() + entry.time) + "."
+						}
+					}else{
+						response = "The user " + args[1] + " is not on the blacklist.";
+					}
+				}else{
+					response = "The blacklist command you gave was not recognized.";
+				}
+			}
+			saveLeaderboard();
+		}
+		chat.js.reply(message, response);
 	},
 	now: function(message, args, rank){
 		chat.js.reply(message, new Date().toUTCString());
@@ -533,54 +588,6 @@ let ttCommands = {
 			delete self.data.games[room];
 			chat.js.say(room,"**The game of Trivia Tracker has ended.**");
 		}
-	},
-	blacklist: function(message, args, rank){
-		let response = "Your rank is not high enough to use the blacklist command.";
-		let leaderboard = self.data.leaderboard;
-		if(auth.js.rankgeq(rank,"@")){
-			if(args.length<3){
-				response = "Not enough arguments were given for the blacklist command.";
-			}else{
-				let command = normalizeText(args[1])
-				let username = normalizeText(args[2]);
-				let entry = getBlacklistEntry(username);
-				if(command === "add"){
-					if(entry){
-						response = "The user " + entry.displayName + " is already on the blacklist.";
-					}else{
-						let reason = args[3] || "No reason given";
-						let duration = args[4];
-						if(duration){
-							leaderboard.blacklist[username] = {displayName: args[2], reason: reason, duration: duration*60000, time: Date.now()};
-							response = "Added " + args[2] + " to the blacklist for " + millisToTime(duration*60000) + ".";
-						}else{
-							leaderboard.blacklist[username] = {displayName: args[2], reason: reason};
-							response = "Added " + args[2] + " to the blacklist.";
-						}
-					}
-				}else if(command === "remove"){
-					if(!entry){
-						response = "The user " + args[2] + " is not on the blacklist.";
-					}else{
-						delete leaderboard.blacklist[username];
-						response = "Removed " + entry.displayName + " from the blacklist.";
-					}
-				}else if(command === "check"){
-					if(entry){
-						response = "The user " + entry.displayName + " is on the blacklist. Reason: " + (entry.reason ? entry.reason : "No reason given") + ".";
-						if(entry.duration){
-							response += " Time remaining: " + millisToTime(entry.duration - Date.now() + entry.time) + "."
-						}
-					}else{
-						response = "The user " + args[2] + " is not on the blacklist.";
-					}
-				}else{
-					response = "The blacklist command you gave was not recognized.";
-				}
-			}
-			saveLeaderboard();
-		}
-		chat.js.reply(message, response);
 	}
 };
 

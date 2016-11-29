@@ -5,6 +5,10 @@ require('sugar');
 
 //Various logging commands for output to the console
 let colors = require('colors');
+let messageQueue = [];
+let lastMessageTime = 0;
+let messageTimeout = null;
+const MESSAGE_THROTTLE = 700;
 
 let logToFile = function(text){
 	try{
@@ -234,6 +238,9 @@ var connect = function (retry) {
         		error(e.message);
         	}
         });
+				if(messageQueue.length && !messageTimeout){
+					messageTimeout = setTimeout(trySendMessage, MESSAGE_THROTTLE);
+				}
     });
 
     // The connection itself
@@ -242,31 +249,44 @@ var connect = function (retry) {
     ws.connect(mainConfig.connection);
 };
 
-global.send = function (data) {
-
-	if (!data || !Connection || !Connection.connected) return false;
-
-	/* var now = Date.now();
-	if (now < lastSentAt + MESSAGE_THROTTLE - 5) {
-		queue.push(data);
-		if (!dequeueTimeout) {
-			dequeueTimeout = setTimeout(dequeue, now - lastSentAt + MESSAGE_THROTTLE);
-		}
-		return false;
-	} */
-	if(mainConfig.log_send){
-		dsend(data);
+let trySendMessage = function(){
+	info("trySendMessage function " + messageQueue.length);
+	if(messageTimeout){
+		clearTimeout(messageTimeout);
+		messageTimeout = null;
 	}
-	Connection.send(data);
-
-	/* lastSentAt = now;
-	if (dequeueTimeout) {
-		if (queue.length) {
-			dequeueTimeout = setTimeout(dequeue, MESSAGE_THROTTLE);
-		} else {
-			dequeueTimeout = null;
+	if(messageQueue.length && Connection && (Date.now() - lastMessageTime) > MESSAGE_THROTTLE){
+		try{
+			lastMessageTime = Date.now();
+			Connection.send(messageQueue[0]);
+			if(mainConfig.log_send){
+				dsend(messageQueue[0]);
+			}
+			messageQueue.shift();
+		}catch(e){
+			error(e.message);
 		}
-	} */
+	}
+	if(messageQueue.length){
+		messageTimeout = setTimeout(()=>{
+			trySendMessage();
+		}, MESSAGE_THROTTLE + 5);
+	}
+}
+
+global.send = function (data) {
+	info("requested to send: " + data);
+	if (!data || !Connection || !Connection.connected) return false;
+	messageQueue.push(data);
+	info("Just pushed message");
+	if(!messageTimeout){
+		let now = Date.now();
+		if(now - lastMessageTime > MESSAGE_THROTTLE){
+			trySendMessage();
+		}else{
+			messageTimeout = setTimeout(trySendMessage,(now - lastMessageTime) - MESSAGE_THROTTLE + 5);
+		}
+	}
 };
 
 
@@ -398,17 +418,28 @@ global.removeRank = function(text){
 	return "";
 }
 
+global.toId = function(text){
+	if(typeof text === "string"){
+		return text.toLowerCase().replace(/[^a-z\d]/g,"");
+	}
+	return "";
+};
+
 global.toRoomId = function(text){
 	if(typeof text === "string"){
 		return text.toLowerCase().replace(/[^a-z\d\-]/g,"");
 	}
 	return "";
-}
+};
 
 //Returns whether the two inputs are the same when normalized
 global.namesMatch = function(n1, n2){
 	return normalizeText(n1) === normalizeText(n2) && typeof n1 === "string" && typeof n2 === "string";
 };
+
+global.idsMatch = function(n1, n2){
+		return toId(n1) === toId(n2) && typeof n1 === "string" && typeof n2 === "string";
+}
 
 loadConfig("main");
 loadModule("modulemanager", true);
