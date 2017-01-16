@@ -998,7 +998,7 @@ let ttleaderboardCommands = {
 				let res;
 				getId(user, false, (res)=>{
 					if(!res){
-						chat.js.reply(message, res.display_name + " does not have a score on the " + lb + " leaderboard.");
+						chat.js.reply(message, user + " does not have a score on the " + lb + " leaderboard.");
 					}else{
 						getLeaderboardEntry([res.id, lb], (entry)=>{
 							if(!entry){
