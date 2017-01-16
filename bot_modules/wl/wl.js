@@ -4,6 +4,14 @@ let request = getRequirement("request");
 let rooms = null;
 let auth = null;
 let chat = null;
+let pg = require("pg");
+const conInfo = {
+      user: mainConfig.dbuser,
+      password: mainConfig.dbpassword,
+      database: mainConfig.dbname,
+      host: mainConfig.dbhost,
+      port: mainConfig.dbport
+};
 const VOTE_TIME = 30;
 const DECIDE_TIME = 30;
 const BANK_TIME = 5;
@@ -14,10 +22,132 @@ const FINAL_BREAK = 10;
 const POT_AMOUNTS = [0, 1000, 2500, 5000, 10000, 25000, 50000, 75000, 125000];
 const GAME_RANK = "%";
 const QUESTION_RANK = "%";
+
+const GET_USER_SQL = "SELECT altuser.id AS alt_id, alts.main AS main_id, altuser.display_name AS alt_display_name, mainuser.display_name AS main_display_name FROM users AS altuser FULL OUTER JOIN alts ON altuser.id = alts.id LEFT OUTER JOIN users AS mainuser ON mainuser.id = alts.main WHERE altuser.id = $1 OR alts.id = $1 FETCH FIRST 1 ROWS ONLY;"
+const GET_ENTRY_SQL = "SELECT * FROM wl_lb WHERE id = $1 FETCH FIRST 1 ROWS ONLY;";
+const UPDATE_ENTRY_SQL = "UPDATE wl_lb SET correct = $2, incorrect = $3, passed = $4, wins = $5, banked = $6, won = $7 WHERE id = $1;"
+const INSERT_ENTRY_SQL = "INSERT INTO wl_lb VALUES($1, $2, $3, $4, $5, $6, $7);"
+
+let pgReconnect = function(message){
+	try{
+		if(self.data && self.data.client){
+			self.data.client.end();
+		}
+	}catch(e){
+		error(e.message);
+	}
+
+	try{
+		self.data.client = new pg.Client(conInfo);
+		self.data.client.connect((err)=>{
+			if(err){
+				error(err);
+				if(message){
+					chat.js.reply(message, "Unable to connect to database.");
+				}
+			}else{
+				ok("Client is connected");
+				chat.js.reply(message, "The client is now connected to the database.");
+				self.data.connected = true;
+			}
+		});
+		self.data.client.on("error",(e)=>{
+			error(e.message);
+		});
+		self.data.client.on("end",()=>{
+			self.data.connected = false;
+			error("Client connection ended");
+		});
+	}catch(e){
+		error(e.message);
+		if(message){
+			chat.js.reply(message, "Unable to connect to database.");
+		}
+	}
+}
+
+let runSql = function(statement, args, onRow, onEnd, onError){
+	if(!self.data.connected){
+		onError("The bot is not connected to the database.");
+	}
+	if(!onError){
+		onError = (err)=>{
+			error(err.message);
+		};
+	}
+	try{
+		let query = self.data.client.query(statement,args);
+		if(onRow) query.on("row", onRow);
+		if(onEnd) query.on("end", onEnd);
+		query.on("error", onError);
+	}catch(err){
+		error(err);
+	}
+};
+
+
+//onEnd should take {alt_id, main_id, alt_display_name, main_display_name}
+let getUser = function(user, onEnd, onError){
+	let res;
+	runSql(GET_USER_SQL, [toId(user)], (row)=>{
+		res = row;
+	}, ()=>{
+		onEnd(res);
+	}, onError);
+};
+
+let getEntry = function(user, onEnd, onError){
+	let res;
+	info("GETTING ENTRY FOR " + toId(user));
+	runSql(GET_ENTRY_SQL, [toId(user)], (row)=>{
+		info(JSON.stringify(row));
+		res = row;
+	}, ()=>{
+		info(JSON.stringify(res));
+		onEnd(res);
+	}, onError);
+}
+
+let updateEntry = function(entry, onEnd, onError){
+	runSql(UPDATE_ENTRY_SQL, [entry.id, entry.correct, entry.incorrect, entry.passed, entry.wins, entry.banked, entry.won], onEnd, onError);
+}
+
+let insertEntry = function(entry, onEnd, onError){
+	runSql(INSERT_ENTRY_SQL, [entry.id, entry.correct, entry.incorrect, entry.passed, entry.wins, entry.banked, entry.won], onEnd, onError);
+}
+
+let updateUserNoChange = function(user, updateFunc, onEnd, onError){
+	info("UPDATING USER NO CHANGE " + user);
+	getEntry(user, (res)=>{
+		info(JSON.stringify(res));
+		if(!res){
+			res = {id: toId(user), correct: 0, incorrect: 0, passed: 0, wins: 0, banked: 0, won: 0};
+			insertEntry(updateFunc(res), onEnd, onError);
+		}else{
+			updateEntry(updateFunc(res), onEnd, onError);
+		}
+	}, onError);
+}
+
+let updateUser = function(user, updateFunc, onEnd, onError){
+	info("UPDATING USER " + user);
+	getUser(user, (res)=>{
+		let id = (res && res.main_id) || toId(use);
+		updateUserNoChange(id, updateFunc, onEnd, onError);
+	}, onError);
+}
+
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
 	if(loadData){
+		try{
+      if(self.data && self.data.client){
+        self.data.client.end();
+      }
+    }catch(e){
+      error(e.message);
+    }
 		self.data = {
       games: {},
       questions: {
@@ -25,6 +155,26 @@ exports.onLoad = function(module, loadData){
 				final: []
 			}
     };
+		try{
+      self.data.client = new pg.Client(conInfo);
+			self.data.client.connect((err)=>{
+				if(err){
+					error(err);
+				}else{
+					ok("Client is connected");
+					self.data.connected = true;
+				}
+			});
+			self.data.client.on("error",(e)=>{
+				error(e.message);
+			});
+			self.data.client.on("end",()=>{
+				self.data.connected = false;
+				error("Client connection ended");
+			});
+    }catch(e){
+      error(e.message);
+    }
     loadQuestions();
 	}
 
@@ -32,7 +182,7 @@ exports.onLoad = function(module, loadData){
 		chathook: function(m){
 			if(m && !m.isInit){
 				let text = m.message;
-				if(text[0]==="~"){
+				if(text[0]==="~"||text[0]==="."){
 					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
 					let argText = text.substring(command.length+2, text.length);
 					let chatArgs = argText === "" ? [] : argText.split(",");
@@ -41,7 +191,7 @@ exports.onLoad = function(module, loadData){
 					}
 					if(commands[command]&&auth&&auth.js&&chat&&chat.js){
 						let rank = auth.js.getEffectiveRoomRank(m, "trivia");
-						let qwrank = auth.js.getEffectiveRoomRank(m, "questionworkshop")
+						let qwrank = auth.js.getEffectiveRoomRank(m, "questionworkshop");
 						let commandToRun = commands[command];
 						if(typeof commandToRun === "string"){
 							commandToRun = commands[commandToRun];
@@ -56,14 +206,17 @@ exports.onLoad = function(module, loadData){
 
 	};
 };
+
 exports.onUnload = function(){
 	saveQuestions();
 };
+
 exports.refreshDependencies = function(){
 	rooms = getModuleForDependency("rooms", "wl");
 	auth = getModuleForDependency("auth", "wl");
 	chat = getModuleForDependency("chat", "wl");
 };
+
 exports.onConnect = function(){
 
 };
@@ -74,6 +227,17 @@ let commands = {
       let command = wlcommands[args[0].toLowerCase()];
       if(typeof command === "string"){
         command = wlcommands[command];
+      }
+			if(command){
+				command(message, args, rank);
+			}
+    }
+  },
+	wll: function(message, args, rank){
+    if(args.length > 0){
+      let command = wllcommands[args[0].toLowerCase()];
+      if(typeof command === "string"){
+        command = wllcommands[command];
       }
 			if(command){
 				command(message, args, rank);
@@ -114,6 +278,10 @@ let commands = {
 				success = true;
 				chat.js.say(game.room, "The pot is now empty.");
 				game.pot = 0;
+				updateUser(game.players[game.active].id, (entry)=>{
+					entry.passed++;
+					return entry;
+				});
 				prepQuestion(game);
 			}
 		}
@@ -213,6 +381,7 @@ let commands = {
 		chat.js.reply(message, response);
 	},
 	"answer": "a",
+	"g": "a",
 	a: function(message, args, rank){
 		let response = "whoops";
 		let room = message.room;
@@ -260,14 +429,27 @@ let commands = {
 						chat.js.say(game.room, "Correct, there is now " + POT_AMOUNTS[game.pot] + " in the pot. It will be automatically banked and the round will end.");
 						game.bank+=POT_AMOUNTS[game.pot];
 						game.pot = 0;
+						updateUser(player.id, (entry)=>{
+							entry.correct++;
+							entry.banked+=POT_AMOUNTS[POT_AMOUNTS.length-1];
+							return entry;
+						});
 						endRound(game);
 						return;
 					}else{
 						chat.js.say(game.room, "Correct, there is now $" + POT_AMOUNTS[game.pot] + " in the pot.");
+						updateUser(player.id, (entry)=>{
+							entry.correct++;
+							return entry;
+						});
 					}
 				}else{
 					chat.js.say(game.room, "Incorrect, the pot is now empty.");
 					game.pot = 0;
+					updateUser(player.id, (entry)=>{
+						entry.incorrect++;
+						return entry;
+					});
 				}
 				prepQuestion(game);
 			}
@@ -452,7 +634,7 @@ let wlcommands = {
 			let added = 0;
 			for(let i=1;i<args.length;i++){
 				let displayName = rooms.js.getDisplayName(args[i], room);
-				let id = normalizeText(args[i]);
+				let id = toId(args[i]);
 				if(displayName){
 					let isInGame = false;
 					for(let j=0;j<game.players.length;j++){
@@ -492,7 +674,7 @@ let wlcommands = {
 			let num = game.players.length;
 			let active = game.players[game.active].id;
 			for(let i=1;i<args.length;i++){
-				let id = normalizeText(args[i]);
+				let id = toId(args[i]);
 				delete game.votes[id];
 				game.players = game.players.filter(item=>{return item.id !== id});
 			}
@@ -576,7 +758,31 @@ let wlcommands = {
 		chat.js.reply(message, "https://drive.google.com/file/d/0B8KyGlawfHaKV19IekhPZFZXTUU/view");
 	}
 };
+let wllcommands = {
+	check: function(message, args, rank){
+		let user = args[1] && toId(args[1]) ? args[1] : message.user;
+		getUser(user, (res)=>{
+			let id = (res && res.main_id) || user
+			let displayName = res ? res.main_display_name || res.main_id || res.alt_display_name || user : user;
+			getEntry(id, (entry)=>{
+				if(!entry){
+					chat.js.reply(message, displayName + " does not have an entry in the leaderboard.");
+				}else{
+					chat.js.reply(message, displayName + "'s stats: correct answers: "+ entry.correct + ", incorrect answers: " + entry.incorrect + ", passes: " + entry.passed + ", wins: " + entry.wins + ", total amount banked: $" + entry.banked + ", total amount won: $" + entry.won + ".");
+				}
+			}, (err)=>{
+				error(err);
+				chat.js.reply(message, "Something went wrong getting " + displayName + "'s stats.");
+			});
+		}, (err)=>{
+			error(err);
+			chat.js.reply(message, "Something went wrong getting the user's info.");
+		});
+	},
+	remove: function(message, args, rank){
 
+	}
+}
 let questioncommands = {
   add: function(message, args, rank, qwrank){
 		let response = "what";
@@ -951,8 +1157,16 @@ let finalAnswerQuestion = function(game, answer){
 		if(correct){
 			response = "Correct. ";
 			game.finalists[game.active].correctAnswers++;
+			updateUser(game.finalists[game.active].id, (entry)=>{
+				entry.correct++;
+				return entry;
+			});
 		}else{
 			response = "Incorrect. ";
+			updateUser(game.finalists[game.active].id, (entry)=>{
+				entry.incorrect++;
+				return entry;
+			});
 		}
 	}else{
 		response = "Time's up. ";
@@ -973,6 +1187,11 @@ let finalAnswerQuestion = function(game, answer){
 	if(diff + game.questionsAsked > 5 && diff > 0){
 		response += order[0].displayName + " has beaten " + order[1].displayName + " " + order[0].correctAnswers + " to " + order[1].correctAnswers + ".";
 		chat.js.say(game.room, response);
+		updateUser(game.finalists[game.active].id, (entry)=>{
+			entry.wins++;
+			entry.won+=game.bank;
+			return entry;
+		});
 		return;
 	}
 	response += "The score is " + order[0].correctAnswers + ":" + order[1].correctAnswers + " for " + order[0].displayName + ". ";

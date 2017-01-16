@@ -6,7 +6,8 @@
 		"websocket": "1.0.18",
 		"colors": "1.0.3",
 		"babel": "5.2.6",
-		"request": "2.x"
+		"request": "2.x",
+		"pg": "6.1.0"
 	},
 	"engines": {
 		"node": "> 0.10.1"

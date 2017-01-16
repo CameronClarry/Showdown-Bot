@@ -9,6 +9,19 @@ let messageQueue = [];
 let lastMessageTime = 0;
 let messageTimeout = null;
 const MESSAGE_THROTTLE = 700;
+const main_defaults = {
+	"user": "",
+	"pass": "",
+	"owner": "",
+	"connection": "ws://sim.smogon.com/showdown/websocket",
+	"log_receive": true,
+	"log_send": true,
+	"dbuser": "",
+	"dbpassword": "",
+	"dbhost": "",
+	"dbport": 0,
+	"dbname": ""
+}
 
 let logToFile = function(text){
 	try{
@@ -75,8 +88,12 @@ global.getConfig = function(name, defaults){
 		}else{
 			let configFile = fs.openSync(filename,"w");
 			fs.writeSync(configFile,JSON.stringify(defaults, null, "\t"));
-			fs.closeSync(filename);
+			fs.closeSync(configFile);
 			info(filename + " did not exists, made it");
+			if(name === "main"){
+				error("Just made the main config file for the first time. Please fill it out and re-run the bot.");
+				process.exit(0);
+			}
 		}
 	}catch(e){
 		error(e.message);
@@ -87,7 +104,11 @@ global.getConfig = function(name, defaults){
 global.loadConfig = function(name, defaults){
 	name = normalizeText(name);
 	if(name === "main"){
-		global.mainConfig = getConfig("main");
+		global.mainConfig = getConfig("main", main_defaults);
+		if(!mainConfig.user || !mainConfig.pass){
+			error("The main config file is missing login information. Please fill it in and re-run the bot.");
+			process.exit(0);
+		}
 		return true;
 	}else if(modules[name]){
 		let config = getConfig(name, defaults);
@@ -250,7 +271,6 @@ var connect = function (retry) {
 };
 
 let trySendMessage = function(){
-	info("trySendMessage function " + messageQueue.length);
 	if(messageTimeout){
 		clearTimeout(messageTimeout);
 		messageTimeout = null;
@@ -275,10 +295,8 @@ let trySendMessage = function(){
 }
 
 global.send = function (data) {
-	info("requested to send: " + data);
 	if (!data || !Connection || !Connection.connected) return false;
 	messageQueue.push(data);
-	info("Just pushed message");
 	if(!messageTimeout){
 		let now = Date.now();
 		if(now - lastMessageTime > MESSAGE_THROTTLE){
