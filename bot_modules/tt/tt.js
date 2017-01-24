@@ -112,7 +112,7 @@ let getId = function(username, createNewEntry, onEnd, onError){
 		res = row;
 	}, ()=>{
 		if(!res && createNewEntry){
-			runSql(INSERT_USER_SQL, [toId(username), username], null, ()=>{
+			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], null, ()=>{
 				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, ()=>{
 					getId(username, createNewEntry, onEnd, onError);
 				}, onError);
@@ -515,7 +515,7 @@ let commands = {
 	yes: function(message, args, rank){
 		let room = message.room;
 		let success = false;
-		if(args.length>1){
+		if(args.length>1 && auth.js.rankgeq(rank,"+")){
 			room = toRoomId(args[1]);
 		}
 		let response = "There is no trivia game in " + room + ".";
@@ -567,7 +567,7 @@ let commands = {
 		let success = false;
 		let room = message.room;
 		let number = 1
-		if(args.length>1){
+		if(args.length>1 && auth.js.rankgeq(rank,"+")){
 			room = toRoomId(args[1]);
 		}
 		let user = rooms.js.getDisplayName(message.user, room);
@@ -635,7 +635,7 @@ let commands = {
 	bp: function(message, args, rank){
 		let room = message.room;
 		let success = false;
-		if(args.length>1){
+		if(args.length>1 && auth.js.rankgeq(rank,"+")){
 			room = toRoomId(args[1]);
 		}
 		let response = "There is no trivia game in " + room + ".";
@@ -671,7 +671,7 @@ let commands = {
 	bpopen: function(message, args, rank){
 		let success = false;
 		let response = "You must specify a room.";
-		let room = message.source === "pm" ? args[0] : message.room;
+		let room = (message.source === "pm" && auth.js.rankgeq(rank,"+")) ? args[0] : message.room;
 		if(room){
 			let game = self.data.games[room];
 			if(!game){

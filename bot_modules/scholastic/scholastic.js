@@ -46,6 +46,8 @@ exports.onConnect = function(){
 };
 
 let commands = {
+	article: "news",
+	art: "news",
   na: "news",
 	news: function(message, args, rank){
 		if(args.length>0){
