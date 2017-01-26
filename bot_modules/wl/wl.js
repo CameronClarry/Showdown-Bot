@@ -325,11 +325,16 @@ let commands = {
 			response = "The pot is empty.";
 		}else{
 			success = true;
-			game.bank+=POT_AMOUNTS[game.pot];
-			game.players[game.active].banked+=POT_AMOUNTS[game.pot];
+      amount = POT_AMOUNTS[game.pot];
+			game.bank+=amount;
+			game.players[game.active].banked+=amount;
 			game.pot = 0;
 			chat.js.say(room, "The pot has been banked. There is now $" + game.bank + " in the bank.");
-		}
+      updateUser(game.players[game.active].id, (entry)=>{
+        entry.banked+=amount;
+        return entry;
+      });
+    }
     if(!success){
       chat.js.reply(message, response);
     }
