@@ -23,7 +23,7 @@ const POT_AMOUNTS = [0, 1000, 2500, 5000, 10000, 25000, 50000, 75000, 125000];
 const GAME_RANK = "%";
 const QUESTION_RANK = "%";
 
-const GET_USER_SQL = "SELECT altuser.id AS alt_id, alts.main AS main_id, altuser.display_name AS alt_display_name, mainuser.display_name AS main_display_name FROM users AS altuser FULL OUTER JOIN alts ON altuser.id = alts.id LEFT OUTER JOIN users AS mainuser ON mainuser.id = alts.main WHERE altuser.id = $1 OR alts.id = $1 FETCH FIRST 1 ROWS ONLY;"
+const GET_USER_SQL = "SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;";
 const GET_ENTRY_SQL = "SELECT * FROM wl_lb WHERE id = $1 FETCH FIRST 1 ROWS ONLY;";
 const UPDATE_ENTRY_SQL = "UPDATE wl_lb SET correct = $2, incorrect = $3, passed = $4, wins = $5, banked = $6, won = $7 WHERE id = $1;"
 const INSERT_ENTRY_SQL = "INSERT INTO wl_lb VALUES($1, $2, $3, $4, $5, $6, $7);"
@@ -85,27 +85,47 @@ let runSql = function(statement, args, onRow, onEnd, onError){
 	}
 };
 
-
-//onEnd should take {alt_id, main_id, alt_display_name, main_display_name}
-let getUser = function(user, onEnd, onError){
+let getId = function(username, createNewEntry, onEnd, onError){
 	let res;
-	runSql(GET_USER_SQL, [toId(user)], (row)=>{
+	runSql(GET_USER_SQL, [toId(username)], (row)=>{
 		res = row;
 	}, ()=>{
-		onEnd(res);
+		if(!res && createNewEntry){
+			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], null, ()=>{
+				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, ()=>{
+					getId(username, createNewEntry, onEnd, onError);
+				}, onError);
+			}, onError);
+		}else{
+			onEnd(res);
+		}
 	}, onError);
-};
+}
 
-let getEntry = function(user, onEnd, onError){
+let getEntryById = function(id, onEnd, onError){
 	let res;
-	info("GETTING ENTRY FOR " + toId(user));
-	runSql(GET_ENTRY_SQL, [toId(user)], (row)=>{
+	info("GETTING ENTRY FOR " + toId(id));
+	runSql(GET_ENTRY_SQL, [id], (row)=>{
 		info(JSON.stringify(row));
 		res = row;
 	}, ()=>{
 		info(JSON.stringify(res));
 		onEnd(res);
 	}, onError);
+}
+
+let getEntryByName = function(username, onEnd, onError){
+	let res;
+	info("GETTING ENTRY FOR " + toId(id));
+	getId(username, false, (user)=>{
+    if(user){
+      getEntryById(user.id, (res)=>{
+        onEnd(res);
+      }, onError);
+    }else{
+      return null;
+    }
+  }, onError);
 }
 
 let updateEntry = function(entry, onEnd, onError){
@@ -116,12 +136,12 @@ let insertEntry = function(entry, onEnd, onError){
 	runSql(INSERT_ENTRY_SQL, [entry.id, entry.correct, entry.incorrect, entry.passed, entry.wins, entry.banked, entry.won], onEnd, onError);
 }
 
-let updateUserNoChange = function(user, updateFunc, onEnd, onError){
-	info("UPDATING USER NO CHANGE " + user);
-	getEntry(user, (res)=>{
+let updateUserNoChange = function(id, updateFunc, onEnd, onError){
+	info("UPDATING USER NO CHANGE " + id);
+	getEntryById(id, (res)=>{
 		info(JSON.stringify(res));
 		if(!res){
-			res = {id: toId(user), correct: 0, incorrect: 0, passed: 0, wins: 0, banked: 0, won: 0};
+			res = {id: id, correct: 0, incorrect: 0, passed: 0, wins: 0, banked: 0, won: 0};
 			insertEntry(updateFunc(res), onEnd, onError);
 		}else{
 			updateEntry(updateFunc(res), onEnd, onError);
@@ -129,11 +149,10 @@ let updateUserNoChange = function(user, updateFunc, onEnd, onError){
 	}, onError);
 }
 
-let updateUser = function(user, updateFunc, onEnd, onError){
-	info("UPDATING USER " + user);
-	getUser(user, (res)=>{
-		let id = (res && res.main_id) || toId(use);
-		updateUserNoChange(id, updateFunc, onEnd, onError);
+let updateUser = function(username, updateFunc, onEnd, onError){
+	info("UPDATING USER " + username);
+	getId(username, true, (user)=>{
+		updateUserNoChange(user.id, updateFunc, onEnd, onError);
 	}, onError);
 }
 
@@ -760,20 +779,22 @@ let wlcommands = {
 };
 let wllcommands = {
 	check: function(message, args, rank){
-		let user = args[1] && toId(args[1]) ? args[1] : message.user;
-		getUser(user, (res)=>{
-			let id = (res && res.main_id) || user
-			let displayName = res ? res.main_display_name || res.main_id || res.alt_display_name || user : user;
-			getEntry(id, (entry)=>{
-				if(!entry){
-					chat.js.reply(message, displayName + " does not have an entry in the leaderboard.");
-				}else{
-					chat.js.reply(message, displayName + "'s stats: correct answers: "+ entry.correct + ", incorrect answers: " + entry.incorrect + ", passes: " + entry.passed + ", wins: " + entry.wins + ", total amount banked: $" + entry.banked + ", total amount won: $" + entry.won + ".");
-				}
-			}, (err)=>{
-				error(err);
-				chat.js.reply(message, "Something went wrong getting " + displayName + "'s stats.");
-			});
+		let username = args[1] && toId(args[1]) ? args[1] : message.user;
+		getId(username, false, (user)=>{
+      if(!user){
+        chat.js.reply(message, username + " does not have a leaderboard entry.");
+      }else{
+        getEntryById(user.id, (entry)=>{
+  				if(!entry){
+  					chat.js.reply(message, user.display_name + " does not have an entry in the leaderboard.");
+  				}else{
+  					chat.js.reply(message, user.display_name + "'s stats: correct answers: "+ entry.correct + ", incorrect answers: " + entry.incorrect + ", passes: " + entry.passed + ", wins: " + entry.wins + ", total amount banked: $" + entry.banked + ", total amount won: $" + entry.won + ".");
+  				}
+  			}, (err)=>{
+  				error(err);
+  				chat.js.reply(message, "Something went wrong getting " + user.display_name + "'s stats.");
+  			});
+      }
 		}, (err)=>{
 			error(err);
 			chat.js.reply(message, "Something went wrong getting the user's info.");
