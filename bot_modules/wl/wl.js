@@ -325,7 +325,7 @@ let commands = {
 			response = "The pot is empty.";
 		}else{
 			success = true;
-      amount = POT_AMOUNTS[game.pot];
+      let amount = POT_AMOUNTS[game.pot];
 			game.bank+=amount;
 			game.players[game.active].banked+=amount;
 			game.pot = 0;
