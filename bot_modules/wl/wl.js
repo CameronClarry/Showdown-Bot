@@ -843,7 +843,7 @@ let questioncommands = {
 				chat.js.reply(message, "You must specify either 'regular' or 'final'.");
 				return;
 			}
-			request.post({url:'http://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+			request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
 				chat.js.pm(message.user, "hastebin.com/" + JSON.parse(body).key);
 			});
 		}
@@ -855,7 +855,7 @@ let questioncommands = {
 			response = "You rank is not high enough to import questions.";
 		}else if(args.length < 2){
 			response = "You must give a link to the questions.";
-		}else if(/^(http:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
+		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
 			success = true;
 			let response = "oops again";
 			request.get(args[1],function(error, response, body){
@@ -911,7 +911,7 @@ let questioncommands = {
 			response = "You rank is not high enough to overwrite the questions.";
 		}else if(args.length < 2){
 			response = "You must give a link to the new questions.";
-		}else if(/^(http:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
+		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
 			success = true;
 			let response = "oops again";
 			request.get(args[1],function(error, response, body){
