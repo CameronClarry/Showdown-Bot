@@ -24,6 +24,8 @@ const GAME_RANK = "%";
 const QUESTION_RANK = "%";
 
 const GET_USER_SQL = "SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;";
+const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
+const INSERT_ALT_SQL = "INSERT INTO alts (username, main_id) VALUES ($1, (SELECT id FROM users WHERE username = $2 FETCH FIRST 1 ROWS ONLY));";
 const GET_ENTRY_SQL = "SELECT * FROM wl_lb WHERE id = $1 FETCH FIRST 1 ROWS ONLY;";
 const UPDATE_ENTRY_SQL = "UPDATE wl_lb SET correct = $2, incorrect = $3, passed = $4, wins = $5, banked = $6, won = $7 WHERE id = $1;"
 const INSERT_ENTRY_SQL = "INSERT INTO wl_lb VALUES($1, $2, $3, $4, $5, $6, $7);"
