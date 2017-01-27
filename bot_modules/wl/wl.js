@@ -14,7 +14,7 @@ const conInfo = {
 };
 const VOTE_TIME = 30;
 const DECIDE_TIME = 30;
-const BANK_TIME = 5;
+const BANK_TIME = 6;
 const ROUND_TIME = 180;
 const BREAK_TIME = 30;
 const QUESTION_TIME = 7;
