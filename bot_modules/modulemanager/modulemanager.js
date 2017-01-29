@@ -24,7 +24,7 @@ exports.onLoad = function(module, loadData){
 					});
 					if(commands[command] && auth && auth.js){
 						commands[command](m, chatArgs);
-					}else if(commands[command] && namesMatch(m.user,mainConfig.owner)){
+					}else if(commands[command] && idsMatch(m.user,mainConfig.owner)){
 						let response = "Circumvented auth check. Result: ";
 						response += managerFuncs[command](chatArgs[0]);
 						if(chat && chat.js){
@@ -103,7 +103,7 @@ let commands = {
 
 let managerFuncs = {
 	load: function(name){
-		let moduleName = normalizeText(name);
+		let moduleName = toId(name);
 		let result = loadModule(moduleName,true);
 		let response = "Something is wrong if you see this.";
 		if(result && moduleName !== "modulemanager"){
@@ -122,7 +122,7 @@ let managerFuncs = {
 		return response;
 	},
 	reload: function(name){
-		let moduleName = normalizeText(name);
+		let moduleName = toId(name);
 		let response = "Could not reload the module " + name + ".";
 		if(!modules[moduleName] || (self.data.modulesToLoad.indexOf(moduleName) === -1 && moduleName !== "modulemanager")){
 			response = managerFuncs.load(moduleName);
@@ -137,7 +137,7 @@ let managerFuncs = {
 		return response;
 	},
 	unload: function(name){
-		let moduleName = normalizeText(name);
+		let moduleName = toId(name);
 		let result = unloadModule(moduleName);
 		let response = "Could not unload the module " + name + ".";
 		if(result){
@@ -162,7 +162,7 @@ let managerFuncs = {
 
 let loadModuleList = function(){
 		try{
-			let filename = "bot_modules/modulemanager/modules.json";
+			let filename = "data/modules.json";
 			if(fs.existsSync(filename)){
 				self.data.modulesToLoad = JSON.parse(fs.readFileSync(filename, "utf8"));
 				ok("Successfully loaded the module list.");
@@ -181,7 +181,7 @@ let loadModuleList = function(){
 
 let saveModuleList = function(){
 	try{
-		let filename = "bot_modules/modulemanager/modules.json";
+		let filename = "data/modules.json";
 		let moduleFile = fs.openSync(filename,"w");
 		fs.writeSync(moduleFile,JSON.stringify(self.data.modulesToLoad, null, "\t"));
 		fs.closeSync(moduleFile);

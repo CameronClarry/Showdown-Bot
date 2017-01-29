@@ -1,40 +1,55 @@
-*
-!.gitignore
-!main.js
-!package.json
-!queries.sql
-!README.md
-!template.js
-!bot_modules/
-bot_modules/*
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
 
-!bot_modules/wl
-bot_modules/wl/*
-!bot_modules/wl/wl.js
+# Folder config file
+Desktop.ini
 
-!bot_modules/tt
-bot_modules/tt/*
-!bot_modules/tt/tt.js
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
 
-!bot_modules/scholastic
-bot_modules/scholastic/*
-!bot_modules/scholastic/scholastic.js
+# Windows Installer files
+*.cab
+*.msi
+*.msm
+*.msp
 
-!bot_modules/modulemanager
-bot_modules/modulemanager/*
-!bot_modules/modulemanager/modulemanager.js
+# Windows shortcuts
+*.lnk
 
-!bot_modules/chat
-bot_modules/chat/*
-!bot_modules/chat/chat.js
+# =========================
+# Operating System Files
+# =========================
 
-!bot_modules/auth
-bot_modules/auth/*
-!bot_modules/auth/auth.js
+# OSX
+# =========================
 
-!config/
-config/*
-!logs/
-logs/*
-!node_modules/
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.SpotlightV100
+.Trashes
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Node modules
 node_modules/*
+
+#Other unwanted files
+*.bat
+config/main_config.json
+bot_modules/auth/authlist.json
+bot_modules/modulemanager/modules.json
+config/*
+data/*
+logs/*

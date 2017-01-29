@@ -80,19 +80,19 @@ let roomActions = {
 	J: "join",
 	j: "join",
 	join: function(room, args){
-		let normalUser = normalizeText(args[2]);
+		let id = toId(args[2]);
 		let rooms = self.data.rooms;
 		if(rooms[room]){
-			rooms[room].users[normalUser] = {displayName: replaceAll(args[2].trim(),formatregex)};
+			rooms[room].users[id] = {displayName: replaceAll(args[2].trim(),formatregex)};
 		}
 	},
 	L: "leave",
 	l: "leave",
 	leave: function(room, args){
-		let normalUser = normalizeText(args[2]);
+		let id = toId(args[2]);
 		let rooms = self.data.rooms;
 		if(rooms[room]){
-			delete rooms[room].users[normalUser];
+			delete rooms[room].users[id];
 		}
 	},
 	N: "name",
@@ -102,8 +102,8 @@ let roomActions = {
 		let oldName = args[3];
 		let rooms = self.data.rooms;
 		if(rooms[room]){
-			delete rooms[room].users[normalizeText(oldName)];
-			rooms[room].users[normalizeText(newName)] = {displayName: replaceAll(newName.trim(),formatregex)};
+			delete rooms[room].users[toId(oldName)];
+			rooms[room].users[toId(newName)] = {displayName: replaceAll(newName.trim(),formatregex)};
 		}
 	},
 	deinit: function(room, args){
@@ -124,7 +124,7 @@ let roomActions = {
 		if(self.data.rooms[room]){
 			let userlist = args[2].split(",");
 			for(var i=1;i<userlist.length;i++){
-				self.data.rooms[room].users[normalizeText(userlist[i])] = {displayName: replaceAll(userlist[i].trim(),formatregex)};
+				self.data.rooms[room].users[toId(userlist[i])] = {displayName: replaceAll(userlist[i].trim(),formatregex)};
 			}
 		}
 	}
@@ -132,7 +132,7 @@ let roomActions = {
 
 let loadRoomlist = function(){
 		try{
-			let filename = "bot_modules/rooms/roomlist.json";
+			let filename = "data/roomlist.json";
 			if(fs.existsSync(filename)){
 				self.data.roomlist = JSON.parse(fs.readFileSync(filename, "utf8"));
 				ok("Successfully loaded the room list.");
@@ -151,7 +151,7 @@ let loadRoomlist = function(){
 
 let saveRoomlist = function(){
 	try{
-		let filename = "bot_modules/rooms/roomlist.json";
+		let filename = "data/roomlist.json";
 		let roomFile = fs.openSync(filename,"w");
 		fs.writeSync(roomFile,JSON.stringify(self.data.roomlist, null, "\t"));
 		fs.closeSync(roomFile);
@@ -176,9 +176,8 @@ let leaveAllRooms = function(){
 	}
 };
 let isInRoom = function(user, room){
-	let normalUser = normalizeText(user);
 	let rooms = self.data.rooms;
-	if(rooms[room] && rooms[room].users[normalUser]){
+	if(rooms[room] && rooms[room].users[toId(user)]){
 		return true;
 	}
 	return false;
@@ -186,10 +185,10 @@ let isInRoom = function(user, room){
 exports.isInRoom = isInRoom;
 
 let getDisplayName = function(user, room){
-	let normalUser = normalizeText(user);
+	let id = toId(user);
 	let rooms = self.data.rooms;
-	if(rooms[room] && rooms[room].users[normalUser]){
-		return rooms[room].users[normalUser].displayName;
+	if(rooms[room] && rooms[room].users[id]){
+		return rooms[room].users[id].displayName;
 	}
 	return null;
 }

@@ -1436,7 +1436,7 @@ let millisToTime = function(millis){
 };
 
 let saveLeaderboard = function(){
-	let path = "bot_modules/tt/leaderboard.json";
+	let path = "data/leaderboard.json";
 	//let file = fs.openSync(path,'w');
 	fs.writeFile(path,JSON.stringify(self.data.leaderboard, null, "\t"), function(){
 		//fs.closeSync(file);
@@ -1444,7 +1444,7 @@ let saveLeaderboard = function(){
 };
 
 let loadLeaderboard = function(){
-	let path = "bot_modules/tt/leaderboard.json";
+	let path = "data/leaderboard.json";
 	if(fs.existsSync(path)){
 		let leaderboard = JSON.parse(fs.readFileSync(path, 'utf8'));
 		if(!leaderboard.blacklist){
@@ -1460,11 +1460,11 @@ let loadLeaderboard = function(){
 
 let validateConfigs = function(){
 	let configs = self.config;
-	for(let optionName in defaultConfigs){
-		if(typeof configs[optionName] !== typeof defaultConfigs[optionName]){
-			configs[optionName] = defaultConfigs[optionName];
-		}
-	}
+	// for(let optionName in defaultConfigs){
+	// 	if(typeof configs[optionName] !== typeof defaultConfigs[optionName]){
+	// 		configs[optionName] = defaultConfigs[optionName];
+	// 	}
+	// }
 	saveConfig("tt");
 };
 
@@ -1475,3 +1475,5 @@ let defaultConfigs = {
 	resetLeaderboardRank: "#",
 	manageEventRank: "#"
 };
+
+exports.defaultConfigs = defaultConfigs;

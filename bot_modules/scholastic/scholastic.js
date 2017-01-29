@@ -14,7 +14,7 @@ exports.onLoad = function(module, loadData){
 		chathook: function(m){
 			if(m && !m.isInit){
 				let text = m.message;
-				if(text[0]==="~"){
+				if(text[0]==="~"||text[0]==="."){
 					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
 					let argText = text.substring(command.length+2, text.length);
 					let chatArgs = argText === "" ? [] : argText.split(",");
@@ -97,7 +97,7 @@ let commands = {
   submit: function(message, args, rank){
     let response = "You need to include what you're submitting.";
     if(args.length){
-      let user = normalizeText(message.user);
+      let user = toId(message.user);
       if(self.data.qotd.submissions[user]){
         response = "Your submission has been changed.";
       }else{
@@ -163,7 +163,7 @@ let loadNews = function(){
 
 let saveQotd = function(){
 	try{
-		let filename = "bot_modules/scholastic/qotd.json";
+		let filename = "data/qotd.json";
 		let qotdFile = fs.openSync(filename,"w");
 		fs.writeSync(qotdFile,JSON.stringify(self.data.qotd, null, "\t"));
 		fs.closeSync(qotdFile);
@@ -175,7 +175,7 @@ let saveQotd = function(){
 let loadQotd = function(){
 	let result = "Could not load the question info.";
 	try{
-		let filename = "bot_modules/scholastic/qotd.json";
+		let filename = "data/qotd.json";
 		if(fs.existsSync(filename)){
 			self.data.qotd = JSON.parse(fs.readFileSync(filename, "utf8"));
 			result = "Found and loaded the question info.";

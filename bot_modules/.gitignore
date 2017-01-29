@@ -1,0 +1,9 @@
+*
+!.gitignore
+!wl/*
+!tt/*
+!rooms/*
+!auth/*
+!modulemanager/*
+!scholastic/*
+!chat/*

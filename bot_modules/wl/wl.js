@@ -280,7 +280,7 @@ let commands = {
 		let response = "whoops";
 		let room = message.room;
 		let game = self.data.games[room];
-		let id = normalizeText(message.user);
+		let id = toId(message.user);
 		let success = false;
 		let isHost = auth.js.rankgeq(rank, GAME_RANK);
 		if(!message.room){
@@ -321,7 +321,7 @@ let commands = {
       response = "There is no game in " + room + ".";
     }else if(!game.canBank){
 			response = "You cannot bank at this time.";
-		}else if(game.players[game.active].id !== normalizeText(message.user)){
+		}else if(game.players[game.active].id !== toId(message.user)){
       response = "You are not the active player.";
     }else if(game.pot === 0){
 			response = "The pot is empty.";
@@ -412,7 +412,7 @@ let commands = {
 		let response = "whoops";
 		let room = message.room;
 		let game = self.data.games[room];
-		let id = normalizeText(message.user);
+		let id = toId(message.user);
 		let success = false;
 		if(!message.room){
 			response = "You shouldn't be using this through PM."
@@ -434,7 +434,7 @@ let commands = {
 			}else if((!(game.finalists && game.finalists.length) && game.players.indexOf(player) !== game.active) || (game.finalists && game.finalists.indexOf(player) !== game.active)){
 				response = "You are not the active player.";
 			}else{
-				let answer = normalizeText(args[0]);
+				let answer = toId(args[0]);
 				if(game.finalists){
 					finalAnswerQuestion(game, answer);
 					return;
@@ -491,8 +491,8 @@ let commands = {
 		}else if(args.length < 1){
 			response = "You must specify the person you are voting for.";
 		}else{
-			let vote = normalizeText(args[0]);
-			let id = normalizeText(message.user);
+			let vote = toId(args[0]);
+			let id = toId(message.user);
 			let game;
 			for(let gameRoom in self.data.games){
 				let testGame = self.data.games[gameRoom];
@@ -527,17 +527,17 @@ let commands = {
 		let response = "stuff";
 		let room = message.room || toRoomId(args[1]);
 		let game = self.data.games[room];
-		let id = normalizeText(message.user);
-		let vote = normalizeText(args[0]);
+		let id = toId(message.user);
+		let vote = toId(args[0]);
 		let success = false;
 		if(!game){
 			response = "There is no game in " + room + ".";
 		}else if(!game.strongest){
 			response = "It is not time to decide the weakest link.";
-		}else if(game.strongest.id !== normalizeText(message.user)){
+		}else if(game.strongest.id !== toId(message.user)){
 			response = "You are not the strongest link.";
 		}else{
-			let decision = normalizeText(args[0]);
+			let decision = toId(args[0]);
 			if(game.weakest.filter(item=>{return item.id === decision}).length === 0){
 				response = "That user is not an option.";
 			}else{
@@ -587,7 +587,7 @@ let commands = {
 
 let wlcommands = {
   newgame: function(message, args, rank){
-    let room = args.length > 1 ? normalizeText(args[1]) : message.room;
+    let room = args.length > 1 ? toId(args[1]) : message.room;
     let response = "uh oh";
     let success = false;
     if(!room){
@@ -625,7 +625,7 @@ let wlcommands = {
     }
   },
   endgame: function(message, args, rank){
-    let room = args.length > 1 ? normalizeText(args[1]) : message.room;
+    let room = args.length > 1 ? toId(args[1]) : message.room;
     let response = "uh oh";
     let success = false;
     if(!room){
@@ -725,7 +725,7 @@ let wlcommands = {
 		}
 	},
 	checkplayers: function(message, args, rank){
-		let room = args.length > 1 ? normalizeText(args[1]) : message.room;
+		let room = args.length > 1 ? toId(args[1]) : message.room;
     let response = "uh oh";
     if(!room){
       response = "You must specify a room.";
@@ -742,7 +742,7 @@ let wlcommands = {
     chat.js.reply(message, response);
 	},
 	startgame: function(message, args, rank){
-		let room = args.length > 1 ? normalizeText(args[1]) : message.room;
+		let room = args.length > 1 ? toId(args[1]) : message.room;
 		let response = "uh oh";
 		let success = false;
 		let game = self.data.games[room];
@@ -767,7 +767,7 @@ let wlcommands = {
 			let game = self.data.games[message.room];
 			if(game){
 				game.categories = args.slice(1).map((item)=>{
-					return normalizeText(item);
+					return toId(item);
 				}).filter((item)=>{
 					return item ? true : false;
 				});
@@ -820,7 +820,7 @@ let questioncommands = {
 			response = "You must give the category, the question, and at least one answer.";
 		}else{
 			let question = args[1].trim();
-			let answers = args.slice(2).map(item=>{return normalizeText(item)});
+			let answers = args.slice(2).map(item=>{return toId(item)});
 			self.data.questions.regular.push({
 				question: question,
 				answers: answers
@@ -873,7 +873,7 @@ let questioncommands = {
 					if(arr.length > 2){
 						let cat = arr[0];
 						let q = arr[1];
-						let a = arr.slice(2).map(item=>{return normalizeText(item)});
+						let a = arr.slice(2).map(item=>{return toId(item)});
 						if(cat && q && a && a.length){
 							newQuestions.push({
 								category: cat,
@@ -929,7 +929,7 @@ let questioncommands = {
 					if(arr.length > 2){
 						let cat = arr[0]
 						let q = arr[1];
-						let a = arr.slice(2).map(item=>{return normalizeText(item)});
+						let a = arr.slice(2).map(item=>{return toId(item)});
 						if(cat && q && a && a.length){
 							newQuestions.push({
 								category: cat,
@@ -1250,14 +1250,14 @@ let clearTimers = function(game){
 };
 
 let saveQuestions = function(){
-  let path = "bot_modules/wl/questions.json";
+  let path = "data/questions.json";
   fs.writeFile(path,JSON.stringify(self.data.questions, null, "\t"), function(){
 		//fs.closeSync(file);
 	});
 };
 
 let loadQuestions = function(){
-  let path = "bot_modules/wl/questions.json";
+  let path = "data/questions.json";
 	if(fs.existsSync(path)){
 		self.data.questions = JSON.parse(fs.readFileSync(path, 'utf8'));
 	}

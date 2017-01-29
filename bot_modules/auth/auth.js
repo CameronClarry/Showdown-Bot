@@ -62,7 +62,7 @@ let commands = {
 let authCommands = {
 	set: function(message, args){
 		let room = toRoomId(args[3]) || message.room;
-		let user = normalizeText(args[1]);
+		let user = toId(args[1]);
 		let response = "";
 		let rank = args[2] || " ";
 		if(!room){
@@ -136,7 +136,7 @@ let authCommands = {
 		tryReply(message, response);
 	},
 	checkEmpty: function(user){
-		let normalUser = normalizeText(user);
+		let normalUser = toId(user);
 		if(self.data.authlist[normalUser]){
 			let numRanks = 0;
 			for(let rank in self.data.authlist[normalUser].ranks){
@@ -153,7 +153,7 @@ let authCommands = {
 			user = args[1];
 		}
 		let response = "";
-		let entry = self.data.authlist[normalizeText(user)];
+		let entry = self.data.authlist[toId(user)];
 		if(!entry){
 			response = "There is no rank information for " + user + ".";
 		}else{
@@ -210,7 +210,7 @@ let rankg = function(rank1, rank2){
 exports.rankg = rankg;
 
 let getRank = function(abnormaluser, room){
-	let user = normalizeText(abnormaluser);
+	let user = toId(abnormaluser);
 	if(!self.data.authlist[user]||!self.data.authlist[user].ranks){
 		return " ";
 	}
@@ -226,7 +226,7 @@ let getRank = function(abnormaluser, room){
 exports.getRank = getRank;
 
 let getRoomRank = function(abnormaluser, room){
-	let user = normalizeText(abnormaluser);
+	let user = toId(abnormaluser);
 	let rank = " "
 	if(self.data.authlist[user]&&self.data.authlist[user].ranks){
 		let roomRank = self.data.authlist[user].ranks[room];
@@ -234,7 +234,7 @@ let getRoomRank = function(abnormaluser, room){
 			rank = roomRank;
 		}
 	}
-	if(rooms){
+	if(rooms && rooms.js){
 		let displayName = rooms.js.getDisplayName(user, room);
 		if(displayName && rankg(displayName[0], rank)){
 			rank = displayName[0];
@@ -245,7 +245,7 @@ let getRoomRank = function(abnormaluser, room){
 exports.getRoomRank = getRoomRank;
 
 let getGlobalRank = function(abnormaluser){
-	let user = normalizeText(abnormaluser);
+	let user = toId(abnormaluser);
 	if(!self.data.authlist[user]||!self.data.authlist[user].ranks){
 		return " ";
 	}
@@ -260,7 +260,7 @@ exports.getGlobalRank = getGlobalRank;
 let getEffectiveRoomRank = function(message, room){
 	let username = message.user;
 	let rank = getRank(username, room);
-	if(rooms){
+	if(rooms && rooms.js){
 		let displayName = rooms.js.getDisplayName(username, room);
 		if(displayName && rankg(displayName[0], rank)){
 			rank = displayName[0];
@@ -276,7 +276,7 @@ exports.getEffectiveRoomRank = getEffectiveRoomRank;
 
 let saveAuth = function(){
 	try{
-		let filename = "bot_modules/auth/authlist.json";
+		let filename = "data/authlist.json";
 		let authFile = fs.openSync(filename,"w");
 		fs.writeSync(authFile,JSON.stringify(self.data.authlist, null, "\t"));
 		fs.closeSync(authFile);
@@ -289,8 +289,8 @@ let saveAuth = function(){
 
 let loadAuth = function(){
 	try{
-		let normalOwner = normalizeText(mainConfig.owner);
-		let filename = "bot_modules/auth/authlist.json";
+		let normalOwner = toId(mainConfig.owner);
+		let filename = "data/authlist.json";
 		if(fs.existsSync(filename)){
 			self.data.authlist = JSON.parse(fs.readFileSync(filename, "utf8"));
 			if(!self.data.authlist[normalOwner]||!self.data.authlist[normalOwner].rooms||self.data.authlist[normalOwner].rooms.Global!=="~"){
@@ -312,7 +312,7 @@ let loadAuth = function(){
 			};
 			let authFile = fs.openSync(filename,"w");
 			fs.writeSync(authFile,JSON.stringify(self.data.authlist, null, "\t"));
-			fs.closeSync(filename);
+			fs.closeSync(authFile);
 			return "Could not find the auth list file, made a new one.";
 		}
 	}catch(e){

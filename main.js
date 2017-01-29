@@ -102,7 +102,7 @@ global.getConfig = function(name, defaults){
 	return toBeLoaded;
 };
 global.loadConfig = function(name, defaults){
-	name = normalizeText(name);
+	name = toId(name);
 	if(name === "main"){
 		global.mainConfig = getConfig("main", main_defaults);
 		if(!mainConfig.user || !mainConfig.pass){
@@ -421,21 +421,15 @@ global.getChatInfo = function(room, args, isInit){
 	return messageInfo;
 };
 
-//Removes all non-alphanumeric characters from text, and makes it lower case
-global.normalizeText = function(text){
-	if(typeof text === "string"){
-		return text.toLowerCase().replace(/[^a-z\d]/g,"");
-	}
-	return "";
-};
-
+//Removes characters denoting user ranks from the beginning of a name
 global.removeRank = function(text){
 	if(typeof text === "string"){
-		return text.replace(/^[\s!\+%@#&\?]/,"");
+		return text.replace(/^[\s!\+%@#&\?\*]/,"");
 	}
 	return "";
 }
 
+//Removes all non-alphanumeric characters from text, and makes it lower case
 global.toId = function(text){
 	if(typeof text === "string"){
 		return text.toLowerCase().replace(/[^a-z\d]/g,"");
@@ -443,6 +437,7 @@ global.toId = function(text){
 	return "";
 };
 
+//Removes all non-alphanumeric characters from text except hyphens, and makes it lower case
 global.toRoomId = function(text){
 	if(typeof text === "string"){
 		return text.toLowerCase().replace(/[^a-z\d\-]/g,"");
@@ -450,13 +445,19 @@ global.toRoomId = function(text){
 	return "";
 };
 
-//Returns whether the two inputs are the same when normalized
-global.namesMatch = function(n1, n2){
-	return normalizeText(n1) === normalizeText(n2) && typeof n1 === "string" && typeof n2 === "string";
-};
-
 global.idsMatch = function(n1, n2){
 		return toId(n1) === toId(n2) && typeof n1 === "string" && typeof n2 === "string";
+}
+
+//Create necessary folders
+if (!fs.existsSync("./config")){
+    fs.mkdirSync("./config");
+}
+if (!fs.existsSync("./data")){
+    fs.mkdirSync("./data");
+}
+if (!fs.existsSync("./logs")){
+    fs.mkdirSync("./logs");
 }
 
 loadConfig("main");
