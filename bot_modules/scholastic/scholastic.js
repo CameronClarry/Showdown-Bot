@@ -132,7 +132,7 @@ let commands = {
 
 let saveNews = function(){
 	try{
-		let filename = "bot_modules/scholastic/newslist.json";
+		let filename = "data/newslist.json";
 		let newsFile = fs.openSync(filename,"w");
 		fs.writeSync(newsFile,JSON.stringify(self.data.news, null, "\t"));
 		fs.closeSync(newsFile);
@@ -144,7 +144,7 @@ let saveNews = function(){
 let loadNews = function(){
 	let result = "Could not load the news list.";
 	try{
-		let filename = "bot_modules/scholastic/newslist.json";
+		let filename = "data/newslist.json";
 		if(fs.existsSync(filename)){
 			self.data.news = JSON.parse(fs.readFileSync(filename, "utf8"));
 			result = "Found and loaded the news list.";
