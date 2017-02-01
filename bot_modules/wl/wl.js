@@ -1,6 +1,6 @@
 let self = {js:{},data:{},requiredBy:[],chathooks:{},messagehooks:{},config:{}};
-let fs = getRequirement("fs");
-let request = getRequirement("request");
+let fs = require("fs");
+let request = require("request");
 let rooms = null;
 let auth = null;
 let chat = null;
@@ -1267,6 +1267,20 @@ let loadQuestions = function(){
 		}
 	}
 };
+
+let defaultConfigs = {
+	startGameRank: "+",
+	endGameRank: "%"
+};
+
+exports.defaultConfigs = defaultConfigs;
+
+let configTypes = {
+	startGameRank: "rank",
+	endGameRank: "rank"
+};
+
+exports.configTypes = configTypes;
 
 let levenshtein = function (s, t, l) { // s = string 1, t = string 2, l = limit
 		// Original levenshtein distance function by James Westgate, turned out to be the fastest

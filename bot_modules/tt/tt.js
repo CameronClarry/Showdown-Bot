@@ -1,4 +1,4 @@
-let fs = getRequirement("fs");
+let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let chat = null;
 let auth = null;
@@ -11,8 +11,6 @@ const conInfo = {
       host: mainConfig.dbhost,
       port: mainConfig.dbport
 };
-const REMIND_TIME = 240000;
-const OPEN_TIME = 60000;
 
 const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
 const DELETE_USER_SQL = "DELETE FROM users WHERE id = $1;";
@@ -322,7 +320,6 @@ let mergeAlts = function(fromName, toName, onEnd, onError){
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
-	validateConfigs();
 	if(loadData){
 
 		try{
@@ -474,7 +471,7 @@ let messageListener = function(m){
 					clearTimers(game);
 					game.remindTimer = setTimeout(()=>{
 						onRemind(game);
-					},REMIND_TIME);
+					}, self.config.remindTime*1000);
 				}
 			}
 		}
@@ -515,7 +512,7 @@ let commands = {
 	yes: function(message, args, rank){
 		let room = message.room;
 		let success = false;
-		if(args.length>1 && auth.js.rankgeq(rank,"+")){
+		if(args.length>1 && auth.js.rankgeq(rank, self.config.manageBpRank)){
 			room = toRoomId(args[1]);
 		}
 		let response = "There is no trivia game in " + room + ".";
@@ -529,7 +526,7 @@ let commands = {
 				if(userMatchesHistory && !history[history.length-1].hasAsked && !auth.js.rankgeq(rank,"+")){
 					response = "You must ask a question in bold before you use ~yes. If your question was veto'd, please ask a new one or discuss it with a staff member.";
 					userMatchesHistory = false;
-				}else if(auth.js.rankgeq(rank,"+") || userMatchesHistory){
+				}else if(auth.js.rankgeq(rank, self.config.manageBpRank) || userMatchesHistory){
 					let nextPlayer = rooms.js.getDisplayName(args[0], room);
 					let result = tryBatonPass(room, args[0], {active:nextPlayer, undo:function(){
 						updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
@@ -567,7 +564,7 @@ let commands = {
 		let success = false;
 		let room = message.room;
 		let number = 1
-		if(args.length>1 && auth.js.rankgeq(rank,"+")){
+		if(args.length>1 && auth.js.rankgeq(rank, self.config.manageBpRank)){
 			room = toRoomId(args[1]);
 		}
 		let user = rooms.js.getDisplayName(message.user, room);
@@ -582,7 +579,7 @@ let commands = {
 			let history = game.history;
 			response = "Your rank is not high enough to use that command.";
 
-			if(auth.js.rankgeq(rank, "+") || (idsMatch(message.user, history[history.length-1].active) && number === 1)){
+			if(auth.js.rankgeq(rank, self.config.manageBpRank) || (idsMatch(message.user, history[history.length-1].active) && number === 1)){
 				if(game.lastNo && Date.now() - game.lastNo < 5000){
 					response = "There is a cooldown between uses of ~no, try again in a few seconds.";
 				}else{
@@ -635,7 +632,7 @@ let commands = {
 	bp: function(message, args, rank){
 		let room = message.room;
 		let success = false;
-		if(args.length>1 && auth.js.rankgeq(rank,"+")){
+		if(args.length>1 && auth.js.rankgeq(rank, self.config.manageBpRank)){
 			room = toRoomId(args[1]);
 		}
 		let response = "There is no trivia game in " + room + ".";
@@ -646,9 +643,9 @@ let commands = {
 				let history = game.history;
 				response = "You either are not the active user or do not have a high enough rank to use this command.";
 				let userMatchesHistory = idsMatch(history[history.length-1].active, message.user);
-				if(auth.js.rankgeq(rank,"+") || userMatchesHistory){
+				if(auth.js.rankgeq(rank, self.config.manageBpRank) || userMatchesHistory){
 					let nextPlayer = rooms.js.getDisplayName(args[0], room);
-					let result = tryBatonPass(room, args[0], {active: nextPlayer, undo: null}, userMatchesHistory && !auth.js.rankgeq(rank,"+"));
+					let result = tryBatonPass(room, args[0], {active: nextPlayer, undo: null}, userMatchesHistory && !auth.js.rankgeq(rank, self.config.manageBpRank));
 					success = result.result;
 					if(success){
 						chat.js.say(room, result.response);
@@ -671,14 +668,14 @@ let commands = {
 	bpopen: function(message, args, rank){
 		let success = false;
 		let response = "You must specify a room.";
-		let room = (message.source === "pm" && auth.js.rankgeq(rank,"+")) ? args[0] : message.room;
+		let room = (message.source === "pm" && auth.js.rankgeq(rank, self.config.manageBpRank)) ? args[0] : message.room;
 		if(room){
 			let game = self.data.games[room];
 			if(!game){
 				response = "There is no game in " + room + ".";
 			}else{
 				let lastHist = game.history[game.history.length-1];
-				if(auth.js.rankgeq(rank, "+")){
+				if(auth.js.rankgeq(rank, self.config.manageBpRank)){
 					if(!game.bpOpen){
 						chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
 						game.bpOpen = "auth";
@@ -718,7 +715,7 @@ let commands = {
 			}else{
 				response = "You either are not the active player or are not ranked high enough to open BP.";
 				let lastHist = game.history[game.history.length-1];
-				if(auth.js.rankgeq(rank, "+")){
+				if(auth.js.rankgeq(rank, self.config.manageBpRank)){
 					if(game.bpOpen){
 						success = true;
 						game.bpOpen = null;
@@ -741,7 +738,7 @@ let commands = {
 	blacklist: function(message, args, rank){
 		let response = "Your rank is not high enough to use the blacklist command.";
 		let leaderboard = self.data.leaderboard;
-		if(auth.js.rankgeq(rank,"@")){
+		if(auth.js.rankgeq(rank, self.config.manageBlRank)){
 			if(args.length<2){
 				response = "Not enough arguments were given for the blacklist command.";
 			}else{
@@ -1176,7 +1173,7 @@ let ttleaderboardCommands = {
 	remove: function(message, args, rank){
 		if(!toId(args[1])){
 			chat.js.reply(message, "You must specify a user.");
-		}else if(!auth.js.rankgeq(rank, "@")){
+		}else if(!auth.js.rankgeq(rank, self.config.editScoreRank)){
 			chat.js.reply(message, "Your rank is not high enough to remove someone's leaderboard entries.");
 		}else{
 			getId(args[1], false, (user)=>{
@@ -1362,7 +1359,7 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo){
 
 			game.remindTimer = setTimeout(()=>{
 				onRemind(game);
-			},REMIND_TIME);
+			}, self.config.remindTime*1000);
 
 			response = "**It is now " + displayName + "'s turn to ask a question.**";
 		}
@@ -1374,13 +1371,13 @@ let onRemind = function(game){
 	let history = game.history;
 	if(history && history.length){
 		if(!game.bpOpen){
-			chat.js.pm(history[history.length-1].active, "You have " + (OPEN_TIME/1000) + " seconds to ask a question.");
+			chat.js.pm(history[history.length-1].active, "You have " + (self.config.openTime) + " seconds to ask a question.");
 		}
 		let rank = auth.js.getRoomRank(history[history.length-1].active, "trivia");
-		if(!auth.js.rankgeq(rank,"+")){
+		if(!auth.js.rankgeq(rank, self.config.manageBpRank)){
 			game.openTimer = setTimeout(()=>{
 				onTimeUp(game);
-			},OPEN_TIME);
+			},self.config.openTime*1000);
 		}
 	}
 };
@@ -1458,22 +1455,30 @@ let loadLeaderboard = function(){
 	}
 };
 
-let validateConfigs = function(){
-	let configs = self.config;
-	// for(let optionName in defaultConfigs){
-	// 	if(typeof configs[optionName] !== typeof defaultConfigs[optionName]){
-	// 		configs[optionName] = defaultConfigs[optionName];
-	// 	}
-	// }
-	saveConfig("tt");
-};
-
 let defaultConfigs = {
 	startGameRank: "+",
 	endGameRank: "%",
+  manageBpRank: "+",
+  manageBlRank: "@",
 	editScoreRank: "@",
 	resetLeaderboardRank: "#",
-	manageEventRank: "#"
+	manageEventRank: "#",
+  remindTime: 240,
+  openTime: 60
 };
 
 exports.defaultConfigs = defaultConfigs;
+
+let configTypes = {
+	startGameRank: "rank",
+	endGameRank: "rank",
+  manageBpRank: "rank",
+  manageBlRank: "rank",
+	editScoreRank: "rank",
+	resetLeaderboardRank: "rank",
+	manageEventRank: "rank",
+  remindTime: "int",
+  openTime: "int"
+};
+
+exports.configTypes = configTypes;

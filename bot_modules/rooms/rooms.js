@@ -1,4 +1,4 @@
-let fs = getRequirement("fs");
+let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let auth = null;
 let formatregex = /([_~*`^])\1(.+)\1\1/g;
@@ -200,3 +200,15 @@ let replaceAll = function(text, reg){
   }
   return text;
 }
+
+let defaultConfigs = {
+	joinRoomRank: "#"
+};
+
+exports.defaultConfigs = defaultConfigs;
+
+let configTypes = {
+	joinRoomRank: "rank"
+};
+
+exports.configTypes = configTypes;

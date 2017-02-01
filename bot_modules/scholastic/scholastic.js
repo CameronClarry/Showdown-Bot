@@ -1,4 +1,4 @@
-let fs = getRequirement("fs");
+let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let chat = null;
 let auth = null;
@@ -194,3 +194,13 @@ let loadQotd = function(){
 	}
 	info(result);
 };
+
+let defaultConfigs = {
+};
+
+exports.defaultConfigs = defaultConfigs;
+
+let configTypes = {
+};
+
+exports.configTypes = configTypes;

@@ -60,69 +60,49 @@ global.ok = function (text) {
 
 info("Just defined logging commands");
 
-//Manages most requried node js modules
-global.required = {};
-global.getRequirement = function(name){
-	if(required[name]){
-		return required[name];
-	}
-	try{
-		required[name] = require(name);
-		return required[name];
-	}catch(e){
-		error(e.message);
-		info("Could not load the requirement " + name);
-	}
-	return null;
-};
+let fs = require("fs");
 
-let fs = getRequirement("fs");
-
-//Manages config files
-global.getConfig = function(name, defaults){
-	let toBeLoaded = defaults;
-	try{
-		let filename = "config/" + name + "_config.json";
-		if(fs.existsSync(filename)){
-			toBeLoaded = JSON.parse(fs.readFileSync(filename, "utf8"));
-		}else{
-			let configFile = fs.openSync(filename,"w");
-			fs.writeSync(configFile,JSON.stringify(defaults, null, "\t"));
-			fs.closeSync(configFile);
-			info(filename + " did not exists, made it");
-			if(name === "main"){
-				error("Just made the main config file for the first time. Please fill it out and re-run the bot.");
-				process.exit(0);
-			}
-		}
-	}catch(e){
-		error(e.message);
-		info("Could not load the config " + name);
-	}
-	return toBeLoaded;
-};
 global.loadConfig = function(name, defaults){
 	name = toId(name);
-	if(name === "main"){
-		global.mainConfig = getConfig("main", main_defaults);
-		if(!mainConfig.user || !mainConfig.pass){
-			error("The main config file is missing login information. Please fill it in and re-run the bot.");
-			process.exit(0);
+	let path = "config/" + name + "_config.json";
+	let newConfig = {};
+	if(modules[name] || name === "main"){
+		let shouldSave = false;
+		if(fs.existsSync(path)){
+			newConfig = JSON.parse(fs.readFileSync(path, "utf8"));
+		}
+		for(let setting in defaults){
+			if(typeof defaults[setting] !== typeof newConfig[setting]){
+				shouldSave = true;
+				newConfig[setting] = defaults[setting];
+			}
+		}
+
+		if(name === "main"){
+			mainConfig = newConfig;
+			if(shouldSave) saveConfig(name);
+			if(!mainConfig.user || !mainConfig.pass){
+				error("The main config file is missing login information. Please fill it in and re-run the bot.");
+				process.exit(0);
+			}
+		}else{
+			modules[name].config = newConfig;
+			if(shouldSave) saveConfig(name);
 		}
 		return true;
-	}else if(modules[name]){
-		let config = getConfig(name, defaults);
-		modules[name].config = config;
-		return true;
+	}else{
+		//Tried to load config for non-existant module.
+		return false;
 	}
-	return false;
-}
+};
+
 global.saveConfig = function(name){
 	let filename = "config/" + name + "_config.json";
-	if(modules[name]&&modules[name].config){
+	if((modules[name] && modules[name].config) || name === "main"){
 		try{
 			let configFile = fs.openSync(filename,"w");
-			fs.writeSync(configFile,JSON.stringify(modules[name].config, null, "\t"));
+			let config = name === "main" ? mainConfig : modules[name].config;
+			fs.writeSync(configFile,JSON.stringify(config, null, "\t"));
 			fs.closeSync(configFile);
 		}catch(e){
 			error(e.message);
@@ -148,8 +128,8 @@ global.loadModule = function(name, loadData){
 		}
 		modules[name] = module;
 		module.hooks = {};
-		module.config = getConfig(name, {});
 		module.js = require(path);
+		loadConfig(name, module.js.defaultConfigs || {});
 		module.js.onLoad(module, loadData);
 
 		for(let i=0;i<requiredBy.length;i++){
@@ -204,7 +184,7 @@ stdin.addListener("data", function(d) {
 });
 
 
-let request = getRequirement("request");
+let request = require("request");
 let WebSocketClient = require('websocket').client;
 let Connection = null;
 
@@ -460,6 +440,7 @@ if (!fs.existsSync("./logs")){
     fs.mkdirSync("./logs");
 }
 
+global.mainConfig = {}
 loadConfig("main");
 loadModule("modulemanager", true);
 ok("Bot has started, ready to connect");

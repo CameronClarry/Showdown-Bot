@@ -1,4 +1,4 @@
-let fs = getRequirement("fs");
+let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
 let chat = null;
@@ -328,3 +328,13 @@ let tryReply = function(message, text){
 		info("Tried to send this, but there was no chat: " + text);
 	}
 };
+
+let defaultConfigs = {
+};
+
+exports.defaultConfigs = defaultConfigs;
+
+let configTypes = {
+};
+
+exports.configTypes = configTypes;

@@ -1,5 +1,6 @@
-let fs = getRequirement("fs");
+let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
+let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
 let chat = null;
 let auth = null;
 info("STARTING MODULEMANAGER");
@@ -88,15 +89,16 @@ let commands = {
 		}
 	},
 	config: function(message, args){
-		let response = "Your rank is not high enough to reload configs.";
-		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
-			response = "You must specify the module to reload the config for.";
-			if(args.length>0){
-				response = managerFuncs.config(args[0]);
+		let response;
+		if(!auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
+			chat.js.reply(message, "Your rank is not high enough to manage configs.");
+		}else if(args.length < 2){
+			chat.js.reply(message, "You must give a config command and a module name.");
+		}else{
+			let command = args[0].toLowerCase();
+			if(configFuncs[command]){
+				configFuncs[command](message, args.slice(1));
 			}
-		}
-		if(chat&&chat.js){
-			chat.js.reply(message, response);
 		}
 	}
 };
@@ -160,6 +162,58 @@ let managerFuncs = {
 	}
 }
 
+let configFuncs = {
+	reload: function(message, args){
+		let name = toId(args[0]);
+		if(name){
+			chat.js.reply(message, managerFuncs.config(name));
+		}else{
+			chat.js.reply(message, "You need to give a proper module name.");
+		}
+	},
+	list: function(message, args){
+		let name = toId(args[0]);
+		if(name){
+			let module = modules[name];
+			if(module){
+				let configs = [];
+				for(let config in module.config){
+					configs.push(config + ": " + module.config[config]);
+				}
+				chat.js.reply(message, "These are the config options for " + name + ": " + configs.join(", "));
+			}else{
+				chat.js.reply(message, "That module does not exist.");
+			}
+		}else{
+			chat.js.reply(message, "You need to give a proper module name.");
+		}
+	},
+	set: function(message, args){
+		let name = toId(args[0]);
+		if(args.length<3){
+			chat.js.reply(message, "You must give the module, the property, and the value.");
+		}else if(name && modules[name]){
+			let module = modules[name];
+			let property = args[1];
+			if(module.config[property]){
+				let value = getProperty(args[2], module.js.configTypes[property]);
+				info(value);
+				if(value){
+					module.config[property] = value;
+					saveConfig(name);
+					chat.js.reply(message, "Successfully set the " + property + " property of " + name + " to " + value + ".");
+				}else{
+					chat.js.reply(message, "You must give a proper value for that property.");
+				}
+			}else{
+				chat.js.reply(message, "The property you gave does not exist.");
+			}
+		}else{
+			chat.js.reply(message, "That module does not exist.");
+		}
+	}
+};
+
 let loadModuleList = function(){
 		try{
 			let filename = "data/modules.json";
@@ -205,3 +259,33 @@ let loadAllModules = function(){
 		ok("Loaded the module '" + moduleName + "'.");
 	}
 };
+
+let getProperty = function(valueStr, type){
+	if(type === "string"){
+		return valueStr;
+	}else if(type === "int"){
+		return /^[0-9]+$/.test(valueStr) ? parseInt(valueStr) : null;
+	}else if(type === "rank"){
+		if(ranks.indexOf(valueStr) !== -1){
+			return valueStr;
+		}else if(!valueStr){
+			return " ";
+		}else{
+			return null;
+		}
+	}else{
+		return null;
+	}
+}
+
+let defaultConfigs = {
+	loadModuleRank: "#"
+};
+
+exports.defaultConfigs = defaultConfigs;
+
+let configTypes = {
+	loadModuleRank: "rank"
+};
+
+exports.configTypes = configTypes;

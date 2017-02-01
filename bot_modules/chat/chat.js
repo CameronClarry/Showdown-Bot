@@ -1,11 +1,10 @@
-let fs = getRequirement("fs");
+let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 info("CHAT STARTING");
 let auth = null;
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
-	validateConfigs();
 	if(loadData){
 
 	}
@@ -45,17 +44,14 @@ let reply = function(message, text, overrideRank){
 };
 exports.reply = reply;
 
-let validateConfigs = function(){
-	let configs = self.config;
-	info("VALIDATING");
-	for(let optionName in defaultConfigs){
-		if(typeof configs[optionName] !== typeof defaultConfigs[optionName]){
-			configs[optionName] = defaultConfigs[optionName];
-		}
-	}
-	saveConfig("chat");
-};
-
 let defaultConfigs = {
 	roomResponseRank: "+"
 };
+
+exports.defaultConfigs = defaultConfigs;
+
+let configTypes = {
+	roomResponseRank: "rank"
+};
+
+exports.configTypes = configTypes;
