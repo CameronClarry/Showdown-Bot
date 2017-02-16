@@ -579,7 +579,7 @@ let commands = {
 			let history = game.history;
 			response = "Your rank is not high enough to use that command.";
 
-			if(auth.js.rankgeq(rank, self.config.manageBpRank) || (idsMatch(message.user, history[history.length-1].active) && number === 1)){
+			if(auth.js.rankgeq(rank, self.config.manageBpRank)){
 				if(game.lastNo && Date.now() - game.lastNo < 5000){
 					response = "There is a cooldown between uses of ~no, try again in a few seconds.";
 				}else{
