@@ -26,7 +26,10 @@ const main_defaults = {
 let logToFile = function(text){
 	try{
 		let now = new Date();
-		let filename = "logs/" + now.getUTCFullYear() + "-" + (now.getUTCMonth()+1) + "-" + now.getUTCDate() + ".txt";
+		let year = now.getUTCFullYear();
+		let month = now.getUTCMonth()+1;
+		let date = now.getUTCDate();
+		let filename = "logs/" + year + "-" + (month < 10 ? "0" : "") + month + "-" + (date < 10 ? "0" : "") + date + ".txt";
 		fs.appendFile(filename, "\n[" + new Date().toUTCString() + "]" + text);
 	}catch(err){
 		console.log("ERROR LOGGING: " + err);

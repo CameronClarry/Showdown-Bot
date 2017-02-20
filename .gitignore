@@ -47,8 +47,6 @@ node_modules/*
 
 #Other unwanted files
 *.bat
-bot_modules/auth/authlist.json
-bot_modules/modulemanager/modules.json
 config/*
 data/*
 logs/*
