@@ -57,6 +57,12 @@ SELECT * FROM tt_leaderboards;
 --GET_ACTIVE_LB_SQL
 SELECT * FROM tt_leaderboards WHERE enabled = TRUE;
 
+--RESET_MAIN_LB_SQL
+UPDATE tt_leaderboards SET created_on = CURRENT_TIMESTAMP, created_by = $3 WHERE id = 'main';
+
+--UPDATE_LB_SQL
+UPDATE tt_leaderboards SET enabled = $2 WHERE id = $1;
+
 --#################
 --TT_POINTS QUERIES
 --#################

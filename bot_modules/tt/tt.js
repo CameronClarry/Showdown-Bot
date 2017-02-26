@@ -26,6 +26,8 @@ const DELETE_LB_SQL = "DELETE FROM tt_leaderboards WHERE id = $1;";
 const GET_LB_SQL = "SELECT lb.id, lb.display_name, lb.created_on, users.display_name AS created_by, lb.enabled FROM tt_leaderboards AS lb LEFT OUTER JOIN users ON lb.created_by = users.id WHERE lb.id = $1;";
 const GET_ALL_LB_SQL = "SELECT * FROM tt_leaderboards;";
 const GET_ENABLED_LB_SQL = "SELECT * FROM tt_leaderboards WHERE enabled = TRUE;";
+const RESET_MAIN_LB_SQL = "UPDATE tt_leaderboards SET created_on = CURRENT_TIMESTAMP, created_by = $3 WHERE id = 'main';";
+const UPDATE_LB_SQL = "UPDATE tt_leaderboards SET enabled = $2 WHERE id = $1;";
 
 const GET_LB_ENTRY_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;";
 const GET_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;";
@@ -178,12 +180,12 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 			entries[row.leaderboard] = row;
 		}, ()=>{
 			events = events.map((event)=>{return event.id});
-			let	pendingEvents = events.length + 1;
+			let	pendingEvents = events.length;
 			let failed = [];
 			let newEnd = (event)=>{
 				return ()=>{
 					pendingEvents--;
-					if(pendingEvents===0 && onEnd) onEnd(id, events.length + 1 - failed.length, failed);
+					if(pendingEvents===0 && onEnd) onEnd(id, events.length - failed.length, failed);
 				};
 			};
 			let newError = (event)=>{
@@ -191,7 +193,7 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 					error(err);
 					pendingEvents--;
 					failed.push(event);
-					if(pendingEvents===0 && onEnd) onEnd(id, events.length + 1 - failed.length, failed);
+					if(pendingEvents===0 && onEnd) onEnd(id, events.length - failed.length, failed);
 				};
 			};
 			for(let i=0;i<events.length;i++){
@@ -201,11 +203,7 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 					runSql(INSERT_LB_ENTRY_SQL, [id, events[i], updateFunc(0)], null, newEnd(events[i]), newError(events[i]));
 				}
 			}
-			if(entries["main"]){
-				runSql(UPDATE_LB_ENTRY_SQL, [id, "main", updateFunc(entries["main"].points)], null, newEnd("main"), newError("main"));
-			}else{
-				runSql(INSERT_LB_ENTRY_SQL, [id, "main", updateFunc(0)], null, newEnd("main"), newError("main"));
-			}
+      if(events.length === 0) onEnd(id, 0, 0);
 		}, onError);
 	}, onError);
 }
@@ -988,7 +986,7 @@ let ttleaderboardCommands = {
 		let response = "Something has probably gone very wrong if you see this text";
 		let user = args[1] || message.user;
 		let lb = toId(args[2]) || "main";
-		let lbExists = lb === "main";
+    let lbExists = false;
 		runSql(GET_ALL_LB_SQL, [], (row)=>{
 			if(row.id === lb) lbExists = true;
 		}, ()=>{
@@ -1121,7 +1119,7 @@ let ttleaderboardCommands = {
 			let user = args[1];
 			let points = parseInt(args[2], 10);
 			let lb = args[3] || "main"
-			let lbExists = lb === "main";
+      let lbExists = false;
 			runSql(GET_ALL_LB_SQL, [], (row)=>{
 				if(row.id === lb){
 					lbExists = true;
@@ -1202,13 +1200,23 @@ let ttleaderboardCommands = {
 			chat.js.reply(message, "Your rank is not high enough to reset the leaderboard.");
 		}else{
 			if(idsMatch(message.user, self.data.askToReset)){
-				runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
-					chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
-					self.data.askToReset = "";
-				}, (err)=>{
-					error(err)
-					chat.js.reply(message, "There was an error while removing the leaderboard.");
-				});
+        getId(message.user, true, (user)=>{
+          runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
+            runSql(RESET_MAIN_LB_SQL, [user.id], null, (res)=>{
+              chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
+    					self.data.askToReset = "";
+            }, (err)=>{
+              error(err);
+              chat.js.reply(message, "There was an updating the leaderboard info.");
+            })
+  				}, (err)=>{
+  					error(err)
+  					chat.js.reply(message, "There was an error while removing the leaderboard.");
+  				});
+        }, (err)=>{
+          error(err);
+          chat.js.reply(message, "There was an error while getting your id.");
+        });
 			}else{
 				self.data.askToReset = message.user;
 				chat.js.reply(message, "Are you sure you want to reset the leaderboard? (Enter the reset command again to confirm)");
@@ -1246,8 +1254,6 @@ let ttleaderboardEventCommands = {
 			chat.js.reply(message, "Your rank is not high enough to create a leaderboard.");
 		}else if(args.length<=2 || !toId(args[2])){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
-		}else if(toId(args[2]) === "main"){
-			chat.js.reply(message, "That name is reserved.");
 		}else if(args[2].length > 20){
 			chat.js.reply(message, "That name is too long.");
 		}else{
@@ -1282,6 +1288,8 @@ let ttleaderboardEventCommands = {
 			chat.js.reply(message, "Your rank is not high enough to remove a leaderboard.");
 		}else if(args.length<=2){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
+		}else if(toId(args[2]) === "main"){
+			chat.js.reply(message, "You cannot remove that leaderboard.");
 		}else{
 			let id = toId(args[2]);
 			let lb;
@@ -1310,25 +1318,82 @@ let ttleaderboardEventCommands = {
 		}
 	},
 	info: function(message, args, rank){
-		if(args.length<=2){
+    let lbName = args[2] || "main";
+		let id = toId(lbName);
+		let lb;
+		runSql(GET_LB_SQL, [id], (row)=>{
+			lb = row;
+		}, ()=>{
+			if(!lb){
+				chat.js.reply(message, "There is no leaderboard with the name " + lbName + ".");
+			}else if(id !== "main"){
+				chat.js.reply(message, "Leaderboard name: " + lb.display_name + ", created on: " + lb.created_on.toUTCString() + ", created by: " + lb.created_by + ", enabled: " + lb.enabled);
+			}else{
+        chat.js.reply(message, "Leaderboard name: " + lb.display_name + ", last reset: " + lb.created_on.toUTCString() + ", reset by: " + lb.created_by + ", enabled: " + lb.enabled);
+      }
+		}, (err)=>{
+			error(err);
+			chat.js.reply(message, "Something went wrong when trying to fetch the leaderboard.");
+		});
+	},
+  enable: function(message, args, rank){
+    if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
+			chat.js.reply(message, "Your rank is not high enough to enable a leaderboard.");
+		}else if(args.length<3){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
 		}else{
-			let id = toId(args[2]);
-			let lb;
-			runSql(GET_LB_SQL, [id], (row)=>{
-				lb = row;
-			}, ()=>{
-				if(!lb){
-					chat.js.reply(message, "There is no leaderboard with the name " + args[2] + ".");
-				}else{
-					chat.js.reply(message, "Leaderboard name: " + lb.display_name + ", created on: " + lb.created_on.toUTCString() + ", created by: " + lb.created_by + ", enabled: " + lb.enabled);
-				}
-			}, (err)=>{
-				error(err);
-				chat.js.reply(message, "Something went wrong when trying to fetch the leaderboard.");
-			});
-		}
-	}
+      let id = toId(args[2]);
+      let lbs = {};
+      runSql(GET_ALL_LB_SQL, [], (row)=>{
+        lbs[row.id] = row;
+      }, (res)=>{
+        if(!lbs[id]){
+          chat.js.reply(message, "The leaderboard you specified doesn't exist.");
+        }else if(lbs[id].enabled){
+          chat.js.reply(message, "That leaderboard is already enabled.");
+        }else{
+          runSql(UPDATE_LB_SQL, [id, true], null, (res)=>{
+            chat.js.reply(message, "Successfully enabled the " + lbs[id].display_name + " leaderboard.");
+          }, (err)=>{
+            error(err);
+            chat.js.reply(message, "There was an error while updating the leaderboard.");
+          })
+        }
+      }, (err)=>{
+        error(err);
+        chat.js.reply("There was an error when retrieving the leaderboards.");
+      });
+    }
+  },
+  disable: function(message, args, rank){
+    if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
+			chat.js.reply(message, "Your rank is not high enough to disable a leaderboard.");
+		}else if(args.length<3){
+			chat.js.reply(message, "You must specify the name for the leaderboard.");
+		}else{
+      let id = toId(args[2]);
+      let lbs = {};
+      runSql(GET_ALL_LB_SQL, [], (row)=>{
+        lbs[row.id] = row;
+      }, (res)=>{
+        if(!lbs[id]){
+          chat.js.reply(message, "The leaderboard you specified doesn't exist.");
+        }else if(!lbs[id].enabled){
+          chat.js.reply(message, "That leaderboard is already disabled.");
+        }else{
+          runSql(UPDATE_LB_SQL, [id, false], null, (res)=>{
+            chat.js.reply(message, "Successfully disabled the " + lbs[id].display_name + " leaderboard.");
+          }, (err)=>{
+            error(err);
+            chat.js.reply(message, "There was an error while updating the leaderboard.");
+          })
+        }
+      }, (err)=>{
+        error(err);
+        chat.js.reply("There was an error when retrieving the leaderboards.");
+      });
+    }
+  }
 };
 
 let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo){
