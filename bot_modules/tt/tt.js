@@ -15,8 +15,9 @@ const conInfo = {
 const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
 const DELETE_USER_SQL = "DELETE FROM users WHERE id = $1;";
 const INSERT_ALT_SQL = "INSERT INTO alts (username, main_id) VALUES ($1, (SELECT id FROM users WHERE username = $2 FETCH FIRST 1 ROWS ONLY));";
+const DELETE_ALT_SQL = "DELETE FROM alts WHERE username = $1;";
 const GET_USER_SQL = "SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;";
-const GET_ALTS_SQL = "SELECT username FROM alts WHERE main_id = (SELECT main_id FROM alts WHERE username = $1);";
+const GET_ALTS_SQL = "SELECT username FROM alts WHERE main_id = $1;";
 const UPDATE_USER_SQL = "UPDATE users SET display_name = $2 WHERE id = $1;";
 const UPDATE_MAINS_SQL = "UPDATE alts SET main_id = $2 WHERE main_id = $1;";
 const GET_MAINS_SQL = "SELECT alts.username, id, display_name, TRUE AS is_first FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 UNION SELECT username, id, display_name, FALSE AS is_first FROM alts INNER JOIN users ON alts.main_id = users.id WHERE username = $2;";
@@ -294,7 +295,6 @@ let changeMains = function(id, newName, onEnd, onError){
 let mergeAlts = function(fromName, toName, onEnd, onError){
 	info("Merging from " + fromName + " to " + toName);
 	getMains(fromName, toName, true, (res)=>{
-		info(JSON.stringify(res));
 		if(res[0].id === res[1].id){
 			onError("Those two accounts are the same.");
 			return;
@@ -799,7 +799,7 @@ let commands = {
 				chat.js.reply(message, target + " does not have any alts.");
 			}else{
 				let alts = [];
-				runSql(GET_ALTS_SQL, [res[1].username], (row)=>{
+				runSql(GET_ALTS_SQL, [res[1].id], (row)=>{
 					alts.push(row);
 				}, ()=>{
 					alts = alts.map((alt)=>{return alt.username});
@@ -850,15 +850,40 @@ let commands = {
 			}
 		}
 	},
+  removealt: function(message, args, rank){
+    if(args.length===0 || !args[0]){
+			chat.js.reply(message, "You must specify an alt.");
+		}else{
+      getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
+        if(res.length < 2 || res[0].id !== res[1].id){
+          chat.js.reply(message, "That account is not an alt of yours.");
+        }else if(idsMatch(args[0], res[1].display_name)){
+          chat.js.reply(message, "You cannot remove your main account.");
+        }else{
+          runSql(DELETE_ALT_SQL, [toId(args[0])], null, (res)=>{
+            if(res.rowCount === 0){
+              chat.js.reply(message, "That's weird, the query didn't delete anything. Something is probably wrong.");
+            }else{
+              chat.js.reply(message, "Successfully removed the alt.");
+            }
+          }, (err)=>{
+            error(err);
+            chat.js.reply(message, "There was an error removing the alt.");
+          })
+        }
+			}, (err)=>{
+				error(err);
+				chat.js.reply(message, "Something went wrong when finding your main.");
+			});
+    }
+  },
 	main:function(message, args, rank){
-		let response = "You must specify an alt to set as your main account.";
 		if(args.length===0 || !args[0]){
 			chat.js.reply(message, "You must specify an alt.");
 		}else if(args[0].length>20){
 			chat.js.reply(message, "That name is too long.");
 		}else{
 			getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
-				info(JSON.stringify(res));
 				if(!res[0]){
 					chat.js.reply(message, "You do not have any alts.");
 				}else if(!res[1] || res[0].id !== res[1].id){

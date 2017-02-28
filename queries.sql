@@ -23,11 +23,14 @@ DELETE FROM users WHERE id = $1;
 --INSERT_ALT_SQL
 INSERT INTO alts (username, main_id) VALUES ($1, (SELECT id FROM users WHERE username = $2 FETCH FIRST 1 ROWS ONLY));
 
+--DELETE_ALT_SQL
+DELETE FROM alts WHERE username = $1;
+
 --GET_USER_SQL
 SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;
 
 --GET_ALTS_SQL
-SELECT username FROM alts WHERE main_id = (SELECT main_id FROM alts WHERE username = $1 FETCH FIRST 1 ROWS ONLY);
+SELECT username FROM alts WHERE main_id = $1;
 
 --UPDATE_USER_SQL
 UPDATE users SET display_name = $2 WHERE id = $1;

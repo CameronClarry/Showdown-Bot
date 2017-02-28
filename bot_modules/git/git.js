@@ -141,6 +141,9 @@ let gitCommands = {
 				chat.js.reply(message, response);
 			}
 		});
+	},
+	gud: function(message, args, rank){
+		chat.js.reply(message, "no u");
 	}
 };
 
