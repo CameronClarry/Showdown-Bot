@@ -1085,7 +1085,7 @@ let ttleaderboardCommands = {
                       let higherEntries = entries.filter(item=>{return item.points > score});
                       let response = "First place is " + entries[0].display_name + " with " + entries[0].points + " points.";
                       response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
-                      response += " The next player above you is " + higherEntries[higherEntries.length - 1].display_name + " with " + entries[1].points + " points.";
+                      response += " The next player above you is " + higherEntries[higherEntries.length - 1].display_name + " with " + higherEntries[higherEntries.length - 1].points + " points.";
                       chat.js.reply(message, response);
                     }
                   }
