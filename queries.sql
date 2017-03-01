@@ -93,3 +93,6 @@ DELETE FROM tt_points WHERE id = $1;
 
 --DELETE_LB_ENTRIES_SQL
 DELETE FROM tt_points WHERE leaderboard = $1;
+
+--GET_ALL_LB_ENTRIES_SQL
+SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.leaderboard = $1 ORDER BY lb.points DESC;

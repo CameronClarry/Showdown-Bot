@@ -38,6 +38,8 @@ const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND 
 const DELETE_LB_ENTRY_SQL = "DELETE FROM tt_points WHERE id = $1 AND leaderboard = $2;";
 const DELETE_USER_ENTRIES_SQL = "DELETE FROM tt_points WHERE id = $1;";
 const DELETE_LB_ENTRIES_SQL = "DELETE FROM tt_points WHERE leaderboard = $1;";
+const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.leaderboard = $1 ORDER BY lb.points DESC;";
+
 
 info("STARTING TRIVIATRACKER");
 
@@ -1048,51 +1050,64 @@ let ttleaderboardCommands = {
 	},
 	//Number of people, your place, your score, points to next place
 	summary: function(message, args, rank){
-		chat.js.reply(message, "Not yet implemented :<");
-		return;
-		let leaderboard = self.data.leaderboard.players;
-		let userEntry = leaderboard[toId(getMain(message.user))];
-		let entries = [];
-		for(let name in leaderboard){
-			let entry = leaderboard[name];
-			if(entry.score && entry.score>0){
-				entries.push(entry);
+    let lb = toId(args[1]) || "main";
+    let id = toId(message.user);
+    let lbExists = false;
+    runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
+			if(lbRow.id === lb) lbExists = true;
+		}, ()=>{
+			if(!lbExists){
+				chat.js.reply(message, "The leaderboard you entered does not exist.");
+			}else{
+				let res;
+				getId(id, false, (res)=>{
+          info(JSON.stringify(res));
+					if(!res){
+						chat.js.reply(message, "You do not have a score on the " + lb + " leaderboard.");
+					}else{
+						getLeaderboardEntry([res.id, lb], (entry)=>{
+							if(!entry){
+								chat.js.reply(message, "You do not have a score on the " + lb + " leaderboard.");
+							}else{
+                let score = entry.points;
+                let entries = [];
+                runSql(GET_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
+                  entries.push(row)
+                }, (res)=>{
+                  if(entries.length === 0){
+                    chat.js.reply(message, "There doesn't seem to be anyone on the leaderboard. Maybe something went wrong.");
+                  }else if(entries.length === 1){
+                    chat.js.reply(message, "You are the only person on the leaderboard (and your score is " + score + ").");
+                  }else{
+                    if(entries[0].points === score){
+                      chat.js.reply(message, "You are first on the leaderboard, second place is " + entries[1].display_name + " with " + entries[1].points + " points.");
+                    }else{
+                      let higherEntries = entries.filter(item=>{return item.points > score});
+                      let response = "First place is " + entries[0].display_name + " with " + entries[0].points + " points.";
+                      response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
+                      response += " The next player above you is " + higherEntries[higherEntries.length - 1].display_name + " with " + entries[1].points + " points.";
+                      chat.js.reply(message, response);
+                    }
+                  }
+                }, (err)=>{
+                  error(err);
+                  chat.js.reply(message, "There was an error while getting the scores.");
+                });
+							}
+						},(err)=>{
+							error(err);
+							chat.js.reply(message, "There was an error fetching the score for " + res.display_name + ".");
+						});
+					}
+				}, (err)=>{
+					error(err);
+					chat.js.reply(message, "There was an error getting " + user + "'s id.");
+				});
 			}
-		}
-		entries.sort(function(item1, item2){
-			return item1.score > item2.score ? -1 : 1;
+		}, (err)=>{
+			error(err);
+			chat.js.reply(message, "There was an error getting the leaderboard list.");
 		});
-		let totalUsers = entries.length;
-		let topEntry = entries[0];
-		let response = "Terrible mistake if you're seeing this.";
-		if(totalUsers === 0){
-			response = "There is no one on the leaderboard.";
-		}else if(userEntry === topEntry){
-			if(totalUsers === 1){
-				response = "You are the only person on the leaderboard, with a score of " + userEntry.score + ".";
-			}else{
-				response = "There are " + totalUsers + " players on the leaderboard, and you are in first with a score of " + userEntry.score + ".";
-				let secondEntry = entries[1];
-				response += " Second place is " + secondEntry.displayName + " with a score of " + secondEntry.score + ".";
-			}
-		}else if(userEntry){
-			entries = entries.filter(function(item){
-				return item.score>userEntry.score;
-			});
-			if(totalUsers === 1){
-				response = "The only person on the leaderboard is " + topEntry.displayName + ", with a score of " + topEntry.score + ".";
-			}else{
-				response = "There are " + totalUsers + " players on the leaderboard, the top being " + topEntry.displayName + " with a score of " + topEntry.score + ".";
-				response += " Your rank is " + (entries.length + 1) + ", and you have " + userEntry.score + " point" + (userEntry.score === 1 ? "" : "s") + ".";
-			}
-		}else{
-			if(totalUsers === 1){
-				response = "The only person on the leaderboard is " + topEntry.displayName + ", with a score of " + topEntry.score + ".";
-			}else{
-				response = "There are " + totalUsers + " players on the leaderboard, the top being " + topEntry.displayName + " with a score of " + topEntry.score + ".";
-			}
-		}
-		chat.js.reply(message, response);
 	},
 	stats: function(message, args, rank){
 		chat.js.reply(message, "Not yet implemented :<");
