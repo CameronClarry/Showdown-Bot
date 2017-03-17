@@ -5,7 +5,7 @@ let choices = ["Alakazam-Mega", "Buzzwole", "Celesteela", "Chansey", "Charizard-
 const END_SECONDS = 7;
 const DEFAULT_BID = 200;
 const STARTING_CASH = 25000;
-const ROOM = "groupchat-struchni-bottest";
+const ROOM = "ou";
 
 // auction: {
 // 	items: [],
@@ -83,9 +83,9 @@ let commands = {
       if(!self.data.ouOn){
         self.data.ouOn = true;
         self.data.ouTimer = setTimeout(sayPokes, 20000);
-        chat.js.say(ROOM, "The OU thing is now on.");
+        chat.js.say(self.config.room, "You should have bid more.");
       }else{
-        chat.js.reply(message, "The OU thing is already on.");
+        chat.js.reply(message, "It's already on.");
       }
     }else if(arg && arg === "off" || !arg && self.data.ouOn){
       if(self.data.ouOn){
@@ -94,9 +94,9 @@ let commands = {
           clearTimeout(self.data.ouTimer);
           self.data.ouTimer = null;
         }
-        chat.js.say(ROOM, "The OU thing is now off.");
+        chat.js.say(self.config.room, "Time's up!");
       }else{
-        chat.js.reply(message, "The OU thing is already off.");
+        chat.js.reply(message, "It's already off.");
       }
     }
   },
@@ -152,7 +152,7 @@ let commands = {
 				chat.js.reply(message, "There are no items available to auction.");
 			}else{
 				auction.active = true;
-				chat.js.say(ROOM, "The auction has started. It will end " + END_SECONDS + " seconds after the last bid.");
+				chat.js.say(self.config.room, "The auction has started. It will end " + END_SECONDS + " seconds after the last bid.");
 			}
 		}
 	},
@@ -177,7 +177,7 @@ let commands = {
       }else{
         auction.price += amount;
 				auction.winner = message.user;
-        chat.js.say(ROOM, message.user + " has bid $" + auction.price + ".");
+        chat.js.say(self.config.room, message.user + " has bid $" + auction.price + ".");
         if(auction.endTimer){
 					clearTimeout(auction.endTimer);
 				}
@@ -193,7 +193,7 @@ let endAuction = function(){
 	let id = toId(winner);
 	let player = auction.players[id];
 	if(!id){
-		chat.js.say(ROOM, "No on bidded on the item.");
+		chat.js.say(self.config.room, "No on bidded on the item.");
 		auction.active = false;
 		auction.winner = null;
 		auction.price = 0;
@@ -210,7 +210,7 @@ let endAuction = function(){
 		for(let id in auction.players){
 			pArray.push(auction.players[id].displayName + ": $" + auction.players[id].money);
 		}
-		chat.js.say(ROOM, "The auction is over, " + winner + " won " + prize + ". Here is how much money each player has left: " + pArray.join(", ") + ".");
+		chat.js.say(self.config.room, "The auction is over, " + winner + " won " + prize + ". Here is how much money each player has left: " + pArray.join(", ") + ".");
 
 	}
 };
@@ -223,16 +223,18 @@ let sayPokes = function(){
   let item2 = tempArray.splice(num, 1)[0];
   num = Math.floor(Math.random()*tempArray.length);
   let item3 = tempArray.splice(num, 1)[0];
-  chat.js.say(ROOM, "Here are your three options: " + item1 + ", " + item2 + ", " + item3);
+  chat.js.say(self.config.room, "Here are your three options: " + item1 + ", " + item2 + ", " + item3);
   self.data.ouTimer = setTimeout(sayPokes, 20000);
 };
 
 let defaultConfigs = {
+	room: "ou"
 };
 
 exports.defaultConfigs = defaultConfigs;
 
 let configTypes = {
+	room: "string"
 };
 
 exports.configTypes = configTypes;
