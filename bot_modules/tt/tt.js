@@ -577,7 +577,7 @@ let commands = {
 		let game = self.data.games[room];
 		if(game){
 			let history = game.history;
-			response = "Your rank is not high enough to use that command.";
+			response = "You either are not the active user or do not have a high enough rank to use this command.";
 
 			if(auth.js.rankgeq(rank, self.config.manageBpRank) || (idsMatch(message.user, history[history.length-1].active) && number === 1)){
 				if(game.lastNo && Date.now() - game.lastNo < 5000){
@@ -641,7 +641,7 @@ let commands = {
 			response = "You must specify a player.";
 			if(args.length>0 && args[0]){
 				let history = game.history;
-				response = "You either are not the active user or do not have a high enough rank to use this command.";
+				response = "Your rank is not high enough to use this command.";
 				if(auth.js.rankgeq(rank, self.config.manageBpRank)){
 					let nextPlayer = rooms.js.getDisplayName(args[0], room);
 					let result = tryBatonPass(room, args[0], {active: nextPlayer, undo: null}, false);
