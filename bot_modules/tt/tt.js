@@ -579,7 +579,7 @@ let commands = {
 			let history = game.history;
 			response = "Your rank is not high enough to use that command.";
 
-			if(auth.js.rankgeq(rank, self.config.manageBpRank)){
+			if(auth.js.rankgeq(rank, self.config.manageBpRank) || (idsMatch(message.user, history[history.length-1].active) && number === 1)){
 				if(game.lastNo && Date.now() - game.lastNo < 5000){
 					response = "There is a cooldown between uses of ~no, try again in a few seconds.";
 				}else{
@@ -642,10 +642,9 @@ let commands = {
 			if(args.length>0 && args[0]){
 				let history = game.history;
 				response = "You either are not the active user or do not have a high enough rank to use this command.";
-				let userMatchesHistory = idsMatch(history[history.length-1].active, message.user);
-				if(auth.js.rankgeq(rank, self.config.manageBpRank) || userMatchesHistory){
+				if(auth.js.rankgeq(rank, self.config.manageBpRank)){
 					let nextPlayer = rooms.js.getDisplayName(args[0], room);
-					let result = tryBatonPass(room, args[0], {active: nextPlayer, undo: null}, userMatchesHistory && !auth.js.rankgeq(rank, self.config.manageBpRank));
+					let result = tryBatonPass(room, args[0], {active: nextPlayer, undo: null}, false);
 					success = result.result;
 					if(success){
 						chat.js.say(room, result.response);
