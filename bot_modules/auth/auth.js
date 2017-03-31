@@ -49,13 +49,6 @@ let commands = {
 				authCommands[command](message, args);
 			}
 		}
-	},
-	roomauth: function(message, args){
-		if(args.length>1){
-			info(args[0]);
-			info(args[1]);
-			tryReply(message,"The rank is '" + getRoomRank(args[0],args[1]) + "'");
-		}
 	}
 };
 

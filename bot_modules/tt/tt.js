@@ -27,7 +27,7 @@ const DELETE_LB_SQL = "DELETE FROM tt_leaderboards WHERE id = $1;";
 const GET_LB_SQL = "SELECT lb.id, lb.display_name, lb.created_on, users.display_name AS created_by, lb.enabled FROM tt_leaderboards AS lb LEFT OUTER JOIN users ON lb.created_by = users.id WHERE lb.id = $1;";
 const GET_ALL_LB_SQL = "SELECT * FROM tt_leaderboards;";
 const GET_ENABLED_LB_SQL = "SELECT * FROM tt_leaderboards WHERE enabled = TRUE;";
-const RESET_MAIN_LB_SQL = "UPDATE tt_leaderboards SET created_on = CURRENT_TIMESTAMP, created_by = $3 WHERE id = 'main';";
+const RESET_MAIN_LB_SQL = "UPDATE tt_leaderboards SET created_on = CURRENT_TIMESTAMP, created_by = $1 WHERE id = 'main';";
 const UPDATE_LB_SQL = "UPDATE tt_leaderboards SET enabled = $2 WHERE id = $1;";
 
 const GET_LB_ENTRY_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;";
@@ -452,7 +452,7 @@ let messageListener = function(m){
 				if(!idsMatch(m.user, mainConfig.user)){
 					let displayName = rooms.js.getDisplayName(m.user, m.room);
 					if(displayName){
-						let result = tryBatonPass(m.room, displayName, {active:displayName,undo: null}, game.bpOpen !== "auth");
+						let result = tryBatonPass(m.room, displayName, {active:displayName,undo: null}, game.bpOpen !== "auth", self.config.remindTime/2);
 						if(result.result){
 							chat.js.say(m.room, "**It is now " + displayName + "'s turn to ask a question.**");
 						}
@@ -465,8 +465,8 @@ let messageListener = function(m){
 			lastHist.hasAsked = true;
 		}else{
 			let rank = auth.js.getEffectiveRoomRank(m, "trivia");
-			if(auth.js.rankgeq(rank, "+") || idsMatch(lastHist.active, m.user)){
-				if(/\*\*.*veto.*\*\*/i.test(m.message) || /\/announce .*veto.*/i.test(m.message)){
+			if(auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)){
+				if(/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message)){
 					lastHist.hasAsked = false;
 					clearTimers(game);
 					game.remindTimer = setTimeout(()=>{
@@ -523,7 +523,7 @@ let commands = {
 				let history = game.history;
 				response = "You either are not the active user or do not have a high enough rank to use this command.";
 				let userMatchesHistory = idsMatch(history[history.length-1].active, message.user);
-				if(userMatchesHistory && !history[history.length-1].hasAsked && !auth.js.rankgeq(rank,"+")){
+				if(userMatchesHistory && !history[history.length-1].hasAsked && !auth.js.rankgeq(rank, self.config.manageBpRank)){
 					response = "You must ask a question in bold before you use ~yes. If your question was veto'd, please ask a new one or discuss it with a staff member.";
 					userMatchesHistory = false;
 				}else if(auth.js.rankgeq(rank, self.config.manageBpRank) || userMatchesHistory){
@@ -1435,7 +1435,8 @@ let ttleaderboardEventCommands = {
   }
 };
 
-let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo){
+let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTime){
+  let remindTime = remindTime || self.config.remindTime;
 	let game = self.data.games[room];
 	let result = false;
 	let response = "There is no game of Trivia Tracker in " + room + ".";
@@ -1466,7 +1467,7 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo){
 
 			game.remindTimer = setTimeout(()=>{
 				onRemind(game);
-			}, self.config.remindTime*1000);
+			}, remindTime*1000);
 
 			response = "**It is now " + displayName + "'s turn to ask a question.**";
 		}
