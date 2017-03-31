@@ -1436,7 +1436,7 @@ let ttleaderboardEventCommands = {
 };
 
 let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTime){
-  let remindTime = remindTime || self.config.remindTime;
+  remindTime = remindTime || self.config.remindTime;
 	let game = self.data.games[room];
 	let result = false;
 	let response = "There is no game of Trivia Tracker in " + room + ".";
