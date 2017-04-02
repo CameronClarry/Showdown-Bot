@@ -54,9 +54,7 @@ let commands = {
 		if(auth.js.rankgeq(rank, "#")){
 			if(args.length>0){
 				let command = args[0].toLowerCase();
-				info(command);
 				if(gitCommands[command]){
-					info("Found command");
 					gitCommands[command](message, args.slice(1), rank);
 				}
 			}
@@ -71,20 +69,16 @@ let gitCommands = {
 		let repository;
 		git.Repository.open(path.resolve(__dirname, repoDir))
 		.then(function(repo) {
-			info("Opened repository")
 			repository = repo;
 			return repository.fetch('origin');
 		})
 		.then(function() {
-			info("Fetched");
 			return repository.getBranchCommit('origin/HEAD');
 		})
 		.then(function(originHeadCommit) {
-			info("Got branch");
 			return git.Reset.reset(repository, originHeadCommit, git.Reset.TYPE.HARD);
 		})
 		.done(function(repo) {
-			info("Reset finished");
 			chat.js.reply(message, "Reset finished.");
 		});
 	},
@@ -116,7 +110,6 @@ let gitCommands = {
 			return originHeadCommit.getDiff();
 		})
 		.then(function(arrayDiff){
-			info(arrayDiff.length);
 			if(arrayDiff.length === 0){
 				chat.js.reply(message, "There are no differences.");
 				return;
@@ -124,7 +117,6 @@ let gitCommands = {
 				return arrayDiff[0].patches();
 			}
 		}).done(function(arrayConvenientPatch){
-			info(arrayConvenientPatch.length);
 			if(arrayConvenientPatch.length === 0){
 				chat.js.reply("No files were changed.");
 			}else{

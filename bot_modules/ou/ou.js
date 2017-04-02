@@ -78,7 +78,6 @@ let commands = {
       return;
     }
     let arg = toId(args[0]);
-    info(arg);
     if(arg && arg === "on" || !arg && !self.data.ouOn){
       if(!self.data.ouOn){
         self.data.ouOn = true;
@@ -161,9 +160,6 @@ let commands = {
     let auction = self.data.auction;
     let players = auction && auction.players || [];
     let amountStr = args[0] || "" + DEFAULT_BID;
-		info(amountStr);
-		info(/^d+$/.test(amountStr));
-		info(parseInt(amountStr)%DEFAULT_BID !== 0);
     if(!auction || !auction.active){
       chat.js.reply(message, "Bidding is not open right now.");
     }else if(!players[id]){

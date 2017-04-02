@@ -1,6 +1,5 @@
 let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-info("CHAT STARTING");
 let auth = null;
 exports.onLoad = function(module, loadData){
 	self = module;

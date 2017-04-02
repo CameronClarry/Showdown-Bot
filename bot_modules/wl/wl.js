@@ -210,17 +210,22 @@ exports.onLoad = function(module, loadData){
 						}
 						commandToRun(m, chatArgs, rank, qwrank);
 					}
+				}else{
+					messageListener(m);
 				}
 			}
 		}
 	};
-	self.messagehooks = {
 
+  self.messagehooks = {
 	};
 };
 
 exports.onUnload = function(){
 	saveQuestions();
+  for(let room in self.data.games){
+    endGame(room);
+  }
 };
 
 exports.refreshDependencies = function(){
@@ -231,6 +236,25 @@ exports.refreshDependencies = function(){
 
 exports.onConnect = function(){
 
+};
+
+let messageListener = function(m){
+	let game = self.data.games[m.room];
+	if(game){
+    let text = toId(m.message);
+    let id = toId(m.user)
+    if(!game.hasStarted && game.players.length < game.maxplayers && text === "mein" && !getPlayerById(game, id)){
+      addPlayer(game, id);
+      if(game.joinTimer){
+        clearTimeout(game.joinTimer);
+      }
+      game.joinTimer = setTimeout(()=>{
+        game.joinTimer = null;
+        let numPlayers = game.players.length;
+        chat.js.say(game.room, "There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
+      }, 5000);
+    }
+	}
 };
 
 let commands = {
@@ -413,11 +437,11 @@ let commands = {
 						break;
 					}
 				}
-        if(game.isFinal){
-					finalAnswerQuestion(game, correct, "Correct. ");
-					return;
-				}
 				if(correct){
+          if(game.isFinal){
+  					finalAnswerQuestion(game, correct, "Correct. ");
+  					return;
+  				}
 					player.correctAnswers++;
 					game.pot++;
 					if(game.pot === POT_AMOUNTS.length-1 && !game.isFinal){
@@ -550,6 +574,7 @@ let wlcommands = {
 				question: null,
 				room: room,
         players: [],
+        tempVoices: {},
 				// votes: {},
 				// strongest: [],
         // weakest: [],
@@ -558,6 +583,7 @@ let wlcommands = {
 				canVote: false,
         isFinal: false,
         hasStarted: false,
+        modchat: false,
         pot: 0,
         round: 1,
 				questions: [],
@@ -565,6 +591,7 @@ let wlcommands = {
 				roundTimer: null,
         breakTimer: null,
 				questionTimer: null,
+        joinTimer: null,
 				categories: []
       }
       chat.js.say(room, "A game of The Weakest Link has started.");
@@ -582,15 +609,13 @@ let wlcommands = {
     }else if(!self.data.games[room]){
       chat.js.reply(message, "There is no game in " + room + ".");
     }else{
-			clearTimers(self.data.games[room]);
-      delete self.data.games[room];
+			endGame(room);
       chat.js.say(room, "The game of The Weakest Link has been ended.");
     }
   },
 	addplayer: "addplayers",
 	addplayers: function(message, args, rank){
 		let room = message.room;
-		let response = "uh oh";
 		if(!room){
       chat.js.reply(message, "You cannot use this command through PM.");
 		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
@@ -599,25 +624,12 @@ let wlcommands = {
 			chat.js.reply(message, "There is no game in " + room + ".");
 		}else{
 			let game = self.data.games[room];
-			let added = 0;
+			let prevCount = game.players.length;
 			for(let i=1;i<args.length;i++){
-				let displayName = rooms.js.getDisplayName(args[i], room);
 				let id = toId(args[i]);
-				if(displayName){
-					let isInGame = false;
-					let player = getPlayerById(game, id);
-					if(!player){
-						added++;
-						game.players.push({
-							id: id,
-							displayName: displayName,
-							banked: 0,
-							correctAnswers: 0,
-              answered: 0 //Only used for the final
-						});
-					}
-				}
+        addPlayer(game, id);
 			}
+      let added = game.players.length - prevCount;
       if(game.isFinal && game.players.length > 2){
         game.questions = null;
         game.isFinal = false;
@@ -641,11 +653,11 @@ let wlcommands = {
 			response = "There is no game in " + room + ".";
 		}else{
 			let num = game.players.length;
-			let oldActive = game.players[0].id;
+			let oldActive = game.players.length ? game.players[0].id : null;
 			for(let i=1;i<args.length;i++){
         removePlayer(game, args[i]);
       }
-			if(oldActive != game.players[0].id){
+			if(game.players.length && oldActive != game.players[0].id){
 				if(game.roundTimer){
 					if(game.bankTimer){
 						clearTimeout(game.bankTimer);
@@ -657,11 +669,34 @@ let wlcommands = {
 			response = "Removed " + (num-game.players.length) + " player" + ((num-game.players.length) === 1 ? "." : "s.");
 			if(game.canVote) onVote(game);
 		}
+    if(game.players.length < 2){
+        prepRound(game);
+        return;
+    }
 		chat.js.reply(message, response);
 		if(shouldPrep){
 			prepQuestion(game);
 		}
 	},
+  maxplayers: function(message, args, rank){
+    let room = message.room;
+    let max = args[1] && /^\d+$/.test(args[1]) ? parseInt(args[1]) : 0;
+		if(!room){
+      chat.js.reply(message, "You cannot use this command through PM.");
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			chat.js.reply(message, "Your rank is not high enough to use that command.");
+		}else if(!self.data.games[room]){
+			chat.js.reply(message, "There is no game in " + room + ".");
+		}else{
+			let game = self.data.games[room];
+			game.maxplayers = max;
+      if(max === 0){
+        chat.js.say(room, "Autojoin has been turned off.");
+      }else{
+        chat.js.say(room, "**Autojoin is now on! Type** ``**/me in**`` **to join!**");
+      }
+		}
+  },
 	checkplayers: function(message, args, rank){
 		let room = args.length > 1 ? toRoomId(args[1]) : message.room;
     let response = "uh oh";
@@ -679,6 +714,44 @@ let wlcommands = {
     }
     chat.js.reply(message, response);
 	},
+  modchat: function(message, args, rank){
+    let room = toRoomId(args[2]) || message.room;
+		if(!room){
+      chat.js.reply(message, "You must specify the room to use this command through PM.");
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			chat.js.reply(message, "Your rank is not high enough to use that command.");
+		}else if(!self.data.games[room]){
+			chat.js.reply(message, "There is no game in " + room + ".");
+		}else{
+			let game = self.data.games[room];
+      let arg = toId(args[1]);
+      if(arg && arg === "on" || !arg && !game.modchat){
+        if(!game.modchat){
+          if(auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
+            game.modchat = true;
+            chat.js.say(room, "Modchat for the game is now on.");
+            if(game.hasStarted){
+              startModchat(game);
+            }
+          }else{
+            chat.js.reply(message, "My rank is not high enough to support modchat.");
+          }
+        }else{
+          chat.js.reply(message, "Modchat is already on for this game.");
+        }
+      }else if(arg && arg === "off" || !arg && game.modchat){
+        if(game.modchat){
+          if(game.hasStarted){
+            endModchat(game);
+          }
+          game.modchat = false;
+          chat.js.say(game.room, "Modchat for the game is now off.");
+        }else{
+          chat.js.reply(message, "Modchat is already off for this game.");
+        }
+      }
+		}
+  },
 	startgame: function(message, args, rank){
 		let room = toRoomId(args[1]) || message.room;
 		let game = self.data.games[room];
@@ -876,7 +949,6 @@ let questioncommands = {
 				let questions = body.split("\n");
 				let newQuestions = [];
 				for(let i=0;i<questions.length;i++){
-          info(questions[i]);
 					let arr = questions[i].split(";").map(item=>{return item.trim()});
 					if(arr.length > 2){
 						let cat = arr[0];
@@ -995,7 +1067,13 @@ let prepRound = function(game, preamble){
   preamble = preamble || "";
   if(!game) return;
 
-  game.hasStarted = true;
+  if(!game.hasStarted){
+    game.hasStarted = true;
+    if(game.modchat){
+      startModchat(game);
+    }
+  }
+
   clearTimers(game);
   if(game.votes) delete game.votes;
   if(game.strongest) delete game.strongest;
@@ -1211,6 +1289,25 @@ let jumpToPlayer = function(game, playerName){
   }
 }
 
+let addPlayer = function(game, id){
+  if(id){
+    let displayName = rooms.js.getDisplayName(id, game.room);
+    let player = getPlayerById(game, id);
+    if(game.modchat && game.hasStarted){
+      voice(game, id);
+    }
+    if(displayName && !player){
+      game.players.push({
+        id: id,
+        displayName: displayName,
+        banked: 0,
+        correctAnswers: 0,
+        answered: 0 //Only used for the final
+      });
+    }
+  }
+}
+
 let removePlayer = function(game, playerName){
   //TODO move code detecting if a new round or question should be started Here
   // Deal with player being removed during final round.
@@ -1218,6 +1315,8 @@ let removePlayer = function(game, playerName){
   let id = toId(playerName);
   //Remove from game.players
   game.players = game.players.filter(item=>{return item.id !== id});
+
+  devoice(game, id);
 
   //Remove their vote if it existsSync, and votes for them
   if(game.votes){
@@ -1265,6 +1364,68 @@ let populateQuestions = function(game){
   }
 }
 
+let startModchat = function(game){
+  voiceAll(game);
+  chat.js.say(game.room, "/modchat +");
+}
+
+let endModchat = function(game){
+  devoiceAll(game);
+  if(game.modchat){
+    chat.js.say(game.room, "/modchat ac");
+  }
+}
+
+let voice = function(game, id){
+  info("trying to voice " + id);
+  info("True rank: '" + auth.js.getTrueRoomRank(id, game.room) + "'");
+  info(auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room)));
+  if(game && game.modchat && id && !game.tempVoices[id] && auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room))){
+    game.tempVoices[id] = true;
+    chat.js.say(game.room, "/roomvoice " + id);
+  }
+}
+
+let voiceAll = function(game){
+  if(game && game.modchat){
+    for(let i=0;i<game.players.length;i++){
+      let id = game.players[i].id;
+      info("trying to voice " + id);
+      info("True rank: '" + auth.js.getTrueRoomRank(id, game.room) + "'");
+      info(auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room)));
+      if(!game.tempVoices[id] && auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room))){
+        game.tempVoices[id] = true;
+        chat.js.say(game.room, "/roomvoice " + id);
+      }
+    }
+  }
+}
+
+let devoice = function(game, id){
+  if(game && id && game.tempVoices[id]){
+    delete game.tempVoices[id];
+    chat.js.say(game.room, "/roomdevoice " + id);
+  }
+}
+
+let devoiceAll = function(game){
+  if(game){
+    for(let user in game.tempVoices){
+      delete game.tempVoices[user];
+      chat.js.say(game.room, "/roomdevoice " + user);
+    }
+  }
+}
+
+let endGame = function(room){
+  let game = self.data.games[room];
+  if(game){
+    clearTimers(game);
+    endModchat(game);
+    delete self.data.games[room];
+  }
+}
+
 let clearTimers = function(game){
 	if(game.bankTimer){ //This timer gives time for a user to bank before their question.
 		clearTimeout(game.bankTimer);
@@ -1282,13 +1443,15 @@ let clearTimers = function(game){
 		clearTimeout(game.questionTimer);
 		game.questionTimer = null;
 	}
+  if(game.joinTimer){
+    clearTimeout(game.joinTimer);
+    game.joinTimer = null;
+  }
 };
 
 let saveQuestions = function(){
   let path = "data/questions.json";
-  fs.writeFile(path,JSON.stringify(self.data.questions, null, "\t"), function(){
-		//fs.closeSync(file);
-	});
+  fs.writeFileSync(path,JSON.stringify(self.data.questions, null, "\t"));
 };
 
 let loadQuestions = function(){
@@ -1299,6 +1462,11 @@ let loadQuestions = function(){
 	for(let i=0;i<self.data.questions.regular.length;i++){
 		if(!self.data.questions.regular[i].category){
 			self.data.questions.regular[i].category = "trivia";
+		}
+	}
+  for(let i=0;i<self.data.questions.final.length;i++){
+		if(!self.data.questions.final[i].category){
+			self.data.questions.final[i].category = "trivia";
 		}
 	}
 };

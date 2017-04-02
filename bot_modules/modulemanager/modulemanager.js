@@ -3,7 +3,6 @@ let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
 let chat = null;
 let auth = null;
-info("STARTING MODULEMANAGER");
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
@@ -197,7 +196,6 @@ let configFuncs = {
 			let property = args[1];
 			if(module.config[property]){
 				let value = getProperty(args[2], module.js.configTypes[property]);
-				info(value);
 				if(value){
 					module.config[property] = value;
 					saveConfig(name);

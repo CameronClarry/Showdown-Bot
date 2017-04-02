@@ -126,6 +126,9 @@ global.loadModule = function(name, loadData){
 		let module = modules[name];
 		if(module){
 			requiredBy = module.requiredBy;
+			if(loadData && module.js && module.js.onUnload){
+				module.js.onUnload();
+			}
 		}else{
 			module = {js:null,data:null,requiredBy:[],hooks:{},config:{}};
 		}

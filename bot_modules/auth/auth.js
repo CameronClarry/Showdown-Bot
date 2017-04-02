@@ -3,7 +3,6 @@ let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
 let chat = null;
 let rooms = null;
-info("AUTH STARTING");
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
@@ -179,10 +178,6 @@ let authCommands = {
 			response = result || "Successfully loaded the auth file.";
 		}
 		tryReply(message, response);
-	},
-	effRank: function(message, args){
-		info(JSON.stringify(args));
-		chat.js.reply(message, "Your effective rank in " + args[1] + " is '" + getEffectiveRoomRank(message, args[1]) + "'.");
 	}
 };
 
@@ -236,6 +231,17 @@ let getRoomRank = function(abnormaluser, room){
 	return rank;
 };
 exports.getRoomRank = getRoomRank;
+
+let getTrueRoomRank = function(user, room){
+	if(rooms && rooms.js){
+		let displayName = rooms.js.getDisplayName(user, room);
+		if(displayName && rankg(displayName[0], ranks[0])){
+			return displayName[0];
+		}
+	}
+	return " ";
+}
+exports.getTrueRoomRank = getTrueRoomRank;
 
 let getGlobalRank = function(abnormaluser){
 	let user = toId(abnormaluser);

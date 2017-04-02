@@ -41,7 +41,6 @@ const DELETE_LB_ENTRIES_SQL = "DELETE FROM tt_points WHERE leaderboard = $1;";
 const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.leaderboard = $1 ORDER BY lb.points DESC;";
 
 
-info("STARTING TRIVIATRACKER");
 
 // game:{
 // 	openReason:
@@ -295,7 +294,6 @@ let changeMains = function(id, newName, onEnd, onError){
 }
 
 let mergeAlts = function(fromName, toName, onEnd, onError){
-	info("Merging from " + fromName + " to " + toName);
 	getMains(fromName, toName, true, (res)=>{
 		if(res[0].id === res[1].id){
 			onError("Those two accounts are the same.");
@@ -890,7 +888,6 @@ let commands = {
 				}else if(!res[1] || res[0].id !== res[1].id){
 					chat.js.reply(message, "That account is not one of your alts.");
 				}else{
-					info("Merging accounts");
 					changeMains(res[0].id, removeRank(args[0]), ()=>{
 						chat.js.reply(message, "Your name was successfully changed.");
 					}, (err)=>{
@@ -923,7 +920,12 @@ let commands = {
 			chat.js.reply(message, "This pdf contains all the commands you need to know: https://drive.google.com/file/d/0B8KyGlawfHaKRUZxZGlqQ3RkVlk/view?usp=sharing");
 		}
 	},
-	rules: function(message, args){
+  rules: function(message, args){
+		if(chat&&chat.js){
+			chat.js.reply(message, "Here are the rules for questions: https://docs.google.com/document/d/1t-TWMx-1aQ1eRlXJFjpLME4JNiCfo_s5cU5WaTgxTX0/edit#");
+		}
+	},
+	legacyrules: function(message, args){
 		if(chat&&chat.js){
 			chat.js.reply(message, "Here are the rules for questions: https://drive.google.com/file/d/0B6H5ZoTTDakRYTBNMzUtWUNndWs/view");
 		}
@@ -1060,7 +1062,6 @@ let ttleaderboardCommands = {
 			}else{
 				let res;
 				getId(id, false, (res)=>{
-          info(JSON.stringify(res));
 					if(!res){
 						chat.js.reply(message, "You do not have a score on the " + lb + " leaderboard.");
 					}else{

@@ -2,7 +2,6 @@ let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let auth = null;
 let formatregex = /([_~*`^])\1(.+)\1\1/g;
-info("STARTING ROOMS");
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
@@ -51,7 +50,6 @@ exports.refreshDependencies = function(){
 	auth = getModuleForDependency("auth", "modulemanager");
 };
 exports.onConnect = function(){
-	info("Running onConnect code for rooms");
     joinAllRooms();
 };
 
