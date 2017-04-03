@@ -619,6 +619,11 @@ let commands = {
 							}
 						}
 					}
+          if(!game.bpOpen){
+            game.remindTimer = setTimeout(()=>{
+      				onRemind(game);
+      			}, self.config.remindTime*1000);
+          }
 					chat.js.say(room, response);
 				}
 			}
