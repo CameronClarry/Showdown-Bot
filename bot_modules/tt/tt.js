@@ -658,7 +658,7 @@ let commands = {
 			}else{
 				let history = game.history;
 				let name = history[history.length-1].active;
-				chat.js.reply(message, name + " currently has BP.");
+				chat.js.reply(message, name + " currently has BP" + (game.bpOpen ? " (BP is open)." : "."));
 				success = true;
 			}
 		}
