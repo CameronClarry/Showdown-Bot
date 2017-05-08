@@ -693,7 +693,7 @@ let wlcommands = {
       if(max === 0){
         chat.js.say(room, "Autojoin has been turned off.");
       }else{
-        chat.js.say(room, "**Autojoin is now on! Type** ``**/me in**`` **to join!**");
+        chat.js.say(room, "**Autojoin is now on! Type** ``**/me in**`` **to join! (wlsignups)**");
       }
 		}
   },

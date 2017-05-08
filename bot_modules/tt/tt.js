@@ -32,7 +32,7 @@ const UPDATE_LB_SQL = "UPDATE tt_leaderboards SET enabled = $2 WHERE id = $1;";
 
 const GET_LB_ENTRY_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;";
 const GET_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;";
-const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;"
+const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;"
 const INSERT_LB_ENTRY_SQL = "INSERT INTO tt_points VALUES ($1, $2, $3);";
 const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND leaderboard = $2;";
 const DELETE_LB_ENTRY_SQL = "DELETE FROM tt_points WHERE id = $1 AND leaderboard = $2;";
@@ -331,7 +331,8 @@ exports.onLoad = function(module, loadData){
     self.data = {
         games: {},
 				pendingAlts: {},
-        askToReset: ""
+        askToReset: "",
+        timers: {}
     };
 
 		try{
@@ -428,7 +429,11 @@ exports.onLoad = function(module, loadData){
 	};
 };
 exports.onUnload = function(){
-
+  for(let name in self.data.timers){
+    let t = self.data.timers[name];
+    clearTimeout(t.timer);
+    delete self.data.timers[name]
+  }
 };
 exports.refreshDependencies = function(){
 	chat = getModuleForDependency("chat", "tt");
@@ -918,6 +923,49 @@ let commands = {
 			chat.js.reply(message, "Saved leaderboard.");
 		}
 	},
+  //~timer [minutes], {message}, {room}
+  timer: function(message, args){
+    let room = toRoomId(args[2]) || message.room;
+    let announcement = args[1] || "Timer's up!";
+    let duration = args[0] && /^\d+$/.test(args[0]) && parseInt(args[0]);
+    if(duration>30){
+      duration = 0;
+    }
+    if(!duration){
+      chat.js.reply(message, "You must give a positive integer less than 30 for the duration.");
+    }else if(room){
+      let rank = auth.js.getRoomRank(message.user, room);
+      let timerName = "room:" + room;
+      if(!auth.js.rankgeq(rank, self.config.timerRank)){
+        chat.js.reply(message, "You rank is not high enough to set timers in " + room + ".");
+      }else if(self.data.timers[timerName]){
+        chat.js.reply(message, "There is already a timer for " + room + ".");
+      }else{
+        self.data.timers[timerName] = {
+          room: room,
+          timer: setTimeout(()=>{
+            delete self.data.timers[timerName];
+            chat.js.say(room, announcement);
+          }, duration*60*1000)
+        };
+        chat.js.reply(message, "Set the timer for " + duration + " minutes.");
+      }
+    }else{
+      let timerName = "user:" + toId(message.user);
+      if(self.data.timers[timerName]){
+        chat.js.reply(message, "You already have a timer.");
+      }else{
+        self.data.timers[timerName] = {
+          room: room,
+          timer: setTimeout(()=>{
+            delete self.data.timers[timerName];
+            chat.js.pm(message.user, announcement);
+          }, duration*60*1000)
+        };
+        chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
+      }
+    }
+  },
 	info: "help",
 	commands: "help",
 	help: function(message, args){
@@ -1570,6 +1618,7 @@ let loadLeaderboard = function(){
 };
 
 let defaultConfigs = {
+  timerRank: "%",
 	startGameRank: "+",
 	endGameRank: "%",
   manageBpRank: "+",
@@ -1584,6 +1633,7 @@ let defaultConfigs = {
 exports.defaultConfigs = defaultConfigs;
 
 let configTypes = {
+  timerRank: "rank",
 	startGameRank: "rank",
 	endGameRank: "rank",
   manageBpRank: "rank",
