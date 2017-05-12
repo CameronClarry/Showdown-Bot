@@ -931,16 +931,38 @@ let commands = {
     if(duration>30){
       duration = 0;
     }
-    if(!duration){
+    if(toId(args[0]) === "end"){
+      if(room){
+        let timerName = "room:" + room;
+        if(self.data.timers[timerName]){
+          clearTimeout(self.data.timers[timerName].timer);
+          delete self.data.timers[timerName];
+          chat.js.reply(message, "Successfully cleared the timer for " + room + ".");
+        }else{
+          chat.js.reply(message, "There isn't a timer for " + room + ".");
+        }
+      }else{
+        let timerName = "user:" + toId(message.user);
+        if(self.data.timers[timerName]){
+          clearTimeout(self.data.timers[timerName].timer);
+          delete self.data.timers[timerName];
+          chat.js.reply(message, "Successfully cleared your personal timer.");
+        }else{
+          chat.js.reply(message, "You don't have a personal timer.");
+        }
+      }
+    }else if(!duration){
       chat.js.reply(message, "You must give a positive integer less than 30 for the duration.");
     }else if(room){
       let rank = auth.js.getRoomRank(message.user, room);
       let timerName = "room:" + room;
       if(!auth.js.rankgeq(rank, self.config.timerRank)){
         chat.js.reply(message, "You rank is not high enough to set timers in " + room + ".");
-      }else if(self.data.timers[timerName]){
-        chat.js.reply(message, "There is already a timer for " + room + ".");
       }else{
+        if(self.data.timers[timerName]){
+          clearTimeout(self.data.timers[timerName].timer);
+          delete self.data.timers[timerName];
+        }
         self.data.timers[timerName] = {
           room: room,
           timer: setTimeout(()=>{
@@ -948,22 +970,22 @@ let commands = {
             chat.js.say(room, announcement);
           }, duration*60*1000)
         };
-        chat.js.reply(message, "Set the timer for " + duration + " minutes.");
+        chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
       }
     }else{
       let timerName = "user:" + toId(message.user);
       if(self.data.timers[timerName]){
-        chat.js.reply(message, "You already have a timer.");
-      }else{
-        self.data.timers[timerName] = {
-          room: room,
-          timer: setTimeout(()=>{
-            delete self.data.timers[timerName];
-            chat.js.pm(message.user, announcement);
-          }, duration*60*1000)
-        };
-        chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
+        clearTimeout(self.data.timers[timerName].timer);
+        delete self.data.timers[timerName];
       }
+      self.data.timers[timerName] = {
+        room: room,
+        timer: setTimeout(()=>{
+          delete self.data.timers[timerName];
+          chat.js.pm(message.user, announcement);
+        }, duration*60*1000)
+      };
+      chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
     }
   },
 	info: "help",
