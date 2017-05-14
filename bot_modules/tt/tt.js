@@ -455,7 +455,7 @@ let messageListener = function(m){
 				if(!idsMatch(m.user, mainConfig.user)){
 					let displayName = rooms.js.getDisplayName(m.user, m.room);
 					if(displayName){
-						let result = tryBatonPass(m.room, displayName, {active:displayName,undo: null}, game.bpOpen !== "auth", self.config.remindTime/2);
+						let result = tryBatonPass(m.room, displayName, {active:displayName,undo: null}, game.bpOpen !== "auth", self.config.remindTime/2, true);
 						if(result.result){
 							chat.js.say(m.room, "**It is now " + displayName + "'s turn to ask a question.**");
 						}
@@ -533,13 +533,13 @@ let commands = {
 					let nextPlayer = rooms.js.getDisplayName(args[0], room);
 					let result = tryBatonPass(room, args[0], {active:nextPlayer, undo:function(){
 						updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
-							return Math.max(oldPoints - 1, 0);
+							return Math.max(oldPoints - self.config.correctPoints, 0);
 						});
 					}}, false);
 					success = result.result;
 					if(success){
 						updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
-							return oldPoints + 1;
+							return oldPoints + self.config.correctPoints;
 						});
 						chat.js.say(room, result.response);
 					}else{
@@ -934,7 +934,10 @@ let commands = {
     if(toId(args[0]) === "end"){
       if(room){
         let timerName = "room:" + room;
-        if(self.data.timers[timerName]){
+        let rank = auth.js.getRoomRank(message.user, room);
+        if(!auth.js.rankgeq(rank, self.config.timerRank)){
+          chat.js.reply(message, "Your rank is not high enough to end the timer.");
+        }else if(self.data.timers[timerName]){
           clearTimeout(self.data.timers[timerName].timer);
           delete self.data.timers[timerName];
           chat.js.reply(message, "Successfully cleared the timer for " + room + ".");
@@ -1070,7 +1073,6 @@ let ttleaderboardCommands = {
 		if(args[1] && /^[\d]+$/.test(args[1])){
 			number = parseInt(args[1], 10);
 		}
-		let response = "The top " + number + " scores in the " + lb + " leaderboard are:";
 		let rows = [];
 		listLeaderboardEntries([number, lb], (row)=>{
 			rows.push(row);
@@ -1078,7 +1080,7 @@ let ttleaderboardCommands = {
 			if(!rows.length){
 				chat.js.reply(message, "There are no players on the " + lb + " leaderboard.");
 			}else{
-				chat.js.reply(message, "The top " + rows.length + " scores in the " + lb + " leaderboard are: " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".");
+				chat.js.reply(message, "The top " + rows.length + " score" + (rows.length === 1 ? "" : "s") + " in the " + lb + " leaderboard " + (rows.length === 1 ? "is" : "are") + ": " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".");
 			}
 		},(err)=>{
 			error(err);
@@ -1086,7 +1088,6 @@ let ttleaderboardCommands = {
 		});
 	},
 	check: function(message, args, rank){
-		let response = "Something has probably gone very wrong if you see this text";
 		let user = args[1] || message.user;
 		let lb = toId(args[2]) || "main";
     let lbExists = false;
@@ -1511,7 +1512,7 @@ let ttleaderboardEventCommands = {
   }
 };
 
-let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTime){
+let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTime, wasClaimed){
   remindTime = remindTime || self.config.remindTime;
 	let game = self.data.games[room];
 	let result = false;
@@ -1533,6 +1534,16 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 					lastHist.undo = null;
 				}
 			}
+      if(wasClaimed){
+        updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
+          return Math.max(oldPoints + self.config.claimPoints, 0);
+        });
+        historyToAdd = {active:nextPlayer, undo:function(){
+          updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
+            return Math.max(oldPoints - self.config.claimPoints, 0);
+          });
+        }}
+      }
 			game.history.add(historyToAdd);
 			if(history.length>10){
 				history.shift();
@@ -1649,7 +1660,9 @@ let defaultConfigs = {
 	resetLeaderboardRank: "#",
 	manageEventRank: "#",
   remindTime: 240,
-  openTime: 60
+  openTime: 60,
+  correctPoints: 2,
+  claimPoints: 1
 };
 
 exports.defaultConfigs = defaultConfigs;
@@ -1664,7 +1677,9 @@ let configTypes = {
 	resetLeaderboardRank: "rank",
 	manageEventRank: "rank",
   remindTime: "int",
-  openTime: "int"
+  openTime: "int",
+  correctPoints: "int",
+  claimPoints: "int"
 };
 
 exports.configTypes = configTypes;
