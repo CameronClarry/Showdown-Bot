@@ -24,6 +24,12 @@ exports.onLoad = function(module, loadData){
 					if(commands[command]&&auth&&auth.js){
 						commands[command](m, chatArgs);
 					}
+				}else if(/\/invite\s/.test(text)){
+					let roomName = toRoomId(text.split(" ")[1]);
+					let userRank = auth.js.getEffectiveRoomRank(m, roomName);
+					if(auth.js.rankgeq(userRank,"#")){
+						send("|/join " + roomName);
+					}
 				}
 			}
 		},
@@ -116,6 +122,15 @@ let roomActions = {
 		if(self.data.roomlist.indexOf(room) === -1){
 			self.data.roomlist.add(room);
 			saveRoomlist();
+		}
+	},
+	noinit: function(room,args){
+		if(self.data.roomlist.indexOf(room) !== -1){
+			self.data.roomlist.remove(room);
+			saveRoomlist();
+			info("Could not join " + room + ", it has been removed from the autojoin list.");
+		}else{
+			error("Tried to join " + room + " and failed but couldn't find it in the roomlist, something may be wrong.");
 		}
 	},
 	users: function(room, args){

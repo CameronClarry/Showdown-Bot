@@ -4,6 +4,7 @@ let chat = null;
 let auth = null;
 let rooms = null;
 let pg = require("pg");
+let request = require("request");
 const conInfo = {
       user: mainConfig.dbuser,
       password: mainConfig.dbpassword,
@@ -87,7 +88,7 @@ let pgReconnect = function(message){
 			chat.js.reply(message, "Unable to connect to database.");
 		}
 	}
-}
+};
 
 let runSql = function(statement, args, onRow, onEnd, onError){
 	if(!self.data.connected){
@@ -812,14 +813,16 @@ let commands = {
 					alts.push(row);
 				}, ()=>{
 					alts = alts.map((alt)=>{return alt.username});
-					let text = alts.length ? res[1].display_name + "'s alts: " + alts.shift() : target + " does not have any alts";
-					while(alts.length && text.length + alts[0].length < 280){
-						text += ", " + alts.shift();
-					}
-					if(alts.length){
-						text += " and " + alts.length + " more";
-					}
-					chat.js.reply(message, text + ".");
+          if(alts.length === 0){
+            chat.js.reply(message, target + " does not have any alts");
+          }else if(alts.length < 11){
+            chat.js.reply(message, res[1].display_name + "'s alts: " + alts.join(", "));
+          }else{
+            let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
+            request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+      				chat.js.reply(message, "There were more than 10 alts, so they were put in a hastebin: hastebin.com/" + JSON.parse(body).key);
+      			});
+          }
 				}, (err)=>{
 					error(err);
 					chat.js.reply(message, "Something went wrong finding " + target + "'s alts.");
@@ -960,7 +963,7 @@ let commands = {
       let rank = auth.js.getRoomRank(message.user, room);
       let timerName = "room:" + room;
       if(!auth.js.rankgeq(rank, self.config.timerRank)){
-        chat.js.reply(message, "You rank is not high enough to set timers in " + room + ".");
+        chat.js.reply(message, "Your rank is not high enough to set timers in " + room + ".");
       }else{
         if(self.data.timers[timerName]){
           clearTimeout(self.data.timers[timerName].timer);
