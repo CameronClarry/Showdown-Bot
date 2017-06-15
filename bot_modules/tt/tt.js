@@ -405,7 +405,7 @@ exports.onLoad = function(module, loadData){
 										error("Error with player leave callback");
 										error(e.message);
 									}
-								}, 20000);
+								}, self.config.leaveGraceTime*1000);
 							}
 						}
 					}else if(command === "n"){
@@ -1664,6 +1664,7 @@ let defaultConfigs = {
 	manageEventRank: "#",
   remindTime: 240,
   openTime: 60,
+  leaveGraceTime: 20,
   correctPoints: 2,
   claimPoints: 1
 };
@@ -1681,6 +1682,7 @@ let configTypes = {
 	manageEventRank: "rank",
   remindTime: "int",
   openTime: "int",
+  leaveGraceTime: "int",
   correctPoints: "int",
   claimPoints: "int"
 };
