@@ -820,7 +820,12 @@ let commands = {
           }else{
             let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
             request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-      				chat.js.reply(message, "There were more than 10 alts, so they were put in a hastebin: hastebin.com/" + JSON.parse(body).key);
+              try{
+                chat.js.reply(message, "There were more than 10 alts, so they were put in a hastebin: hastebin.com/" + JSON.parse(body).key);
+              }catch(e){
+                error(e.message);
+                chat.js.reply(message, "Something was wrong with the response from hastebin. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
+              }
       			});
           }
 				}, (err)=>{
