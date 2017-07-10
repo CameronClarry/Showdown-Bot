@@ -320,7 +320,6 @@ exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
 	if(loadData){
-
 		try{
       if(self.data && self.data.client){
         self.data.client.end();
@@ -335,6 +334,7 @@ exports.onLoad = function(module, loadData){
         askToReset: "",
         timers: {}
     };
+    loadFacts();
 
 		try{
       self.data.client = new pg.Client(conInfo);
@@ -999,6 +999,54 @@ let commands = {
       chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
     }
   },
+  addfact: function(message, args, rank){
+    if(auth.js.rankgeq(rank, self.config.factRank)){
+      if(!args.length){
+        chat.js.reply(message, "You need to give a fact to add.");
+      }else{
+        let fact = args.join(", ");
+        let factId = toId(fact);
+        if(self.data.facts.filter(f=>{return f.id == factId}).length){
+          chat.js.reply(message, "That fact already exists.");
+        }else{
+          self.data.facts.add({text: fact, id: factId});
+          saveFacts();
+          chat.js.reply(message, "Successfully added the fact.");
+        }
+      }
+    }else{
+      chat.js.reply(message, "Your rank is not high enough to edit facts.");
+    }
+  },
+  removefact: function(message, args, rank){
+    if(auth.js.rankgeq(rank, self.config.factRank)){
+      if(!args.length){
+        chat.js.reply(message, "You need to give a fact to remove.");
+      }else{
+        let fact = args.join(", ");
+        let factId = toId(fact);
+        let num = self.data.facts.length;
+        self.data.facts = self.data.facts.filter(f=>{return f.id !== factId});
+        if(self.data.facts.length === num){
+          chat.js.reply(message, "That fact does not exist.");
+        }else{
+          saveFacts();
+          chat.js.reply(message, "Successfully removed the fact.");
+        }
+      }
+    }else{
+      chat.js.reply(message, "Your rank is not high enough to edit facts.");
+    }
+  },
+  randfact: "fact",
+  randomfact: "fact",
+  fact: function(message, args, rank){
+    if(self.data.facts.length){
+      chat.js.reply(message, self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text);
+    }else{
+      chat.js.reply(message, "There are no facts :<");
+    }
+  },
 	info: "help",
 	commands: "help",
 	help: function(message, args){
@@ -1164,12 +1212,13 @@ let ttleaderboardCommands = {
                     chat.js.reply(message, "You are the only person on the leaderboard (and your score is " + score + ").");
                   }else{
                     if(entries[0].points === score){
-                      chat.js.reply(message, "You are first on the leaderboard, second place is " + entries[1].display_name + " with " + entries[1].points + " points.");
+                      let nextPlayer = idsMatch(entries[0].display_name, id) ? entries[1] : entries[0];
+                      chat.js.reply(message, "You are first on the leaderboard, second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
                     }else{
                       let higherEntries = entries.filter(item=>{return item.points > score});
-                      let response = "First place is " + entries[0].display_name + " with " + entries[0].points + " points.";
+                      let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
                       response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
-                      response += " The next player above you is " + higherEntries[higherEntries.length - 1].display_name + " with " + higherEntries[higherEntries.length - 1].points + " points.";
+                      response += " The next player above you is __" + higherEntries[higherEntries.length - 1].display_name + "__ with " + higherEntries[higherEntries.length - 1].points + " points.";
                       chat.js.reply(message, response);
                     }
                   }
@@ -1658,8 +1707,40 @@ let loadLeaderboard = function(){
 	}
 };
 
+let saveFacts = function(){
+	try{
+		let filename = "data/facts.json";
+		let factsFile = fs.openSync(filename,"w");
+		fs.writeSync(factsFile,JSON.stringify(self.data.facts, null, "\t"));
+		fs.closeSync(factsFile);
+	}catch(e){
+		error(e.message);
+	}
+}
+
+let loadFacts = function(){
+	let result = "Could not load the facts.";
+	try{
+		let filename = "data/facts.json";
+		if(fs.existsSync(filename)){
+			self.data.facts = JSON.parse(fs.readFileSync(filename, "utf8"));
+			result = "Found and loaded the facts.";
+		}else{
+			self.data.facts = [];
+			let factsFile = fs.openSync(filename,"w");
+			fs.writeSync(factsFile,JSON.stringify(self.data.facts, null, "\t"));
+			fs.closeSync(factsFile);
+			result = "Could not find the facts file, made a new one.";
+		}
+	}catch(e){
+		error(e.message);
+	}
+	info(result);
+};
+
 let defaultConfigs = {
   timerRank: "%",
+  factRank: "+",
 	startGameRank: "+",
 	endGameRank: "%",
   manageBpRank: "+",
@@ -1678,6 +1759,7 @@ exports.defaultConfigs = defaultConfigs;
 
 let configTypes = {
   timerRank: "rank",
+  factRank: "rank",
 	startGameRank: "rank",
 	endGameRank: "rank",
   manageBpRank: "rank",

@@ -1160,7 +1160,7 @@ let endRound = function(game){
 	clearTimers(game);
 	game.canVote = true;
   game.votes = {};
-	chat.js.say(game.room, "**The round is over. PM your votes for the weakest link to me with ~vote [user].**");
+	chat.js.say(game.room, "**The round is over. The current players are: " + game.players.map(p=>{return p.displayName}).join(", ") + ". Please PM your votes for the weakest link to me with ~vote [user].**");
 }
 
 let onVote = function(game){
