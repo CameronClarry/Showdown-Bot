@@ -1042,7 +1042,23 @@ let commands = {
   randomfact: "fact",
   fact: function(message, args, rank){
     if(self.data.facts.length){
-      chat.js.reply(message, self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text);
+      chat.js.reply(message, "__" + self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text + "__");
+    }else{
+      chat.js.reply(message, "There are no facts :<");
+    }
+  },
+  facts: "factlist",
+  factlist: function(message, args, rank){
+    if(self.data.facts.length){
+      let text = self.data.facts.map(f=>{return f.text}).join("\n\n");
+      request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+        try{
+          chat.js.reply(message, "Here is a list of all the facts: hastebin.com/" + JSON.parse(body).key);
+        }catch(e){
+          error(e.message);
+          chat.js.reply(message, "Something was wrong with the response from hastebin.");
+        }
+      });
     }else{
       chat.js.reply(message, "There are no facts :<");
     }
