@@ -203,7 +203,6 @@ let achievementCommands = {
 	add: function(message, args, rank){
 		if(auth.js.rankgeq(rank, self.config.achievementManageRank)){
 			if(args.length>2){
-				info(JSON.stringify(args));
 				let name = args[0];
 				let id = toId(name);
 				let desc = args[1];
@@ -216,7 +215,6 @@ let achievementCommands = {
 					chat.js.reply(message, "The value must be a non-negative integer.")
 				}else{
 					runSql(INSERT_ACHIEVEMENT_SQL, [name, id, desc, points], (row)=>{
-						info(JSON.stringify(row));
 					},()=>{
 						chat.js.reply(message, "Successfully created the achievement.");
 					},(err)=>{
