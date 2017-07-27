@@ -10,6 +10,9 @@ CREATE TABLE tt_leaderboards(id VARCHAR(20) PRIMARY KEY NOT NULL, display_name V
 
 CREATE TABLE wl_lb(id INT PRIMARY KEY NOT NULL, correct INTEGER NOT NULL, incorrect INTEGER NOT NULL, passed INTEGER NOT NULL, wins INTEGER NOT NULL, banked INTEGER NOT NULL, won INTEGER NOT NULL);
 
+CREATE TABLE achievement_list(id SERIAL PRIMARY KEY, name VARCHAR(40) NOT NULL, name_id VARCHAR(40) NOT NULL UNIQUE, description VARCHAR(300) NOT NULL, value INT NOT NULL);
+
+CREATE TABLE player_achievements(player_id INT NOT NULL, achievement_id INT NOT NULL, date_achieved TIMESTAMP NOT NULL, PRIMARY KEY(player_id, achievement_id));
 --####################
 --USER AND ALT QUERIES
 --####################
@@ -96,3 +99,31 @@ DELETE FROM tt_points WHERE leaderboard = $1;
 
 --GET_ALL_LB_ENTRIES_SQL
 SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.leaderboard = $1 ORDER BY lb.points DESC;
+
+--###################
+--ACHIEVEMENT QUERIES
+--###################
+
+--INSERT_ACHIEVEMENT_SQL
+INSERT INTO achievement_list VALUES (DEFAULT, $1, $2, $3, $4);
+
+--DELETE_ACHIEVEMENT_SQL
+DELETE FROM achievement_list WHERE name_id = $1;
+
+--GET_ALL_ACHIEVEMENTS_SQL
+SELECT * FROM achievement_list;
+
+--GET_ACHIEVEMENT_BY_NAME_SQL
+SELECT * FROM achievement_list WHERE name_id = $1;
+
+--INSERT_PLAYER_ACHIEVEMENT_SQL
+INSERT INTO player_achievements VALUES ($1, $2, CURRENT_TIMESTAMP);
+
+--DELETE_PLAYER_ACHIEVEMENT_SQL
+DELETE FROM player_achievements WHERE player_id = $1 AND achievement_id = $2;
+
+--DELETE_ACHIEVEMENT_BY_NAME_SQL
+DELETE FROM player_achievements WHERE achievement_id = (SELECT id FROM achievement_list WHERE name_id = $1 FETCH FIRST 1 ROWS ONLY);
+
+--GET_PLAYER_ACHIEVEMENTS_SQL
+SELECT achievement_list.name from player_achievements INNER JOIN achievement_list ON player_achievements.achievement_id = achievement_list.id WHERE player_achievements.player_id = $1;
