@@ -7,9 +7,9 @@ exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
 	if(loadData){
-	    self.data = {modulesToLoad: []};
-	    loadModuleList();
-	    loadAllModules();
+		self.data = {modulesToLoad: []};
+		loadModuleList();
+		loadAllModules();
 	}
 	self.chathooks = {
 		chathook: function(m){

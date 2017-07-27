@@ -15,7 +15,7 @@ exports.onUnload = function(){
 
 };
 exports.refreshDependencies = function(){
-    auth = getModuleForDependency("auth","chat");
+	auth = getModuleForDependency("auth","chat");
 };
 
 let say = function(room, message){

@@ -33,8 +33,8 @@ exports.onUnload = function(){
 
 };
 exports.refreshDependencies = function(){
-    chat = getModuleForDependency("chat", "auth");
-    rooms = getModuleForDependency("rooms", "auth");
+	chat = getModuleForDependency("chat", "auth");
+	rooms = getModuleForDependency("rooms", "auth");
 };
 exports.onConnect = function(){
 

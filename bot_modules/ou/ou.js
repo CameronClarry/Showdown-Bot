@@ -63,8 +63,8 @@ exports.onUnload = function(){
 };
 
 exports.refreshDependencies = function(){
-  chat = getModuleForDependency("chat", "ou");
-  auth = getModuleForDependency("auth", "ou");
+	chat = getModuleForDependency("chat", "ou");
+	auth = getModuleForDependency("auth", "ou");
 };
 
 exports.onConnect = function(){
@@ -72,34 +72,34 @@ exports.onConnect = function(){
 };
 
 let commands = {
-  randomize: function(message, args, rank){
-    if(!auth.js.rankgeq(rank, "%")){
-      chat.js.reply(message, "Your rank is not high enough to use that command.");
-      return;
-    }
-    let arg = toId(args[0]);
-    if(arg && arg === "on" || !arg && !self.data.ouOn){
-      if(!self.data.ouOn){
-        self.data.ouOn = true;
-        self.data.ouTimer = setTimeout(sayPokes, 20000);
-        chat.js.say(self.config.room, "You should have bid more.");
-      }else{
-        chat.js.reply(message, "It's already on.");
-      }
-    }else if(arg && arg === "off" || !arg && self.data.ouOn){
-      if(self.data.ouOn){
-        self.data.ouOn = false;
-        if(self.data.ouTimer){
-          clearTimeout(self.data.ouTimer);
-          self.data.ouTimer = null;
-        }
-        chat.js.say(self.config.room, "Time's up!");
-      }else{
-        chat.js.reply(message, "It's already off.");
-      }
-    }
-  },
-  setprizes: function(message, args, rank){
+	randomize: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "%")){
+			chat.js.reply(message, "Your rank is not high enough to use that command.");
+			return;
+		}
+		let arg = toId(args[0]);
+		if(arg && arg === "on" || !arg && !self.data.ouOn){
+			if(!self.data.ouOn){
+				self.data.ouOn = true;
+				self.data.ouTimer = setTimeout(sayPokes, 20000);
+				chat.js.say(self.config.room, "You should have bid more.");
+			}else{
+				chat.js.reply(message, "It's already on.");
+			}
+		}else if(arg && arg === "off" || !arg && self.data.ouOn){
+			if(self.data.ouOn){
+				self.data.ouOn = false;
+				if(self.data.ouTimer){
+					clearTimeout(self.data.ouTimer);
+					self.data.ouTimer = null;
+				}
+				chat.js.say(self.config.room, "Time's up!");
+			}else{
+				chat.js.reply(message, "It's already off.");
+			}
+		}
+	},
+	setprizes: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, "%")){
 			chat.js.reply(message, "Your rank is not high enough to use that command.");
 		}else{
@@ -111,8 +111,8 @@ let commands = {
 				chat.js.reply(message, "Set the items to be actioned.");
 			}
 		}
-  },
-  setplayers: function(message, args, rank){
+	},
+	setplayers: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, "%")){
 			chat.js.reply(message, "Your rank is not high enough to use that command.");
 		}else{
@@ -131,7 +131,7 @@ let commands = {
 				chat.js.reply(message, "Set the players participating in the auction.");
 			}
 		}
-  },
+	},
 	nextitem: function(message, args, rank){
 		let auction = self.data.auction;
 		if(!auction || !auction.items || !auction.items.length){
@@ -155,32 +155,32 @@ let commands = {
 			}
 		}
 	},
-  bid: function(message, args, rank){
-    let id = toId(message.user);
-    let auction = self.data.auction;
-    let players = auction && auction.players || [];
-    let amountStr = args[0] || "" + DEFAULT_BID;
-    if(!auction || !auction.active){
-      chat.js.reply(message, "Bidding is not open right now.");
-    }else if(!players[id]){
-      chat.js.reply(message, "You are not in the auction.");
-    }else if(!/^\d+$/.test(amountStr) || parseInt(amountStr)%DEFAULT_BID !== 0){
-      chat.js.reply(message, "You must give a multiple of " + DEFAULT_BID + ".");
-    }else{
-      let amount = parseInt(amountStr) || DEFAULT_BID;
-      if(players[id].money < auction.price + amount){
-        chat.js.reply(message, "You don't have enough left to make that bid.");
-      }else{
-        auction.price += amount;
+	bid: function(message, args, rank){
+		let id = toId(message.user);
+		let auction = self.data.auction;
+		let players = auction && auction.players || [];
+		let amountStr = args[0] || "" + DEFAULT_BID;
+		if(!auction || !auction.active){
+			chat.js.reply(message, "Bidding is not open right now.");
+		}else if(!players[id]){
+			chat.js.reply(message, "You are not in the auction.");
+		}else if(!/^\d+$/.test(amountStr) || parseInt(amountStr)%DEFAULT_BID !== 0){
+			chat.js.reply(message, "You must give a multiple of " + DEFAULT_BID + ".");
+		}else{
+			let amount = parseInt(amountStr) || DEFAULT_BID;
+			if(players[id].money < auction.price + amount){
+				chat.js.reply(message, "You don't have enough left to make that bid.");
+			}else{
+				auction.price += amount;
 				auction.winner = message.user;
-        chat.js.say(self.config.room, message.user + " has bid $" + auction.price + ".");
-        if(auction.endTimer){
+				chat.js.say(self.config.room, message.user + " has bid $" + auction.price + ".");
+				if(auction.endTimer){
 					clearTimeout(auction.endTimer);
 				}
 				auction.endTimer = setTimeout(endAuction, END_SECONDS*1000)
-      }
-    }
-  }
+			}
+		}
+	}
 };
 
 let endAuction = function(){
@@ -212,15 +212,15 @@ let endAuction = function(){
 };
 
 let sayPokes = function(){
-  let tempArray = choices.slice(0);
-  let num = Math.floor(Math.random()*tempArray.length);
-  let item1 = tempArray.splice(num, 1)[0];
-  num = Math.floor(Math.random()*tempArray.length);
-  let item2 = tempArray.splice(num, 1)[0];
-  num = Math.floor(Math.random()*tempArray.length);
-  let item3 = tempArray.splice(num, 1)[0];
-  chat.js.say(self.config.room, "Here are your three options: " + item1 + ", " + item2 + ", " + item3);
-  self.data.ouTimer = setTimeout(sayPokes, 20000);
+	let tempArray = choices.slice(0);
+	let num = Math.floor(Math.random()*tempArray.length);
+	let item1 = tempArray.splice(num, 1)[0];
+	num = Math.floor(Math.random()*tempArray.length);
+	let item2 = tempArray.splice(num, 1)[0];
+	num = Math.floor(Math.random()*tempArray.length);
+	let item3 = tempArray.splice(num, 1)[0];
+	chat.js.say(self.config.room, "Here are your three options: " + item1 + ", " + item2 + ", " + item3);
+	self.data.ouTimer = setTimeout(sayPokes, 20000);
 };
 
 let defaultConfigs = {

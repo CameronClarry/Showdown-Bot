@@ -5,11 +5,11 @@ let rooms = null;
 let pg = require("pg");
 let request = require("request");
 const conInfo = {
-      user: mainConfig.dbuser,
-      password: mainConfig.dbpassword,
-      database: mainConfig.dbname,
-      host: mainConfig.dbhost,
-      port: mainConfig.dbport
+	user: mainConfig.dbuser,
+	password: mainConfig.dbpassword,
+	database: mainConfig.dbname,
+	host: mainConfig.dbhost,
+	port: mainConfig.dbport
 };
 
 //Queries
@@ -118,17 +118,17 @@ exports.onLoad = function(module, loadData){
 	self.js.refreshDependencies();
 	if(loadData){
 		try{
-      if(self.data && self.data.client){
-        self.data.client.end();
-      }
-    }catch(e){
-      error(e.message);
-    }
+			if(self.data && self.data.client){
+					self.data.client.end();
+			}
+		}catch(e){
+			error(e.message);
+		}
 
 		self.data = {};
 
 		try{
-      self.data.client = new pg.Client(conInfo);
+			self.data.client = new pg.Client(conInfo);
 			self.data.client.connect((err)=>{
 				if(err){
 					error(err);
@@ -144,9 +144,9 @@ exports.onLoad = function(module, loadData){
 				self.data.connected = false;
 				error("Client connection ended");
 			});
-    }catch(e){
-      error(e.message);
-    }
+		}catch(e){
+			error(e.message);
+		}
 	}
 	self.chathooks = {
 		chathook: function(m){

@@ -7,8 +7,8 @@ exports.onLoad = function(module, loadData){
 	self.js.refreshDependencies();
 	leaveAllRooms();
 	if(loadData){
-	    self.data = {rooms: {}, roomlist: []};
-	    loadRoomlist();
+		self.data = {rooms: {}, roomlist: []};
+		loadRoomlist();
 	}
 	joinAllRooms();
 	self.chathooks = {
@@ -50,13 +50,13 @@ exports.onLoad = function(module, loadData){
 	};
 };
 exports.onUnload = function(){
-    leaveAllRooms();
+	leaveAllRooms();
 };
 exports.refreshDependencies = function(){
 	auth = getModuleForDependency("auth", "modulemanager");
 };
 exports.onConnect = function(){
-    joinAllRooms();
+	joinAllRooms();
 };
 
 let commands = {
@@ -209,9 +209,9 @@ exports.getDisplayName = getDisplayName;
 
 let replaceAll = function(text, reg){
 	while(reg.test(text)){
-  	text = text.replace(reg, "$2");
-  }
-  return text;
+		text = text.replace(reg, "$2");
+	}
+	return text;
 }
 
 let defaultConfigs = {

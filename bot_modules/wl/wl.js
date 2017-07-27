@@ -6,11 +6,11 @@ let auth = null;
 let chat = null;
 let pg = require("pg");
 const conInfo = {
-      user: mainConfig.dbuser,
-      password: mainConfig.dbpassword,
-      database: mainConfig.dbname,
-      host: mainConfig.dbhost,
-      port: mainConfig.dbport
+	user: mainConfig.dbuser,
+	password: mainConfig.dbpassword,
+	database: mainConfig.dbname,
+	host: mainConfig.dbhost,
+	port: mainConfig.dbport
 };
 const VOTE_TIME = 30;
 const DECIDE_TIME = 30;
@@ -67,7 +67,7 @@ let pgReconnect = function(message){
 }
 
 let runSql = function(statement, args, onRow, onEnd, onError){
-  if(!onError){
+	if(!onError){
 		onError = (err)=>{
 			error(err.message);
 		};
@@ -114,14 +114,14 @@ let getEntryById = function(id, onEnd, onError){
 let getEntryByName = function(username, onEnd, onError){
 	let res;
 	getId(username, false, (user)=>{
-    if(user){
-      getEntryById(user.id, (res)=>{
-        onEnd(res);
-      }, onError);
-    }else{
-      onEnd(null);
-    }
-  }, onError);
+		if(user){
+			getEntryById(user.id, (res)=>{
+				onEnd(res);
+			}, onError);
+		}else{
+			onEnd(null);
+		}
+	}, onError);
 }
 
 let updateEntry = function(entry, onEnd, onError){
@@ -154,21 +154,21 @@ exports.onLoad = function(module, loadData){
 	self.js.refreshDependencies();
 	if(loadData){
 		try{
-      if(self.data && self.data.client){
-        self.data.client.end();
-      }
-    }catch(e){
-      error(e.message);
-    }
+			if(self.data && self.data.client){
+				self.data.client.end();
+			}
+		}catch(e){
+			error(e.message);
+		}
 		self.data = {
-      games: {},
-      questions: {
+			games: {},
+			questions: {
 				regular: [],
 				final: []
 			}
-    };
+		};
 		try{
-      self.data.client = new pg.Client(conInfo);
+			self.data.client = new pg.Client(conInfo);
 			self.data.client.connect((err)=>{
 				if(err){
 					error(err);
@@ -184,10 +184,10 @@ exports.onLoad = function(module, loadData){
 				self.data.connected = false;
 				error("Client connection ended");
 			});
-    }catch(e){
-      error(e.message);
-    }
-    loadQuestions();
+		}catch(e){
+			error(e.message);
+		}
+		loadQuestions();
 	}
 
 	self.chathooks = {
@@ -217,15 +217,15 @@ exports.onLoad = function(module, loadData){
 		}
 	};
 
-  self.messagehooks = {
+	self.messagehooks = {
 	};
 };
 
 exports.onUnload = function(){
 	saveQuestions();
-  for(let room in self.data.games){
-    endGame(room);
-  }
+	for(let room in self.data.games){
+		endGame(room);
+	}
 };
 
 exports.refreshDependencies = function(){
@@ -241,57 +241,57 @@ exports.onConnect = function(){
 let messageListener = function(m){
 	let game = self.data.games[m.room];
 	if(game){
-    let text = toId(m.message);
-    let id = toId(m.user)
-    if(!game.hasStarted && game.players.length < game.maxplayers && text === "mein" && !getPlayerById(game, id)){
-      addPlayer(game, id);
-      if(game.joinTimer){
-        clearTimeout(game.joinTimer);
-      }
-      game.joinTimer = setTimeout(()=>{
-        game.joinTimer = null;
-        let numPlayers = game.players.length;
-        chat.js.say(game.room, "There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
-      }, 5000);
-    }
+		let text = toId(m.message);
+		let id = toId(m.user)
+		if(!game.hasStarted && game.players.length < game.maxplayers && text === "mein" && !getPlayerById(game, id)){
+			addPlayer(game, id);
+			if(game.joinTimer){
+				clearTimeout(game.joinTimer);
+			}
+			game.joinTimer = setTimeout(()=>{
+				game.joinTimer = null;
+				let numPlayers = game.players.length;
+				chat.js.say(game.room, "There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
+			}, 5000);
+		}
 	}
 };
 
 let commands = {
-  wl: function(message, args, rank){
-    if(args.length > 0){
-      let command = wlcommands[args[0].toLowerCase()];
-      if(typeof command === "string"){
-        command = wlcommands[command];
-      }
+	wl: function(message, args, rank){
+		if(args.length > 0){
+			let command = wlcommands[args[0].toLowerCase()];
+			if(typeof command === "string"){
+				command = wlcommands[command];
+			}
 			if(command){
 				command(message, args, rank);
 			}
-    }
-  },
+		}
+	},
 	wll: function(message, args, rank){
-    if(args.length > 0){
-      let command = wllcommands[args[0].toLowerCase()];
-      if(typeof command === "string"){
-        command = wllcommands[command];
-      }
+		if(args.length > 0){
+			let command = wllcommands[args[0].toLowerCase()];
+			if(typeof command === "string"){
+				command = wllcommands[command];
+			}
 			if(command){
 				command(message, args, rank);
 			}
-    }
-  },
-  question: function(message, args, rank, qwrank){
-    if(args.length > 0){
-      let command = questioncommands[args[0].toLowerCase()];
-      if(typeof command === "string"){
-        command = questioncommands[command];
-      }
+		}
+	},
+	question: function(message, args, rank, qwrank){
+		if(args.length > 0){
+			let command = questioncommands[args[0].toLowerCase()];
+			if(typeof command === "string"){
+				command = questioncommands[command];
+			}
 			if(command){
 				command(message, args, rank, qwrank);
 			}
-    }
-  },
-  pass: function(message, args, rank){
+		}
+	},
+	pass: function(message, args, rank){
 		let room = message.room;
 		let game = self.data.games[room];
 		let success = false;
@@ -303,71 +303,71 @@ let commands = {
 		}else if(!game.question){
 			chat.js.reply(message, "There is no question right now.");
 		}else if((!game.players || game.players[0].id !== toId(message.user) && !isHost)){
-      chat.js.reply(message, "You can't use that command right now.");
-    }else{
+			chat.js.reply(message, "You can't use that command right now.");
+		}else{
 			game.pot = 0;
-      if(game.isFinal){
-        finalAnswerQuestion(game, false, "You have passed. ");
-        return;
-      }
+			if(game.isFinal){
+				finalAnswerQuestion(game, false, "You have passed. ");
+				return;
+			}
 			updateByUsername(game.players[0].id, (entry)=>{
 				entry.passed++;
 				return entry;
 			});
-      rotatePlayers(game);
+			rotatePlayers(game);
 			prepQuestion(game, "The pot is now empty. ");
 		}
-  },
-  bank: function(message, args, rank){
+	},
+	bank: function(message, args, rank){
 		let room = message.room;
 		let game = self.data.games[room];
-    if(!room){
-      chat.js.reply(message, "This cannot be done through PM.");
-    }else if(!game){
-      chat.js.reply(message, "There is no game in " + room + ".");
-    }else if(!game.canBank){
+		if(!room){
+			chat.js.reply(message, "This cannot be done through PM.");
+		}else if(!game){
+			chat.js.reply(message, "There is no game in " + room + ".");
+		}else if(!game.canBank){
 			chat.js.reply(message, "You cannot bank at this time.");
 		}else if(game.players[0].id !== toId(message.user)){
-      chat.js.reply(message, "You are not the active player.");
-    }else if(game.pot === 0){
+			chat.js.reply(message, "You are not the active player.");
+		}else if(game.pot === 0){
 			chat.js.say(room, "The pot is empty.");
 		}else{
-      let amount = POT_AMOUNTS[game.pot];
+			let amount = POT_AMOUNTS[game.pot];
 			game.bank+=amount;
 			game.players[0].banked+=amount;
 			game.pot = 0;
 			chat.js.say(room, "The pot has been banked. There is now $" + game.bank + " in the bank.");
-      updateByUsername(game.players[0].id, (entry)=>{
-        entry.banked+=amount;
-        return entry;
-      });
-    }
-  },
+			updateByUsername(game.players[0].id, (entry)=>{
+				entry.banked+=amount;
+				return entry;
+			});
+		}
+	},
 	checkbank: function(message, args, rank){
 		let room = message.room || toRoomId(args[0]);
 		let game = self.data.games[room];
-    chat.js.reply(message, game ? "There is $" + game.bank + " in the bank." : "There is no game in " + room + ".");
+		chat.js.reply(message, game ? "There is $" + game.bank + " in the bank." : "There is no game in " + room + ".");
 	},
 	addbank: function(message, args, rank){
 		let room = args.length > 1 ? toRoomId(args[1]) : message.room;
-    let response = "uh oh";
+		let response = "uh oh";
 		if(args.length === 0){
 			response = "You must specify the amount to add.";
 		}else if(!room){
-      response = "You must specify a room for the game.";
-    }else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
-      response = "Your rank is not high enough to add money to the bank.";
-    }else if(!self.data.games[room]){
-      response = "There is no game in " + room + ".";
-    }else if(!/^-?\d+$/.test(args[0])){
+			response = "You must specify a room for the game.";
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			response = "Your rank is not high enough to add money to the bank.";
+		}else if(!self.data.games[room]){
+			response = "There is no game in " + room + ".";
+		}else if(!/^-?\d+$/.test(args[0])){
 			response = "The amount to add must be an integer.";
 		}else{
 			let game = self.data.games[room];
 			game.bank+=Number(args[0]);
-      if(game.bank < 0) game.bank = 0;
-      response = "There is now $" + game.bank + " in the bank.";
-    }
-    chat.js.reply(message, response);
+			if(game.bank < 0) game.bank = 0;
+			response = "There is now $" + game.bank + " in the bank.";
+		}
+		chat.js.reply(message, response);
 	},
 	setbank: function(message, args, rank){
 		let room = args.length > 1 ? toRoomId(args[1]) : message.room;
@@ -429,7 +429,7 @@ let commands = {
 				let answer = toId(args[0]);
 				success = true;
 				let correct = false;
-        let preamble;
+				let preamble;
 				for(let i=0;i<game.question.answers.length;i++){
 					let cAnswer = game.question.answers[i];
 					if(answer === cAnswer || cAnswer.length > 5 && levenshtein(answer,cAnswer) < 3){
@@ -438,10 +438,10 @@ let commands = {
 					}
 				}
 				if(correct){
-          if(game.isFinal){
-  					finalAnswerQuestion(game, correct, "Correct. ");
-  					return;
-  				}
+					if(game.isFinal){
+						finalAnswerQuestion(game, correct, "Correct. ");
+						return;
+					}
 					player.correctAnswers++;
 					game.pot++;
 					if(game.pot === POT_AMOUNTS.length-1 && !game.isFinal){
@@ -463,10 +463,10 @@ let commands = {
 						});
 					}
 				}else{
-          if(game.isFinal){
-  					finalAnswerQuestion(game, correct, "Incorrect. ");
-  					return;
-  				}
+					if(game.isFinal){
+						finalAnswerQuestion(game, correct, "Incorrect. ");
+						return;
+					}
 					preamble = "Incorrect, the pot is now empty. ";
 					game.pot = 0;
 					updateByUsername(player.id, (entry)=>{
@@ -474,7 +474,7 @@ let commands = {
 						return entry;
 					});
 				}
-        rotatePlayers(game);
+				rotatePlayers(game);
 				prepQuestion(game, preamble);
 			}
 		}
@@ -504,7 +504,7 @@ let commands = {
 			}else if(!game.canVote){
 				response = "It is not time to vote on the weakest link.";
 			}else{
-        if(!game.votes) game.votes = {};
+				if(!game.votes) game.votes = {};
 				let player = getPlayerById(game, vote);
 				if(!player){
 					response = "That player is not in the game.";
@@ -526,7 +526,7 @@ let commands = {
 		let room = message.room || toRoomId(args[1]);
 		let game = self.data.games[room];
 		let id = toId(message.user);
-    let isHost = auth.js.rankgeq(rank, self.config.gameManageRank)
+		let isHost = auth.js.rankgeq(rank, self.config.gameManageRank)
 		if(!game){
 			chat.js.reply(message, "There is no game in " + room + ".");
 		}else if(!game.strongest){
@@ -535,89 +535,89 @@ let commands = {
 			chat.js.reply(message, "You are not the strongest link.");
 		}else{
 			let decision = toId(args[0]);
-      let options = game.weakest[0].players;
-      let isOption = false;
-      for(let i=0;i<options.length;i++){
-        if(options[i].id === decision){
-          isOption = true;
-          break;
-        }
-      }
+			let options = game.weakest[0].players;
+			let isOption = false;
+			for(let i=0;i<options.length;i++){
+				if(options[i].id === decision){
+					isOption = true;
+					break;
+				}
+			}
 			if(!isOption){
 				chat.js.reply(message, "That user is not an option.");
 			}else{
 				let player = getPlayerById(game, decision);
-        removePlayer(game, decision);
+				removePlayer(game, decision);
 				jumpToPlayer(game, id);
-        game.round++;
+				game.round++;
 
-        prepRound(game, player.displayName + ", you are the weakest link. Goodbye! ");
+				prepRound(game, player.displayName + ", you are the weakest link. Goodbye! ");
 			}
 		}
 	}
 };
 
 let wlcommands = {
-  newgame: function(message, args, rank){
-    let room = args.length > 1 ? toRoomId(args[1]) : message.room;
-    let response = "uh oh";
-    let success = false;
-    if(!room){
-      response = "You must specify a room for the game.";
-    }else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
-      response = "Your rank is not high enough to start a game.";
-    }else if(self.data.games[room]){
-      response = "There is already a game in " + room + ".";
-    }else{
-      success = true;
-      self.data.games[room] = {
+	newgame: function(message, args, rank){
+		let room = args.length > 1 ? toRoomId(args[1]) : message.room;
+		let response = "uh oh";
+		let success = false;
+		if(!room){
+			response = "You must specify a room for the game.";
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			response = "Your rank is not high enough to start a game.";
+		}else if(self.data.games[room]){
+			response = "There is already a game in " + room + ".";
+		}else{
+			success = true;
+			self.data.games[room] = {
 				question: null,
 				room: room,
-        players: [],
-        tempVoices: {},
+				players: [],
+				tempVoices: {},
 				// votes: {},
 				// strongest: [],
-        // weakest: [],
-        bank: 0,
+				// weakest: [],
+				bank: 0,
 				canBank: false,
 				canVote: false,
-        isFinal: false,
-        hasStarted: false,
-        modchat: false,
-        pot: 0,
-        round: 1,
+				isFinal: false,
+				hasStarted: false,
+				modchat: false,
+				pot: 0,
+				round: 1,
 				questions: [],
 				bankTimer: null,
 				roundTimer: null,
-        breakTimer: null,
+				breakTimer: null,
 				questionTimer: null,
-        joinTimer: null,
+				joinTimer: null,
 				categories: []
-      }
-      chat.js.say(room, "A game of The Weakest Link has started.");
-    }
-    if(!success){
-      chat.js.reply(message, response);
-    }
-  },
-  endgame: function(message, args, rank){
-    let room = toRoomId(args[1]) || message.room;
-    if(!room){
-      chat.js.reply(message, "You must specify a room for the game.");
-    }else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
-      chat.js.reply(message, "Your rank is not high enough to end a game.");
-    }else if(!self.data.games[room]){
-      chat.js.reply(message, "There is no game in " + room + ".");
-    }else{
+			}
+			chat.js.say(room, "A game of The Weakest Link has started.");
+		}
+		if(!success){
+			chat.js.reply(message, response);
+		}
+	},
+	endgame: function(message, args, rank){
+		let room = toRoomId(args[1]) || message.room;
+		if(!room){
+			chat.js.reply(message, "You must specify a room for the game.");
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			chat.js.reply(message, "Your rank is not high enough to end a game.");
+		}else if(!self.data.games[room]){
+			chat.js.reply(message, "There is no game in " + room + ".");
+		}else{
 			endGame(room);
-      chat.js.say(room, "The game of The Weakest Link has been ended.");
-    }
-  },
+			chat.js.say(room, "The game of The Weakest Link has been ended.");
+		}
+	},
 	addplayer: "addplayers",
 	addplayers: function(message, args, rank){
 		let room = message.room;
 		if(!room){
-      chat.js.reply(message, "You cannot use this command through PM.");
+			chat.js.reply(message, "You cannot use this command through PM.");
 		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
 			chat.js.reply(message, "Your rank is not high enough to use that command.");
 		}else if(!self.data.games[room]){
@@ -627,18 +627,18 @@ let wlcommands = {
 			let prevCount = game.players.length;
 			for(let i=1;i<args.length;i++){
 				let id = toId(args[i]);
-        addPlayer(game, id);
+				addPlayer(game, id);
 			}
-      let added = game.players.length - prevCount;
-      if(game.isFinal && game.players.length > 2){
-        game.questions = null;
-        game.isFinal = false;
-        prepRound(game, "Added " + added + " player" + (added === 1 ? ". " : "s. "));
-      }else{
-        chat.js.say(room, "Added " + added + " player" + (added === 1 ? "." : "s."));
-      }
+			let added = game.players.length - prevCount;
+			if(game.isFinal && game.players.length > 2){
+				game.questions = null;
+				game.isFinal = false;
+				prepRound(game, "Added " + added + " player" + (added === 1 ? ". " : "s. "));
+			}else{
+				chat.js.say(room, "Added " + added + " player" + (added === 1 ? "." : "s."));
+			}
 		}
-  },
+	},
 	removeplayer: "removeplayers",
 	removeplayers: function(message, args, rank){
 		let room = message.room;
@@ -655,8 +655,8 @@ let wlcommands = {
 			let num = game.players.length;
 			let oldActive = game.players.length ? game.players[0].id : null;
 			for(let i=1;i<args.length;i++){
-        removePlayer(game, args[i]);
-      }
+				removePlayer(game, args[i]);
+			}
 			if(game.players.length && oldActive != game.players[0].id){
 				if(game.roundTimer){
 					if(game.bankTimer){
@@ -669,20 +669,20 @@ let wlcommands = {
 			response = "Removed " + (num-game.players.length) + " player" + ((num-game.players.length) === 1 ? "." : "s.");
 			if(game.canVote) onVote(game);
 		}
-    if(game.players.length < 2){
-        prepRound(game);
-        return;
-    }
+		if(game.players.length < 2){
+				prepRound(game);
+				return;
+		}
 		chat.js.reply(message, response);
 		if(shouldPrep){
 			prepQuestion(game);
 		}
 	},
-  maxplayers: function(message, args, rank){
-    let room = message.room;
-    let max = args[1] && /^\d+$/.test(args[1]) ? parseInt(args[1]) : 0;
+	maxplayers: function(message, args, rank){
+		let room = message.room;
+		let max = args[1] && /^\d+$/.test(args[1]) ? parseInt(args[1]) : 0;
 		if(!room){
-      chat.js.reply(message, "You cannot use this command through PM.");
+			chat.js.reply(message, "You cannot use this command through PM.");
 		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
 			chat.js.reply(message, "Your rank is not high enough to use that command.");
 		}else if(!self.data.games[room]){
@@ -690,68 +690,68 @@ let wlcommands = {
 		}else{
 			let game = self.data.games[room];
 			game.maxplayers = max;
-      if(max === 0){
-        chat.js.say(room, "Autojoin has been turned off.");
-      }else{
-        chat.js.say(room, "**Autojoin is now on! Type** ``**/me in**`` **to join! (wlsignups)**");
-      }
+			if(max === 0){
+				chat.js.say(room, "Autojoin has been turned off.");
+			}else{
+				chat.js.say(room, "**Autojoin is now on! Type** ``**/me in**`` **to join! (wlsignups)**");
+			}
 		}
-  },
+	},
 	checkplayers: function(message, args, rank){
 		let room = args.length > 1 ? toRoomId(args[1]) : message.room;
-    let response = "uh oh";
-    if(!room){
-      response = "You must specify a room.";
-    }else if(!self.data.games[room]){
-      response = "There is no game in " + room + ".";
-    }else{
+		let response = "uh oh";
+		if(!room){
+			response = "You must specify a room.";
+		}else if(!self.data.games[room]){
+			response = "There is no game in " + room + ".";
+		}else{
 			let players = self.data.games[room].players;
 			if(players.length === 0){
 				response = "There are no players in the game.";
 			}else{
 				response = "These are the players in the game: " + players.map(item=>{return item.displayName}).join(", ");
 			}
-    }
-    chat.js.reply(message, response);
+		}
+		chat.js.reply(message, response);
 	},
-  modchat: function(message, args, rank){
-    let room = toRoomId(args[2]) || message.room;
+	modchat: function(message, args, rank){
+		let room = toRoomId(args[2]) || message.room;
 		if(!room){
-      chat.js.reply(message, "You must specify the room to use this command through PM.");
+			chat.js.reply(message, "You must specify the room to use this command through PM.");
 		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
 			chat.js.reply(message, "Your rank is not high enough to use that command.");
 		}else if(!self.data.games[room]){
 			chat.js.reply(message, "There is no game in " + room + ".");
 		}else{
 			let game = self.data.games[room];
-      let arg = toId(args[1]);
-      if(arg && arg === "on" || !arg && !game.modchat){
-        if(!game.modchat){
-          if(auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
-            game.modchat = true;
-            chat.js.say(room, "Modchat for the game is now on.");
-            if(game.hasStarted){
-              startModchat(game);
-            }
-          }else{
-            chat.js.reply(message, "My rank is not high enough to support modchat.");
-          }
-        }else{
-          chat.js.reply(message, "Modchat is already on for this game.");
-        }
-      }else if(arg && arg === "off" || !arg && game.modchat){
-        if(game.modchat){
-          if(game.hasStarted){
-            endModchat(game);
-          }
-          game.modchat = false;
-          chat.js.say(game.room, "Modchat for the game is now off.");
-        }else{
-          chat.js.reply(message, "Modchat is already off for this game.");
-        }
-      }
+			let arg = toId(args[1]);
+			if(arg && arg === "on" || !arg && !game.modchat){
+				if(!game.modchat){
+					if(auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
+						game.modchat = true;
+						chat.js.say(room, "Modchat for the game is now on.");
+						if(game.hasStarted){
+							startModchat(game);
+						}
+					}else{
+						chat.js.reply(message, "My rank is not high enough to support modchat.");
+					}
+				}else{
+					chat.js.reply(message, "Modchat is already on for this game.");
+				}
+			}else if(arg && arg === "off" || !arg && game.modchat){
+				if(game.modchat){
+					if(game.hasStarted){
+						endModchat(game);
+					}
+					game.modchat = false;
+					chat.js.say(game.room, "Modchat for the game is now off.");
+				}else{
+					chat.js.reply(message, "Modchat is already off for this game.");
+				}
+			}
 		}
-  },
+	},
 	startgame: function(message, args, rank){
 		let room = toRoomId(args[1]) || message.room;
 		let game = self.data.games[room];
@@ -765,33 +765,33 @@ let wlcommands = {
 			prepRound(game);
 		}
 	},
-  status: function(message, args, rank){
-    let room = toRoomId(args[1]) || message.room;
-    let game = self.data.games[room];
-    if(!room){
-      chat.js.reply(message, "You must specify a room for the game.");
-    }else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
-      chat.js.reply(message, "Your rank is not high enough to check the status.");
-    }else if(!game){
-      chat.js.reply(message, "There is no game in " + room + ".");
-    }else if(game.canVote){
-      chat.js.reply(message, "It is the voting peroid.");
-    }else if(game.roundTimer){
-      chat.js.reply(message, "It is the question answering peroid.");
-    }else if(game.isFinal){
-      chat.js.reply(message, "It is the final round.");
-    }else if(game.strongest){
-      chat.js.reply(message, "It is time for the strongest link to decide who is the weakest link.");
-    }else if(game.breakTimer){
-      chat.js.reply(message, "It is the break period before the next round.");
-    }else if(!game.hasStarted){
-      chat.js.reply(message, "The game has not started yet.");
-    }else{
-      chat.js.reply(message, "Dunno man.");
-    }
-  },
-  endround: function(message, args, rank){
-    let room = toRoomId(args[1]) || message.room;
+	status: function(message, args, rank){
+		let room = toRoomId(args[1]) || message.room;
+		let game = self.data.games[room];
+		if(!room){
+			chat.js.reply(message, "You must specify a room for the game.");
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			chat.js.reply(message, "Your rank is not high enough to check the status.");
+		}else if(!game){
+			chat.js.reply(message, "There is no game in " + room + ".");
+		}else if(game.canVote){
+			chat.js.reply(message, "It is the voting peroid.");
+		}else if(game.roundTimer){
+			chat.js.reply(message, "It is the question answering peroid.");
+		}else if(game.isFinal){
+			chat.js.reply(message, "It is the final round.");
+		}else if(game.strongest){
+			chat.js.reply(message, "It is time for the strongest link to decide who is the weakest link.");
+		}else if(game.breakTimer){
+			chat.js.reply(message, "It is the break period before the next round.");
+		}else if(!game.hasStarted){
+			chat.js.reply(message, "The game has not started yet.");
+		}else{
+			chat.js.reply(message, "Dunno man.");
+		}
+	},
+	endround: function(message, args, rank){
+		let room = toRoomId(args[1]) || message.room;
 		let game = self.data.games[room];
 		if(!room){
 			chat.js.reply(message, "You must specify a room for the game.");
@@ -800,41 +800,41 @@ let wlcommands = {
 		}else if(!game){
 			chat.js.reply(message, "There is no game in " + room + ".");
 		}else if(!game.roundTimer && !game.questionTimer && !game.bankTimer){
-      chat.js.reply(message, "It is not the question answering period.");
-    }else{
+			chat.js.reply(message, "It is not the question answering period.");
+		}else{
 			endRound(game);
 		}
-  },
-  endvoting: function(message, args, rank){
-    let room = toRoomId(args[1]) || message.room;
-    let game = self.data.games[room];
-    if(!room){
-      chat.js.reply(message, "You must specify a room for the game.");
-    }else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
-      chat.js.reply(message, "Your rank is not high enough to start a game.");
-    }else if(!game){
-      chat.js.reply(message, "There is no game in " + room + ".");
-    }else if(!game.canVote){
-      chat.js.reply(message, "It is not the voting peroid.");
-    }else{
-      endVoting(game);
-    }
-  },
-  prepround: function(message, args, rank){
-    let room = toRoomId(args[1]) || message.room;
-    let game = self.data.games[room];
-    if(!room){
-      chat.js.reply(message, "You must specify a room for the game.");
-    }else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
-      chat.js.reply(message, "Your rank is not high enough to start a game.");
-    }else if(!game){
-      chat.js.reply(message, "There is no game in " + room + ".");
-    }else if(game.breakTimer || game.canVote || game.strongest || game.roundTimer){
-      chat.js.reply(message, "Now's not a good time to prep for another round. Use ``~wl status`` to see what should be happening now.");
-    }else{
-      prepRound(game);
-    }
-  },
+	},
+	endvoting: function(message, args, rank){
+		let room = toRoomId(args[1]) || message.room;
+		let game = self.data.games[room];
+		if(!room){
+			chat.js.reply(message, "You must specify a room for the game.");
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			chat.js.reply(message, "Your rank is not high enough to start a game.");
+		}else if(!game){
+			chat.js.reply(message, "There is no game in " + room + ".");
+		}else if(!game.canVote){
+			chat.js.reply(message, "It is not the voting peroid.");
+		}else{
+			endVoting(game);
+		}
+	},
+	prepround: function(message, args, rank){
+		let room = toRoomId(args[1]) || message.room;
+		let game = self.data.games[room];
+		if(!room){
+			chat.js.reply(message, "You must specify a room for the game.");
+		}else if(!auth.js.rankgeq(rank, self.config.gameManageRank)){
+			chat.js.reply(message, "Your rank is not high enough to start a game.");
+		}else if(!game){
+			chat.js.reply(message, "There is no game in " + room + ".");
+		}else if(game.breakTimer || game.canVote || game.strongest || game.roundTimer){
+			chat.js.reply(message, "Now's not a good time to prep for another round. Use ``~wl status`` to see what should be happening now.");
+		}else{
+			prepRound(game);
+		}
+	},
 	setcategories: function(message, args, rank){
 		let response = "Your rank is not high enough to change the category.";
 		if(auth.js.rankgeq(rank, self.config.gameManageRank)){
@@ -846,9 +846,9 @@ let wlcommands = {
 				}).filter((item)=>{
 					return item ? true : false;
 				});
-        game.questions = null;
-        let regular = self.data.questions.regular.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1})
-        let final = self.data.questions.final.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1});
+				game.questions = null;
+				let regular = self.data.questions.regular.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1})
+				let final = self.data.questions.final.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1});
 				if(!game.categories.length){
 					response = "There is no filter on the categories (" + regular.length + " regular questions, " + final.length + " final questions).";
 				}else{
@@ -866,20 +866,20 @@ let wllcommands = {
 	check: function(message, args, rank){
 		let username = args[1] && toId(args[1]) ? args[1] : message.user;
 		getId(username, false, (user)=>{
-      if(!user){
-        chat.js.reply(message, username + " does not have a leaderboard entry.");
-      }else{
-        getEntryById(user.id, (entry)=>{
-  				if(!entry){
-  					chat.js.reply(message, user.display_name + " does not have an entry in the leaderboard.");
-  				}else{
-  					chat.js.reply(message, user.display_name + "'s stats: correct answers: "+ entry.correct + ", incorrect answers: " + entry.incorrect + ", passes: " + entry.passed + ", wins: " + entry.wins + ", total amount banked: $" + entry.banked + ", total amount won: $" + entry.won + ".");
-  				}
-  			}, (err)=>{
-  				error(err);
-  				chat.js.reply(message, "Something went wrong getting " + user.display_name + "'s stats.");
-  			});
-      }
+			if(!user){
+				chat.js.reply(message, username + " does not have a leaderboard entry.");
+			}else{
+				getEntryById(user.id, (entry)=>{
+					if(!entry){
+						chat.js.reply(message, user.display_name + " does not have an entry in the leaderboard.");
+					}else{
+						chat.js.reply(message, user.display_name + "'s stats: correct answers: "+ entry.correct + ", incorrect answers: " + entry.incorrect + ", passes: " + entry.passed + ", wins: " + entry.wins + ", total amount banked: $" + entry.banked + ", total amount won: $" + entry.won + ".");
+					}
+				}, (err)=>{
+					error(err);
+					chat.js.reply(message, "Something went wrong getting " + user.display_name + "'s stats.");
+				});
+			}
 		}, (err)=>{
 			error(err);
 			chat.js.reply(message, "Something went wrong getting the user's info.");
@@ -890,18 +890,18 @@ let wllcommands = {
 	}
 }
 let questioncommands = {
-  add: function(message, args, rank, qwrank){
+	add: function(message, args, rank, qwrank){
 		let response = "what";
 		if(!auth.js.rankgeq(qwrank, self.config.questionManageRank)){
 			response = "Your rank is not high enough to use that command.";
 		}else if(args.length<4){
 			response = "You must give the category, the question, and at least one answer.";
 		}else{
-      let category = toId(args[1]);
+			let category = toId(args[1]);
 			let question = args[2].trim();
 			let answers = args.slice(3).map(item=>{return toId(item)});
 			self.data.questions.regular.push({
-        category: category,
+				category: category,
 				question: question,
 				answers: answers
 			});
@@ -909,7 +909,7 @@ let questioncommands = {
 			response = "Successfully added the question: " + question;
 		}
 		chat.js.reply(message, response);
-  },
+	},
 	export: function(message, args, rank, qwrank){
 		if(auth.js.rankgeq(qwrank, self.config.questionManageRank)){
 			let text;
@@ -1064,70 +1064,70 @@ let getRoundTime = function(game){
 }
 
 let prepRound = function(game, preamble){
-  preamble = preamble || "";
-  if(!game) return;
+	preamble = preamble || "";
+	if(!game) return;
 
-  if(!game.hasStarted){
-    game.hasStarted = true;
-    if(game.modchat){
-      startModchat(game);
-    }
-  }
-
-  clearTimers(game);
-  if(game.votes) delete game.votes;
-  if(game.strongest) delete game.strongest;
-  if(game.weakest) delete game.weakest;
-  game.canVote = false;
-  game.isFinal = false;
-  for(let i=0;i<game.players.length;i++){
-		game.players[i].banked = 0;
-		game.players[i].correctAnswers = 0;
-    game.players[i].answered = 0;
+	if(!game.hasStarted){
+		game.hasStarted = true;
+		if(game.modchat){
+			startModchat(game);
+		}
 	}
 
-  if(game.players.length < 2){
-    chat.js.say(game.room, preamble + "There are not enough players to continue.");
-  }else if(game.players.length === 2){
-    chat.js.say(game.room, preamble + "There are two players left, the head-to-head round will begin in " + BREAK_TIME + " seconds.");
-    game.questions = null;
-    game.isFinal = true;
-    game.breakTimer = setTimeout(()=>{
-      startRound(game);
-    }, BREAK_TIME*1000);
-  }else{
-    chat.js.say(game.room, preamble + "Round " + game.round + " will start in " + BREAK_TIME + " seconds, and it will be " + game.players[0].displayName + "'s turn to answer.");
-    game.breakTimer = setTimeout(()=>{
-      startRound(game);
-    }, BREAK_TIME*1000);
-  }
+	clearTimers(game);
+	if(game.votes) delete game.votes;
+	if(game.strongest) delete game.strongest;
+	if(game.weakest) delete game.weakest;
+	game.canVote = false;
+	game.isFinal = false;
+	for(let i=0;i<game.players.length;i++){
+		game.players[i].banked = 0;
+		game.players[i].correctAnswers = 0;
+		game.players[i].answered = 0;
+	}
+
+	if(game.players.length < 2){
+		chat.js.say(game.room, preamble + "There are not enough players to continue.");
+	}else if(game.players.length === 2){
+		chat.js.say(game.room, preamble + "There are two players left, the head-to-head round will begin in " + BREAK_TIME + " seconds.");
+		game.questions = null;
+		game.isFinal = true;
+		game.breakTimer = setTimeout(()=>{
+			startRound(game);
+		}, BREAK_TIME*1000);
+	}else{
+		chat.js.say(game.room, preamble + "Round " + game.round + " will start in " + BREAK_TIME + " seconds, and it will be " + game.players[0].displayName + "'s turn to answer.");
+		game.breakTimer = setTimeout(()=>{
+			startRound(game);
+		}, BREAK_TIME*1000);
+	}
 
 }
 
 let startRound = function(game){
-  if(!game) return;
+	if(!game) return;
 	clearTimers(game);
-  if(game.players.length < 2){
-    chat.js.say(game.room, "There are not enough players to continue.");
-  }else if(game.players.length === 2){
-    game.isFinal = true;
-    chat.js.say(game.room, "The final round is starting. " + game.players[0].displayName + "'s question will be asked in " + FINAL_BREAK + " seconds.");
-  	game.bankTimer = setTimeout(()=>{
-  		askQuestion(game);
-  	}, FINAL_BREAK*1000);
-  }else{
-    chat.js.say(game.room, "Round " + game.round + " is starting. " + game.players[0].displayName + "'s question will be asked in " + BANK_TIME + " seconds.");
-  	game.bankTimer = setTimeout(()=>{
-  		askQuestion(game);
-  	}, BANK_TIME*1000);
-  	game.roundTimer = setTimeout(()=>{
-  		endRound(game);
-  	}, getRoundTime(game)*1000);
-  }
+	if(game.players.length < 2){
+		chat.js.say(game.room, "There are not enough players to continue.");
+	}else if(game.players.length === 2){
+		game.isFinal = true;
+		chat.js.say(game.room, "The final round is starting. " + game.players[0].displayName + "'s question will be asked in " + FINAL_BREAK + " seconds.");
+		game.bankTimer = setTimeout(()=>{
+			askQuestion(game);
+		}, FINAL_BREAK*1000);
+	}else{
+		chat.js.say(game.room, "Round " + game.round + " is starting. " + game.players[0].displayName + "'s question will be asked in " + BANK_TIME + " seconds.");
+		game.bankTimer = setTimeout(()=>{
+			askQuestion(game);
+		}, BANK_TIME*1000);
+		game.roundTimer = setTimeout(()=>{
+			endRound(game);
+		}, getRoundTime(game)*1000);
+	}
 }
 
 let prepQuestion = function(game, preamble){
-  preamble = preamble || "";
+	preamble = preamble || "";
 	game.canBank = true;
 	game.question = null;
 	chat.js.say(game.room, preamble + "It is " + game.players[0].displayName + "'s turn to answer. You have " + BANK_TIME + " seconds to bank before the question is asked.");
@@ -1146,11 +1146,11 @@ let askQuestion = function(game){
 	let index = Math.floor(Math.random()*game.questions.length);
 	game.question = game.questions.splice(index,1)[0];
 	chat.js.say(game.room, "**" + game.players[0].displayName + ": " + game.question.question + "**")
-  if(game.isFinal){
-    game.questionTimer = setTimeout(()=>{
-  		finalAnswerQuestion(game, false, "Time's up. ");
-  	},QUESTION_TIME*1000);
-  }
+	if(game.isFinal){
+		game.questionTimer = setTimeout(()=>{
+			finalAnswerQuestion(game, false, "Time's up. ");
+		},QUESTION_TIME*1000);
+	}
 }
 
 let endRound = function(game){
@@ -1159,7 +1159,7 @@ let endRound = function(game){
 	game.pot = 0;
 	clearTimers(game);
 	game.canVote = true;
-  game.votes = {};
+	game.votes = {};
 	chat.js.say(game.room, "**The round is over. The current players are: " + game.players.map(p=>{return p.displayName}).join(", ") + ". Please PM your votes for the weakest link to me with ~vote [user].**");
 }
 
@@ -1169,7 +1169,7 @@ let onVote = function(game){
 		for(let i=0;i<game.players.length;i++){
 			if(!game.votes[game.players[i].id]){
 				allVoted = false;
-        break;
+				break;
 			}
 		}
 		if(allVoted){
@@ -1180,7 +1180,7 @@ let onVote = function(game){
 
 let endVoting = function(game){
 
-  //Sorting the people by how string of a link they are
+	//Sorting the people by how string of a link they are
 	game.strongest = game.players.slice().sort((i1,i2)=>{
 		if(i1.correctAnswers === i2.correctAnswers){
 			return i1.banked > i2.banked ? -1 : 1;
@@ -1189,7 +1189,7 @@ let endVoting = function(game){
 		}
 	});
 
-  //Counting the votes
+	//Counting the votes
 	let votes = {};
 	for(let vote in game.votes){
 		let id = game.votes[vote];
@@ -1200,23 +1200,23 @@ let endVoting = function(game){
 		}
 	}
 
-  //Creating the array of weakest players, sorted from most to fewest votes
+	//Creating the array of weakest players, sorted from most to fewest votes
 	game.weakest = [];
 	for(let id in votes){
-    for(let i=0;i<=game.weakest.length;i++){
-      if(!game.weakest[i] || game.weakest[i].numVotes < votes[id]){
-        game.weakest.splice(i, 0, {numVotes: votes[id], players: [getPlayerById(game, id)]});
-        break;
-      }else if(game.weakest[i].numVotes === votes[id]){
-        game.weakest[i].players.push(getPlayerById(game, id));
-        break;
-      }
-    }
+		for(let i=0;i<=game.weakest.length;i++){
+			if(!game.weakest[i] || game.weakest[i].numVotes < votes[id]){
+				game.weakest.splice(i, 0, {numVotes: votes[id], players: [getPlayerById(game, id)]});
+				break;
+			}else if(game.weakest[i].numVotes === votes[id]){
+				game.weakest[i].players.push(getPlayerById(game, id));
+				break;
+			}
+		}
 	}
-  game.canVote = false;
+	game.canVote = false;
 	if(game.weakest[0].players.length === 1){
 		let player = game.weakest[0].players[0];
-    removePlayer(game, player.id);
+		removePlayer(game, player.id);
 		jumpToPlayer(game, game.strongest[0].id);
 		game.round++;
 
@@ -1230,32 +1230,32 @@ let endVoting = function(game){
 let finalAnswerQuestion = function(game, correct, preamble){
 	//Say correct/incorrect, give score update, and either end the game or set timeout for next question
 	//If answer is not a string, the time ran out.
-  game.question = null;
+	game.question = null;
 	let response = preamble || "";
 	if(game.questionTimer){
 		clearTimeout(game.questionTimer);
 		game.questionTimer = null;
 	}
-  game.players[0].answered++;
-  if(correct){
-    game.players[0].correctAnswers++;
-    updateByUsername(game.players[0].id, (entry)=>{
-      entry.correct++;
-      return entry;
-    });
-  }else{
-    updateByUsername(game.players[0].id, (entry)=>{
-      entry.incorrect++;
-      return entry;
-    });
-  }
+	game.players[0].answered++;
+	if(correct){
+		game.players[0].correctAnswers++;
+		updateByUsername(game.players[0].id, (entry)=>{
+			entry.correct++;
+			return entry;
+		});
+	}else{
+		updateByUsername(game.players[0].id, (entry)=>{
+			entry.incorrect++;
+			return entry;
+		});
+	}
 
 	let order = game.players.slice().sort((i1, i2)=>{
 		return i1.correctAnswers > i2.correctAnswers ? -1 : 1;
 	});
-  info(order[0].id + ": " + order[0].correctAnswers + " correct, " + (order[0].answered - order[0].correctAnswers) + " incorrect.");
-  info(order[1].id + ": " + order[1].correctAnswers + " correct, " + (order[1].answered - order[1].correctAnswers) + " incorrect.");
-  let leeway = Math.max(0, 5-order[1].answered, order[0].answered - order[1].answered);
+	info(order[0].id + ": " + order[0].correctAnswers + " correct, " + (order[0].answered - order[0].correctAnswers) + " incorrect.");
+	info(order[1].id + ": " + order[1].correctAnswers + " correct, " + (order[1].answered - order[1].correctAnswers) + " incorrect.");
+	let leeway = Math.max(0, 5-order[1].answered, order[0].answered - order[1].answered);
 	if(order[0].correctAnswers > order[1].correctAnswers + leeway){
 		response += order[0].displayName + " has beaten " + order[1].displayName + " " + order[0].correctAnswers + "-" + order[1].correctAnswers + ".";
 		chat.js.say(game.room, response);
@@ -1265,165 +1265,165 @@ let finalAnswerQuestion = function(game, correct, preamble){
 			return entry;
 		});
 	}else{
-    rotatePlayers(game);
-    response += "The score is " + order[0].correctAnswers + "-" + order[1].correctAnswers + " for " + order[0].displayName + ". ";
-  	response += game.players[0].displayName + "'s question will be asked in " + FINAL_BREAK + " seconds.";
-  	chat.js.say(game.room, response);
-  	game.bankTimer = setTimeout(()=>{
-  		askQuestion(game);
-  	}, FINAL_BREAK*1000);
-  }
+		rotatePlayers(game);
+		response += "The score is " + order[0].correctAnswers + "-" + order[1].correctAnswers + " for " + order[0].displayName + ". ";
+		response += game.players[0].displayName + "'s question will be asked in " + FINAL_BREAK + " seconds.";
+		chat.js.say(game.room, response);
+		game.bankTimer = setTimeout(()=>{
+			askQuestion(game);
+		}, FINAL_BREAK*1000);
+	}
 };
 
 let rotatePlayers = function(game){
-  game.players.push(game.players.shift());
+	game.players.push(game.players.shift());
 }
 
 let jumpToPlayer = function(game, playerName){
-  let id = toId(playerName);
-  for(let i=0;i<game.players.length;i++){
-    if(game.players[i].id === id){
-      game.players = game.players.concat(game.players.splice(0,i));
-      break;
-    }
-  }
+	let id = toId(playerName);
+	for(let i=0;i<game.players.length;i++){
+		if(game.players[i].id === id){
+			game.players = game.players.concat(game.players.splice(0,i));
+			break;
+		}
+	}
 }
 
 let addPlayer = function(game, id){
-  if(id){
-    let displayName = rooms.js.getDisplayName(id, game.room);
-    let player = getPlayerById(game, id);
-    if(game.modchat && game.hasStarted){
-      voice(game, id);
-    }
-    if(displayName && !player){
-      game.players.push({
-        id: id,
-        displayName: displayName,
-        banked: 0,
-        correctAnswers: 0,
-        answered: 0 //Only used for the final
-      });
-    }
-  }
+	if(id){
+		let displayName = rooms.js.getDisplayName(id, game.room);
+		let player = getPlayerById(game, id);
+		if(game.modchat && game.hasStarted){
+			voice(game, id);
+		}
+		if(displayName && !player){
+			game.players.push({
+				id: id,
+				displayName: displayName,
+				banked: 0,
+				correctAnswers: 0,
+				answered: 0 //Only used for the final
+			});
+		}
+	}
 }
 
 let removePlayer = function(game, playerName){
-  //TODO move code detecting if a new round or question should be started Here
-  // Deal with player being removed during final round.
-  if(!game) return;
-  let id = toId(playerName);
-  //Remove from game.players
-  game.players = game.players.filter(item=>{return item.id !== id});
+	//TODO move code detecting if a new round or question should be started Here
+	// Deal with player being removed during final round.
+	if(!game) return;
+	let id = toId(playerName);
+	//Remove from game.players
+	game.players = game.players.filter(item=>{return item.id !== id});
 
-  devoice(game, id);
+	devoice(game, id);
 
-  //Remove their vote if it existsSync, and votes for them
-  if(game.votes){
-    if(game.votes[id]) delete game.votes[id]
-    for(let voter in game.votes){
-      if(game.votes[voter] === id){
-        delete game.votes[voter];
-      }
-    }
-  }
+	//Remove their vote if it existsSync, and votes for them
+	if(game.votes){
+		if(game.votes[id]) delete game.votes[id]
+		for(let voter in game.votes){
+			if(game.votes[voter] === id){
+				delete game.votes[voter];
+			}
+		}
+	}
 
-  //Remove them from the strongest and weakest links
-  if(game.strongest) game.strongest = game.strongest.filter(item=>{return item.id !== id});
-  if(game.weakest){
-    for(let i=0;i<game.weakest.length;i++){
-      game.weakest[i].players = game.weakest[i].players.filter(item=>{return item.id !== id});
-      if(game.weakest[i].players.length === 0){
-        game.weakest.splice(i, 1);
-        i--;
-      }
-    }
-  }
+	//Remove them from the strongest and weakest links
+	if(game.strongest) game.strongest = game.strongest.filter(item=>{return item.id !== id});
+	if(game.weakest){
+		for(let i=0;i<game.weakest.length;i++){
+			game.weakest[i].players = game.weakest[i].players.filter(item=>{return item.id !== id});
+			if(game.weakest[i].players.length === 0){
+				game.weakest.splice(i, 1);
+				i--;
+			}
+		}
+	}
 
 }
 
 let getPlayerById = function(game, id){
-  if(!game) return;
-  let player;
-  for(let i=0;i<game.players.length;i++){
-    if(game.players[i].id === id){
-      player = game.players[i];
-      break;
-    }
-  }
-  return player;
+	if(!game) return;
+	let player;
+	for(let i=0;i<game.players.length;i++){
+		if(game.players[i].id === id){
+			player = game.players[i];
+			break;
+		}
+	}
+	return player;
 }
 
 let populateQuestions = function(game){
-  if(!game.questions || !game.questions.length){
-    if(game.isFinal){
-      game.questions = self.data.questions.final.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1});
-    }else{
-      game.questions = self.data.questions.regular.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1});
-    }
-  }
+	if(!game.questions || !game.questions.length){
+		if(game.isFinal){
+			game.questions = self.data.questions.final.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1});
+		}else{
+			game.questions = self.data.questions.regular.filter(item=>{return !game.categories.length || game.categories.indexOf(item.category) !== -1});
+		}
+	}
 }
 
 let startModchat = function(game){
-  voiceAll(game);
-  chat.js.say(game.room, "/modchat +");
+	voiceAll(game);
+	chat.js.say(game.room, "/modchat +");
 }
 
 let endModchat = function(game){
-  devoiceAll(game);
-  if(game.modchat){
-    chat.js.say(game.room, "/modchat ac");
-  }
+	devoiceAll(game);
+	if(game.modchat){
+		chat.js.say(game.room, "/modchat ac");
+	}
 }
 
 let voice = function(game, id){
-  info("trying to voice " + id);
-  info("True rank: '" + auth.js.getTrueRoomRank(id, game.room) + "'");
-  info(auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room)));
-  if(game && game.modchat && id && !game.tempVoices[id] && auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room))){
-    game.tempVoices[id] = true;
-    chat.js.say(game.room, "/roomvoice " + id);
-  }
+	info("trying to voice " + id);
+	info("True rank: '" + auth.js.getTrueRoomRank(id, game.room) + "'");
+	info(auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room)));
+	if(game && game.modchat && id && !game.tempVoices[id] && auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room))){
+		game.tempVoices[id] = true;
+		chat.js.say(game.room, "/roomvoice " + id);
+	}
 }
 
 let voiceAll = function(game){
-  if(game && game.modchat){
-    for(let i=0;i<game.players.length;i++){
-      let id = game.players[i].id;
-      info("trying to voice " + id);
-      info("True rank: '" + auth.js.getTrueRoomRank(id, game.room) + "'");
-      info(auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room)));
-      if(!game.tempVoices[id] && auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room))){
-        game.tempVoices[id] = true;
-        chat.js.say(game.room, "/roomvoice " + id);
-      }
-    }
-  }
+	if(game && game.modchat){
+		for(let i=0;i<game.players.length;i++){
+			let id = game.players[i].id;
+			info("trying to voice " + id);
+			info("True rank: '" + auth.js.getTrueRoomRank(id, game.room) + "'");
+			info(auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room)));
+			if(!game.tempVoices[id] && auth.js.rankgeq(" ", auth.js.getTrueRoomRank(id, game.room))){
+				game.tempVoices[id] = true;
+				chat.js.say(game.room, "/roomvoice " + id);
+			}
+		}
+	}
 }
 
 let devoice = function(game, id){
-  if(game && id && game.tempVoices[id]){
-    delete game.tempVoices[id];
-    chat.js.say(game.room, "/roomdevoice " + id);
-  }
+	if(game && id && game.tempVoices[id]){
+		delete game.tempVoices[id];
+		chat.js.say(game.room, "/roomdevoice " + id);
+	}
 }
 
 let devoiceAll = function(game){
-  if(game){
-    for(let user in game.tempVoices){
-      delete game.tempVoices[user];
-      chat.js.say(game.room, "/roomdevoice " + user);
-    }
-  }
+	if(game){
+		for(let user in game.tempVoices){
+			delete game.tempVoices[user];
+			chat.js.say(game.room, "/roomdevoice " + user);
+		}
+	}
 }
 
 let endGame = function(room){
-  let game = self.data.games[room];
-  if(game){
-    clearTimers(game);
-    endModchat(game);
-    delete self.data.games[room];
-  }
+	let game = self.data.games[room];
+	if(game){
+		clearTimers(game);
+		endModchat(game);
+		delete self.data.games[room];
+	}
 }
 
 let clearTimers = function(game){
@@ -1435,27 +1435,27 @@ let clearTimers = function(game){
 		clearTimeout(game.roundTimer);
 		game.roundTimer = null;
 	}
-  if(game.breakTimer){
-    clearTimeout(game.breakTimer);
-    game.breakTimer = null;
-  }
+	if(game.breakTimer){
+		clearTimeout(game.breakTimer);
+		game.breakTimer = null;
+	}
 	if(game.questionTimer){ //This timer determines how long you have to answer a question in the final.
 		clearTimeout(game.questionTimer);
 		game.questionTimer = null;
 	}
-  if(game.joinTimer){
-    clearTimeout(game.joinTimer);
-    game.joinTimer = null;
-  }
+	if(game.joinTimer){
+		clearTimeout(game.joinTimer);
+		game.joinTimer = null;
+	}
 };
 
 let saveQuestions = function(){
-  let path = "data/questions.json";
-  fs.writeFileSync(path,JSON.stringify(self.data.questions, null, "\t"));
+	let path = "data/questions.json";
+	fs.writeFileSync(path,JSON.stringify(self.data.questions, null, "\t"));
 };
 
 let loadQuestions = function(){
-  let path = "data/questions.json";
+	let path = "data/questions.json";
 	if(fs.existsSync(path)){
 		self.data.questions = JSON.parse(fs.readFileSync(path, 'utf8'));
 	}
@@ -1464,7 +1464,7 @@ let loadQuestions = function(){
 			self.data.questions.regular[i].category = "trivia";
 		}
 	}
-  for(let i=0;i<self.data.questions.final.length;i++){
+	for(let i=0;i<self.data.questions.final.length;i++){
 		if(!self.data.questions.final[i].category){
 			self.data.questions.final[i].category = "trivia";
 		}
@@ -1473,14 +1473,14 @@ let loadQuestions = function(){
 
 let defaultConfigs = {
 	gameManageRank: "%",
-  questionManageRank: "%"
+	questionManageRank: "%"
 };
 
 exports.defaultConfigs = defaultConfigs;
 
 let configTypes = {
 	gameManageRank: "rank",
-  questionManageRank: "rank"
+	questionManageRank: "rank"
 };
 
 exports.configTypes = configTypes;

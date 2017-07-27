@@ -6,11 +6,11 @@ let rooms = null;
 let pg = require("pg");
 let request = require("request");
 const conInfo = {
-      user: mainConfig.dbuser,
-      password: mainConfig.dbpassword,
-      database: mainConfig.dbname,
-      host: mainConfig.dbhost,
-      port: mainConfig.dbport
+	user: mainConfig.dbuser,
+	password: mainConfig.dbpassword,
+	database: mainConfig.dbname,
+	host: mainConfig.dbhost,
+	port: mainConfig.dbport
 };
 
 const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
@@ -43,14 +43,14 @@ const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_poi
 
 
 
-// game:{
-// 	openReason:
-// 	// 'auth': forced open by an auth
-// 	// 'leave': automatically opened on player leaving
-// 	// 'timer': automatically opened for not asking a questions
-// 	// 'user': opened by the user
-// 	// ''
-// }
+//game:{
+//	openReason:
+//	// 'auth': forced open by an auth
+//	// 'leave': automatically opened on player leaving
+//	// 'timer': automatically opened for not asking a questions
+//	// 'user': opened by the user
+//	// ''
+//}
 
 let pgReconnect = function(message){
 	try{
@@ -206,7 +206,7 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 					runSql(INSERT_LB_ENTRY_SQL, [id, events[i], updateFunc(0)], null, newEnd(events[i]), newError(events[i]));
 				}
 			}
-      if(events.length === 0) onEnd(id, 0, 0);
+			if(events.length === 0) onEnd(id, 0, 0);
 		}, onError);
 	}, onError);
 }
@@ -321,23 +321,23 @@ exports.onLoad = function(module, loadData){
 	self.js.refreshDependencies();
 	if(loadData){
 		try{
-      if(self.data && self.data.client){
-        self.data.client.end();
-      }
-    }catch(e){
-      error(e.message);
-    }
+			if(self.data && self.data.client){
+				self.data.client.end();
+			}
+		}catch(e){
+			error(e.message);
+		}
 
-    self.data = {
-        games: {},
-				pendingAlts: {},
-        askToReset: "",
-        timers: {}
-    };
-    loadFacts();
+		self.data = {
+			games: {},
+			pendingAlts: {},
+			askToReset: "",
+			timers: {}
+		};
+		loadFacts();
 
 		try{
-      self.data.client = new pg.Client(conInfo);
+			self.data.client = new pg.Client(conInfo);
 			self.data.client.connect((err)=>{
 				if(err){
 					error(err);
@@ -353,10 +353,10 @@ exports.onLoad = function(module, loadData){
 				self.data.connected = false;
 				error("Client connection ended");
 			});
-    }catch(e){
-      error(e.message);
-    }
-    loadLeaderboard();
+		}catch(e){
+			error(e.message);
+		}
+		loadLeaderboard();
 	}
 	self.chathooks = {
 		chathook: function(m){
@@ -430,11 +430,11 @@ exports.onLoad = function(module, loadData){
 	};
 };
 exports.onUnload = function(){
-  for(let name in self.data.timers){
-    let t = self.data.timers[name];
-    clearTimeout(t.timer);
-    delete self.data.timers[name]
-  }
+	for(let name in self.data.timers){
+		let t = self.data.timers[name];
+		clearTimeout(t.timer);
+		delete self.data.timers[name]
+	}
 };
 exports.refreshDependencies = function(){
 	chat = getModuleForDependency("chat", "tt");
@@ -625,11 +625,11 @@ let commands = {
 							}
 						}
 					}
-          if(!game.bpOpen){
-            game.remindTimer = setTimeout(()=>{
-      				onRemind(game);
-      			}, self.config.remindTime*1000);
-          }
+					if(!game.bpOpen){
+						game.remindTimer = setTimeout(()=>{
+							onRemind(game);
+						}, self.config.remindTime*1000);
+					}
 					chat.js.say(room, response);
 				}
 			}
@@ -813,21 +813,21 @@ let commands = {
 					alts.push(row);
 				}, ()=>{
 					alts = alts.map((alt)=>{return alt.username});
-          if(alts.length === 0){
-            chat.js.reply(message, target + " does not have any alts");
-          }else if(alts.length < 11){
-            chat.js.reply(message, res[1].display_name + "'s alts: " + alts.join(", "));
-          }else{
-            let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
-            request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-              try{
-                chat.js.reply(message, "There were more than 10 alts, so they were put in a hastebin: hastebin.com/" + JSON.parse(body).key);
-              }catch(e){
-                error(e.message);
-                chat.js.reply(message, "Something was wrong with the response from hastebin. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
-              }
-      			});
-          }
+					if(alts.length === 0){
+						chat.js.reply(message, target + " does not have any alts");
+					}else if(alts.length < 11){
+						chat.js.reply(message, res[1].display_name + "'s alts: " + alts.join(", "));
+					}else{
+						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
+						request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+							try{
+								chat.js.reply(message, "There were more than 10 alts, so they were put in a hastebin: hastebin.com/" + JSON.parse(body).key);
+							}catch(e){
+								error(e.message);
+								chat.js.reply(message, "Something was wrong with the response from hastebin. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
+							}
+						});
+					}
 				}, (err)=>{
 					error(err);
 					chat.js.reply(message, "Something went wrong finding " + target + "'s alts.");
@@ -867,33 +867,33 @@ let commands = {
 			}
 		}
 	},
-  removealt: function(message, args, rank){
-    if(args.length===0 || !args[0]){
+	removealt: function(message, args, rank){
+		if(args.length===0 || !args[0]){
 			chat.js.reply(message, "You must specify an alt.");
 		}else{
-      getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
-        if(res.length < 2 || res[0].id !== res[1].id){
-          chat.js.reply(message, "That account is not an alt of yours.");
-        }else if(idsMatch(args[0], res[1].display_name)){
-          chat.js.reply(message, "You cannot remove your main account.");
-        }else{
-          runSql(DELETE_ALT_SQL, [toId(args[0])], null, (res)=>{
-            if(res.rowCount === 0){
-              chat.js.reply(message, "That's weird, the query didn't delete anything. Something is probably wrong.");
-            }else{
-              chat.js.reply(message, "Successfully removed the alt.");
-            }
-          }, (err)=>{
-            error(err);
-            chat.js.reply(message, "There was an error removing the alt.");
-          })
-        }
+			getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
+				if(res.length < 2 || res[0].id !== res[1].id){
+					chat.js.reply(message, "That account is not an alt of yours.");
+				}else if(idsMatch(args[0], res[1].display_name)){
+					chat.js.reply(message, "You cannot remove your main account.");
+				}else{
+					runSql(DELETE_ALT_SQL, [toId(args[0])], null, (res)=>{
+						if(res.rowCount === 0){
+							chat.js.reply(message, "That's weird, the query didn't delete anything. Something is probably wrong.");
+						}else{
+							chat.js.reply(message, "Successfully removed the alt.");
+						}
+					}, (err)=>{
+						error(err);
+						chat.js.reply(message, "There was an error removing the alt.");
+					})
+				}
 			}, (err)=>{
 				error(err);
 				chat.js.reply(message, "Something went wrong when finding your main.");
 			});
-    }
-  },
+		}
+	},
 	main:function(message, args, rank){
 		if(args.length===0 || !args[0]){
 			chat.js.reply(message, "You must specify an alt.");
@@ -931,138 +931,138 @@ let commands = {
 			chat.js.reply(message, "Saved leaderboard.");
 		}
 	},
-  //~timer [minutes], {message}, {room}
-  timer: function(message, args){
-    let room = toRoomId(args[2]) || message.room;
-    let announcement = args[1] || "Timer's up!";
-    let duration = args[0] && /^\d+$/.test(args[0]) && parseInt(args[0]);
-    if(duration>30){
-      duration = 0;
-    }
-    if(toId(args[0]) === "end"){
-      if(room){
-        let timerName = "room:" + room;
-        let rank = auth.js.getRoomRank(message.user, room);
-        if(!auth.js.rankgeq(rank, self.config.timerRank)){
-          chat.js.reply(message, "Your rank is not high enough to end the timer.");
-        }else if(self.data.timers[timerName]){
-          clearTimeout(self.data.timers[timerName].timer);
-          delete self.data.timers[timerName];
-          chat.js.reply(message, "Successfully cleared the timer for " + room + ".");
-        }else{
-          chat.js.reply(message, "There isn't a timer for " + room + ".");
-        }
-      }else{
-        let timerName = "user:" + toId(message.user);
-        if(self.data.timers[timerName]){
-          clearTimeout(self.data.timers[timerName].timer);
-          delete self.data.timers[timerName];
-          chat.js.reply(message, "Successfully cleared your personal timer.");
-        }else{
-          chat.js.reply(message, "You don't have a personal timer.");
-        }
-      }
-    }else if(!duration){
-      chat.js.reply(message, "You must give a positive integer less than 30 for the duration.");
-    }else if(room){
-      let rank = auth.js.getRoomRank(message.user, room);
-      let timerName = "room:" + room;
-      if(!auth.js.rankgeq(rank, self.config.timerRank)){
-        chat.js.reply(message, "Your rank is not high enough to set timers in " + room + ".");
-      }else{
-        if(self.data.timers[timerName]){
-          clearTimeout(self.data.timers[timerName].timer);
-          delete self.data.timers[timerName];
-        }
-        self.data.timers[timerName] = {
-          room: room,
-          timer: setTimeout(()=>{
-            delete self.data.timers[timerName];
-            chat.js.say(room, announcement);
-          }, duration*60*1000)
-        };
-        chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
-      }
-    }else{
-      let timerName = "user:" + toId(message.user);
-      if(self.data.timers[timerName]){
-        clearTimeout(self.data.timers[timerName].timer);
-        delete self.data.timers[timerName];
-      }
-      self.data.timers[timerName] = {
-        room: room,
-        timer: setTimeout(()=>{
-          delete self.data.timers[timerName];
-          chat.js.pm(message.user, announcement);
-        }, duration*60*1000)
-      };
-      chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
-    }
-  },
-  addfact: function(message, args, rank){
-    if(auth.js.rankgeq(rank, self.config.factRank)){
-      if(!args.length){
-        chat.js.reply(message, "You need to give a fact to add.");
-      }else{
-        let fact = args.join(", ");
-        let factId = toId(fact);
-        if(self.data.facts.filter(f=>{return f.id == factId}).length){
-          chat.js.reply(message, "That fact already exists.");
-        }else{
-          self.data.facts.add({text: fact, id: factId});
-          saveFacts();
-          chat.js.reply(message, "Successfully added the fact.");
-        }
-      }
-    }else{
-      chat.js.reply(message, "Your rank is not high enough to edit facts.");
-    }
-  },
-  removefact: function(message, args, rank){
-    if(auth.js.rankgeq(rank, self.config.factRank)){
-      if(!args.length){
-        chat.js.reply(message, "You need to give a fact to remove.");
-      }else{
-        let fact = args.join(", ");
-        let factId = toId(fact);
-        let num = self.data.facts.length;
-        self.data.facts = self.data.facts.filter(f=>{return f.id !== factId});
-        if(self.data.facts.length === num){
-          chat.js.reply(message, "That fact does not exist.");
-        }else{
-          saveFacts();
-          chat.js.reply(message, "Successfully removed the fact.");
-        }
-      }
-    }else{
-      chat.js.reply(message, "Your rank is not high enough to edit facts.");
-    }
-  },
-  randfact: "fact",
-  randomfact: "fact",
-  fact: function(message, args, rank){
-    if(self.data.facts.length){
-      chat.js.reply(message, "__" + self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text + "__");
-    }else{
-      chat.js.reply(message, "There are no facts :<");
-    }
-  },
-  facts: "factlist",
-  factlist: function(message, args, rank){
-    if(self.data.facts.length){
-      let text = self.data.facts.map(f=>{return f.text}).join("\n\n");
-      request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-        try{
-          chat.js.reply(message, "Here is a list of all the facts: hastebin.com/" + JSON.parse(body).key);
-        }catch(e){
-          error(e.message);
-          chat.js.reply(message, "Something was wrong with the response from hastebin.");
-        }
-      });
-    }else{
-      chat.js.reply(message, "There are no facts :<");
-    }
-  },
+	//~timer [minutes], {message}, {room}
+	timer: function(message, args){
+		let room = toRoomId(args[2]) || message.room;
+		let announcement = args[1] || "Timer's up!";
+		let duration = args[0] && /^\d+$/.test(args[0]) && parseInt(args[0]);
+		if(duration>30){
+			duration = 0;
+		}
+		if(toId(args[0]) === "end"){
+			if(room){
+				let timerName = "room:" + room;
+				let rank = auth.js.getRoomRank(message.user, room);
+				if(!auth.js.rankgeq(rank, self.config.timerRank)){
+					chat.js.reply(message, "Your rank is not high enough to end the timer.");
+				}else if(self.data.timers[timerName]){
+					clearTimeout(self.data.timers[timerName].timer);
+					delete self.data.timers[timerName];
+					chat.js.reply(message, "Successfully cleared the timer for " + room + ".");
+				}else{
+					chat.js.reply(message, "There isn't a timer for " + room + ".");
+				}
+			}else{
+				let timerName = "user:" + toId(message.user);
+				if(self.data.timers[timerName]){
+					clearTimeout(self.data.timers[timerName].timer);
+					delete self.data.timers[timerName];
+					chat.js.reply(message, "Successfully cleared your personal timer.");
+				}else{
+					chat.js.reply(message, "You don't have a personal timer.");
+				}
+			}
+		}else if(!duration){
+			chat.js.reply(message, "You must give a positive integer less than 30 for the duration.");
+		}else if(room){
+			let rank = auth.js.getRoomRank(message.user, room);
+			let timerName = "room:" + room;
+			if(!auth.js.rankgeq(rank, self.config.timerRank)){
+				chat.js.reply(message, "Your rank is not high enough to set timers in " + room + ".");
+			}else{
+				if(self.data.timers[timerName]){
+					clearTimeout(self.data.timers[timerName].timer);
+					delete self.data.timers[timerName];
+				}
+				self.data.timers[timerName] = {
+					room: room,
+					timer: setTimeout(()=>{
+						delete self.data.timers[timerName];
+						chat.js.say(room, announcement);
+					}, duration*60*1000)
+				};
+				chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
+			}
+		}else{
+			let timerName = "user:" + toId(message.user);
+			if(self.data.timers[timerName]){
+				clearTimeout(self.data.timers[timerName].timer);
+				delete self.data.timers[timerName];
+			}
+			self.data.timers[timerName] = {
+				room: room,
+				timer: setTimeout(()=>{
+					delete self.data.timers[timerName];
+					chat.js.pm(message.user, announcement);
+				}, duration*60*1000)
+			};
+			chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
+		}
+	},
+	addfact: function(message, args, rank){
+		if(auth.js.rankgeq(rank, self.config.factRank)){
+			if(!args.length){
+				chat.js.reply(message, "You need to give a fact to add.");
+			}else{
+				let fact = args.join(", ");
+				let factId = toId(fact);
+				if(self.data.facts.filter(f=>{return f.id == factId}).length){
+					chat.js.reply(message, "That fact already exists.");
+				}else{
+					self.data.facts.add({text: fact, id: factId});
+					saveFacts();
+					chat.js.reply(message, "Successfully added the fact.");
+				}
+			}
+		}else{
+			chat.js.reply(message, "Your rank is not high enough to edit facts.");
+		}
+	},
+	removefact: function(message, args, rank){
+		if(auth.js.rankgeq(rank, self.config.factRank)){
+			if(!args.length){
+				chat.js.reply(message, "You need to give a fact to remove.");
+			}else{
+				let fact = args.join(", ");
+				let factId = toId(fact);
+				let num = self.data.facts.length;
+				self.data.facts = self.data.facts.filter(f=>{return f.id !== factId});
+				if(self.data.facts.length === num){
+					chat.js.reply(message, "That fact does not exist.");
+				}else{
+					saveFacts();
+					chat.js.reply(message, "Successfully removed the fact.");
+				}
+			}
+		}else{
+			chat.js.reply(message, "Your rank is not high enough to edit facts.");
+		}
+	},
+	randfact: "fact",
+	randomfact: "fact",
+	fact: function(message, args, rank){
+		if(self.data.facts.length){
+			chat.js.reply(message, "__" + self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text + "__");
+		}else{
+			chat.js.reply(message, "There are no facts :<");
+		}
+	},
+	facts: "factlist",
+	factlist: function(message, args, rank){
+		if(self.data.facts.length){
+			let text = self.data.facts.map(f=>{return f.text}).join("\n\n");
+			request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+				try{
+					chat.js.reply(message, "Here is a list of all the facts: hastebin.com/" + JSON.parse(body).key);
+				}catch(e){
+					error(e.message);
+					chat.js.reply(message, "Something was wrong with the response from hastebin.");
+				}
+			});
+		}else{
+			chat.js.reply(message, "There are no facts :<");
+		}
+	},
 	info: "help",
 	commands: "help",
 	help: function(message, args){
@@ -1070,7 +1070,7 @@ let commands = {
 			chat.js.reply(message, "This pdf contains all the commands you need to know: https://drive.google.com/file/d/0B8KyGlawfHaKRUZxZGlqQ3RkVlk/view?usp=sharing");
 		}
 	},
-  rules: function(message, args){
+	rules: function(message, args){
 		if(chat&&chat.js){
 			chat.js.reply(message, "Here are the rules for questions: https://docs.google.com/document/d/1t-TWMx-1aQ1eRlXJFjpLME4JNiCfo_s5cU5WaTgxTX0/edit#");
 		}
@@ -1083,9 +1083,9 @@ let commands = {
 	intro: function(message, args, rank){
 		chat.js.reply(message, "Here is a beginner's guide to Trivia Tracker (with pictures!): https://docs.google.com/document/d/1dHRz0vSEuF3WwWnqxVZdss9C1dZE37DrmAVqt0HRTEk");
 	},
-  plug: function(message, args, rank){
-    chat.js.reply(message, "https://plug.dj/trivia");
-  }
+	plug: function(message, args, rank){
+		chat.js.reply(message, "https://plug.dj/trivia");
+	}
 };
 
 let ttCommands = {
@@ -1162,7 +1162,7 @@ let ttleaderboardCommands = {
 	check: function(message, args, rank){
 		let user = args[1] || message.user;
 		let lb = toId(args[2]) || "main";
-    let lbExists = false;
+		let lbExists = false;
 		runSql(GET_ALL_LB_SQL, [], (row)=>{
 			if(row.id === lb) lbExists = true;
 		}, ()=>{
@@ -1199,10 +1199,10 @@ let ttleaderboardCommands = {
 	},
 	//Number of people, your place, your score, points to next place
 	summary: function(message, args, rank){
-    let lb = toId(args[1]) || "main";
-    let id = toId(message.user);
-    let lbExists = false;
-    runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
+		let lb = toId(args[1]) || "main";
+		let id = toId(message.user);
+		let lbExists = false;
+		runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
 			if(lbRow.id === lb) lbExists = true;
 		}, ()=>{
 			if(!lbExists){
@@ -1217,31 +1217,31 @@ let ttleaderboardCommands = {
 							if(!entry){
 								chat.js.reply(message, "You do not have a score on the " + lb + " leaderboard.");
 							}else{
-                let score = entry.points;
-                let entries = [];
-                runSql(GET_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
-                  entries.push(row)
-                }, (res)=>{
-                  if(entries.length === 0){
-                    chat.js.reply(message, "There doesn't seem to be anyone on the leaderboard. Maybe something went wrong.");
-                  }else if(entries.length === 1){
-                    chat.js.reply(message, "You are the only person on the leaderboard (and your score is " + score + ").");
-                  }else{
-                    if(entries[0].points === score){
-                      let nextPlayer = idsMatch(entries[0].display_name, id) ? entries[1] : entries[0];
-                      chat.js.reply(message, "You are first on the leaderboard, second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
-                    }else{
-                      let higherEntries = entries.filter(item=>{return item.points > score});
-                      let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
-                      response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
-                      response += " The next player above you is __" + higherEntries[higherEntries.length - 1].display_name + "__ with " + higherEntries[higherEntries.length - 1].points + " points.";
-                      chat.js.reply(message, response);
-                    }
-                  }
-                }, (err)=>{
-                  error(err);
-                  chat.js.reply(message, "There was an error while getting the scores.");
-                });
+								let score = entry.points;
+								let entries = [];
+								runSql(GET_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
+									entries.push(row)
+								}, (res)=>{
+									if(entries.length === 0){
+										chat.js.reply(message, "There doesn't seem to be anyone on the leaderboard. Maybe something went wrong.");
+									}else if(entries.length === 1){
+										chat.js.reply(message, "You are the only person on the leaderboard (and your score is " + score + ").");
+									}else{
+										if(entries[0].points === score){
+											let nextPlayer = idsMatch(entries[0].display_name, id) ? entries[1] : entries[0];
+											chat.js.reply(message, "You are first on the leaderboard, second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
+										}else{
+											let higherEntries = entries.filter(item=>{return item.points > score});
+											let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
+											response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
+											response += " The next player above you is __" + higherEntries[higherEntries.length - 1].display_name + "__ with " + higherEntries[higherEntries.length - 1].points + " points.";
+											chat.js.reply(message, response);
+										}
+									}
+								}, (err)=>{
+									error(err);
+									chat.js.reply(message, "There was an error while getting the scores.");
+								});
 							}
 						},(err)=>{
 							error(err);
@@ -1308,7 +1308,7 @@ let ttleaderboardCommands = {
 			let user = args[1];
 			let points = parseInt(args[2], 10);
 			let lb = args[3] || "main"
-      let lbExists = false;
+			let lbExists = false;
 			runSql(GET_ALL_LB_SQL, [], (row)=>{
 				if(row.id === lb){
 					lbExists = true;
@@ -1371,7 +1371,7 @@ let ttleaderboardCommands = {
 					chat.js.reply(message, args[1] + " does not have any leaderboard entries.");
 				}else{
 					removeAllLeaderboardEntries(user.id, (res)=>{
-						chat.js.reply(message, "Removed " + res.rowCount + " leaderboard entries for " +  args[1] + ".");
+						chat.js.reply(message, "Removed " + res.rowCount + " leaderboard entries for " +	args[1] + ".");
 					}, ()=>{}, (err)=>{
 						error(err);
 						chat.js.reply(message, "There was an error removing the entries.");
@@ -1389,23 +1389,23 @@ let ttleaderboardCommands = {
 			chat.js.reply(message, "Your rank is not high enough to reset the leaderboard.");
 		}else{
 			if(idsMatch(message.user, self.data.askToReset)){
-        getId(message.user, true, (user)=>{
-          runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
-            runSql(RESET_MAIN_LB_SQL, [user.id], null, (res)=>{
-              chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
-    					self.data.askToReset = "";
-            }, (err)=>{
-              error(err);
-              chat.js.reply(message, "There was an updating the leaderboard info.");
-            })
-  				}, (err)=>{
-  					error(err)
-  					chat.js.reply(message, "There was an error while removing the leaderboard.");
-  				});
-        }, (err)=>{
-          error(err);
-          chat.js.reply(message, "There was an error while getting your id.");
-        });
+				getId(message.user, true, (user)=>{
+					runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
+						runSql(RESET_MAIN_LB_SQL, [user.id], null, (res)=>{
+							chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
+							self.data.askToReset = "";
+						}, (err)=>{
+							error(err);
+							chat.js.reply(message, "There was an updating the leaderboard info.");
+						})
+					}, (err)=>{
+						error(err)
+						chat.js.reply(message, "There was an error while removing the leaderboard.");
+					});
+				}, (err)=>{
+					error(err);
+					chat.js.reply(message, "There was an error while getting your id.");
+				});
 			}else{
 				self.data.askToReset = message.user;
 				chat.js.reply(message, "Are you sure you want to reset the leaderboard? (Enter the reset command again to confirm)");
@@ -1507,7 +1507,7 @@ let ttleaderboardEventCommands = {
 		}
 	},
 	info: function(message, args, rank){
-    let lbName = args[2] || "main";
+		let lbName = args[2] || "main";
 		let id = toId(lbName);
 		let lb;
 		runSql(GET_LB_SQL, [id], (row)=>{
@@ -1518,75 +1518,75 @@ let ttleaderboardEventCommands = {
 			}else if(id !== "main"){
 				chat.js.reply(message, "Leaderboard name: " + lb.display_name + ", created on: " + lb.created_on.toUTCString() + ", created by: " + lb.created_by + ", enabled: " + lb.enabled);
 			}else{
-        chat.js.reply(message, "Leaderboard name: " + lb.display_name + ", last reset: " + lb.created_on.toUTCString() + ", reset by: " + lb.created_by + ", enabled: " + lb.enabled);
-      }
+				chat.js.reply(message, "Leaderboard name: " + lb.display_name + ", last reset: " + lb.created_on.toUTCString() + ", reset by: " + lb.created_by + ", enabled: " + lb.enabled);
+			}
 		}, (err)=>{
 			error(err);
 			chat.js.reply(message, "Something went wrong when trying to fetch the leaderboard.");
 		});
 	},
-  enable: function(message, args, rank){
-    if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
+	enable: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
 			chat.js.reply(message, "Your rank is not high enough to enable a leaderboard.");
 		}else if(args.length<3){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
 		}else{
-      let id = toId(args[2]);
-      let lbs = {};
-      runSql(GET_ALL_LB_SQL, [], (row)=>{
-        lbs[row.id] = row;
-      }, (res)=>{
-        if(!lbs[id]){
-          chat.js.reply(message, "The leaderboard you specified doesn't exist.");
-        }else if(lbs[id].enabled){
-          chat.js.reply(message, "That leaderboard is already enabled.");
-        }else{
-          runSql(UPDATE_LB_SQL, [id, true], null, (res)=>{
-            chat.js.reply(message, "Successfully enabled the " + lbs[id].display_name + " leaderboard.");
-          }, (err)=>{
-            error(err);
-            chat.js.reply(message, "There was an error while updating the leaderboard.");
-          })
-        }
-      }, (err)=>{
-        error(err);
-        chat.js.reply("There was an error when retrieving the leaderboards.");
-      });
-    }
-  },
-  disable: function(message, args, rank){
-    if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
+			let id = toId(args[2]);
+			let lbs = {};
+			runSql(GET_ALL_LB_SQL, [], (row)=>{
+				lbs[row.id] = row;
+			}, (res)=>{
+				if(!lbs[id]){
+					chat.js.reply(message, "The leaderboard you specified doesn't exist.");
+				}else if(lbs[id].enabled){
+					chat.js.reply(message, "That leaderboard is already enabled.");
+				}else{
+					runSql(UPDATE_LB_SQL, [id, true], null, (res)=>{
+						chat.js.reply(message, "Successfully enabled the " + lbs[id].display_name + " leaderboard.");
+					}, (err)=>{
+						error(err);
+						chat.js.reply(message, "There was an error while updating the leaderboard.");
+					})
+				}
+			}, (err)=>{
+				error(err);
+				chat.js.reply("There was an error when retrieving the leaderboards.");
+			});
+		}
+	},
+	disable: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
 			chat.js.reply(message, "Your rank is not high enough to disable a leaderboard.");
 		}else if(args.length<3){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
 		}else{
-      let id = toId(args[2]);
-      let lbs = {};
-      runSql(GET_ALL_LB_SQL, [], (row)=>{
-        lbs[row.id] = row;
-      }, (res)=>{
-        if(!lbs[id]){
-          chat.js.reply(message, "The leaderboard you specified doesn't exist.");
-        }else if(!lbs[id].enabled){
-          chat.js.reply(message, "That leaderboard is already disabled.");
-        }else{
-          runSql(UPDATE_LB_SQL, [id, false], null, (res)=>{
-            chat.js.reply(message, "Successfully disabled the " + lbs[id].display_name + " leaderboard.");
-          }, (err)=>{
-            error(err);
-            chat.js.reply(message, "There was an error while updating the leaderboard.");
-          })
-        }
-      }, (err)=>{
-        error(err);
-        chat.js.reply("There was an error when retrieving the leaderboards.");
-      });
-    }
-  }
+			let id = toId(args[2]);
+			let lbs = {};
+			runSql(GET_ALL_LB_SQL, [], (row)=>{
+				lbs[row.id] = row;
+			}, (res)=>{
+				if(!lbs[id]){
+					chat.js.reply(message, "The leaderboard you specified doesn't exist.");
+				}else if(!lbs[id].enabled){
+					chat.js.reply(message, "That leaderboard is already disabled.");
+				}else{
+					runSql(UPDATE_LB_SQL, [id, false], null, (res)=>{
+						chat.js.reply(message, "Successfully disabled the " + lbs[id].display_name + " leaderboard.");
+					}, (err)=>{
+						error(err);
+						chat.js.reply(message, "There was an error while updating the leaderboard.");
+					})
+				}
+			}, (err)=>{
+				error(err);
+				chat.js.reply("There was an error when retrieving the leaderboards.");
+			});
+		}
+	}
 };
 
 let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTime, wasClaimed){
-  remindTime = remindTime || self.config.remindTime;
+	remindTime = remindTime || self.config.remindTime;
 	let game = self.data.games[room];
 	let result = false;
 	let response = "There is no game of Trivia Tracker in " + room + ".";
@@ -1607,16 +1607,16 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 					lastHist.undo = null;
 				}
 			}
-      if(wasClaimed){
-        updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
-          return Math.max(oldPoints + self.config.claimPoints, 0);
-        });
-        historyToAdd = {active:nextPlayer, undo:function(){
-          updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
-            return Math.max(oldPoints - self.config.claimPoints, 0);
-          });
-        }}
-      }
+			if(wasClaimed){
+				updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
+					return Math.max(oldPoints + self.config.claimPoints, 0);
+				});
+				historyToAdd = {active:nextPlayer, undo:function(){
+					updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
+						return Math.max(oldPoints - self.config.claimPoints, 0);
+					});
+				}}
+			}
 			game.history.add(historyToAdd);
 			if(history.length>10){
 				history.shift();
@@ -1755,39 +1755,39 @@ let loadFacts = function(){
 };
 
 let defaultConfigs = {
-  timerRank: "%",
-  factRank: "+",
+	timerRank: "%",
+	factRank: "+",
 	startGameRank: "+",
 	endGameRank: "%",
-  manageBpRank: "+",
-  manageBlRank: "@",
+	manageBpRank: "+",
+	manageBlRank: "@",
 	editScoreRank: "@",
 	resetLeaderboardRank: "#",
 	manageEventRank: "#",
-  remindTime: 240,
-  openTime: 60,
-  leaveGraceTime: 20,
-  correctPoints: 2,
-  claimPoints: 1
+	remindTime: 240,
+	openTime: 60,
+	leaveGraceTime: 20,
+	correctPoints: 2,
+	claimPoints: 1
 };
 
 exports.defaultConfigs = defaultConfigs;
 
 let configTypes = {
-  timerRank: "rank",
-  factRank: "rank",
+	timerRank: "rank",
+	factRank: "rank",
 	startGameRank: "rank",
 	endGameRank: "rank",
-  manageBpRank: "rank",
-  manageBlRank: "rank",
+	manageBpRank: "rank",
+	manageBlRank: "rank",
 	editScoreRank: "rank",
 	resetLeaderboardRank: "rank",
 	manageEventRank: "rank",
-  remindTime: "int",
-  openTime: "int",
-  leaveGraceTime: "int",
-  correctPoints: "int",
-  claimPoints: "int"
+	remindTime: "int",
+	openTime: "int",
+	leaveGraceTime: "int",
+	correctPoints: "int",
+	claimPoints: "int"
 };
 
 exports.configTypes = configTypes;

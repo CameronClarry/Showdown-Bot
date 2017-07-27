@@ -195,65 +195,65 @@ let WebSocketClient = require('websocket').client;
 let Connection = null;
 
 var connect = function (retry) {
-    if (retry) {
-        info('Retrying...');
-    }
+	if (retry) {
+		info('Retrying...');
+	}
 
-    var ws = new WebSocketClient();
+	var ws = new WebSocketClient();
 
-    ws.on('connectFailed', function (err) {
-        error('Could not connect');
-        error(err)
-        info('Retrying in thirty seconds');
+	ws.on('connectFailed', function (err) {
+		error('Could not connect');
+		error(err)
+		info('Retrying in thirty seconds');
 
-        setTimeout(function () {
-            connect(true);
-        }, 30000);
-    });
+		setTimeout(function () {
+			connect(true);
+		}, 30000);
+	});
 
-    ws.on('connect', function (con) {
-        Connection = con;
-        ok('Connected to server');
+	ws.on('connect', function (con) {
+		Connection = con;
+		ok('Connected to server');
 
 
-        con.on('error', function (err) {
-            error('Connection error: ' + err.stack);
-        });
+		con.on('error', function (err) {
+			error('Connection error: ' + err.stack);
+		});
 
-        con.on('close', function (code, reason) {
-            // Is this always error or can this be intended...?
-            error('Connection closed: ' + reason + ' (' + code + ')');
-            info('Retrying in thirty seconds.');
+		con.on('close', function (code, reason) {
+			// Is this always error or can this be intended...?
+			error('Connection closed: ' + reason + ' (' + code + ')');
+			info('Retrying in thirty seconds.');
 
-            setTimeout(function () {
-                connect(true);
-            }, 30000);
-        });
+			setTimeout(function () {
+				connect(true);
+			}, 30000);
+		});
 
-        con.on('message', function (response) {
-        	try{
-	            if (response.type !== 'utf8'){
-	            	info(JSON.stringify(response));
-	            	return false;
-	            }
-	            var message = response.utf8Data;
-	            if(mainConfig.log_receive){
-	            	recv(message);
-	            }
-	            handle(message);
-        	}catch(e){
-        		error(e.message);
-        	}
-        });
+		con.on('message', function (response) {
+			try{
+				if (response.type !== 'utf8'){
+					info(JSON.stringify(response));
+					return false;
+				}
+				var message = response.utf8Data;
+				if(mainConfig.log_receive){
+					recv(message);
+				}
+				handle(message);
+			}catch(e){
+				error(e.message);
+			}
+		});
 				if(messageQueue.length && !messageTimeout){
 					messageTimeout = setTimeout(trySendMessage, MESSAGE_THROTTLE);
 				}
-    });
+	});
 
-    // The connection itself
+	// The connection itself
 
-    info("Connecting to " + mainConfig.connection);
-    ws.connect(mainConfig.connection);
+	info("Connecting to " + mainConfig.connection);
+	ws.connect(mainConfig.connection);
 };
 
 let trySendMessage = function(){
@@ -296,81 +296,81 @@ global.send = function (data) {
 
 function handle(message){
 	let chunks = message.split("\n");
-    let room = chunks[0].toLowerCase();
-    let isInit = false;
-    if(chunks[0][0]==">"){
-        room = chunks.splice(0,1)[0].substr(1);
-    }
-    for(let i=0;i<chunks.length;i++){
-        let args = chunks[i].split("|");
-        if(args[1]=="challstr"){
-            request.post(
-                {
-                    url : "http://play.pokemonshowdown.com/action.php",
-                    formData : {
-                        act: "login",
-                        name: mainConfig.user,
-                        pass: mainConfig.pass,
-                        challengekeyid: args[2],
-                        challenge: args[3]
-                    }
-                },
-                function (err, response, body) {
+	let room = chunks[0].toLowerCase();
+	let isInit = false;
+	if(chunks[0][0]==">"){
+		room = chunks.splice(0,1)[0].substr(1);
+	}
+	for(let i=0;i<chunks.length;i++){
+		let args = chunks[i].split("|");
+		if(args[1]=="challstr"){
+			request.post(
+				{
+					url : "http://play.pokemonshowdown.com/action.php",
+					formData : {
+						act: "login",
+						name: mainConfig.user,
+						pass: mainConfig.pass,
+						challengekeyid: args[2],
+						challenge: args[3]
+					}
+				},
+				function (err, response, body) {
 					let data;
-                    if(!body||body.length < 1){
-                        body = null;
-                    }else{
-                        if(body[0]=="]"){
-                            body = body.substr(1);
-                        }
-                        data = JSON.parse(body);
-                    }
-                    if(data && data.curuser && data.curuser.loggedin) {
-                        send("|/trn " + mainConfig.user + ",0," + data.assertion);
-                    } else {
-                        // We couldn't log in for some reason
-                        error("Error logging in...");
-                        process.exit(1);
-                    }
-            });
-        }else if(args[1]=="updateuser"&&args[2].toLowerCase()==mainConfig.user.toLowerCase()){
+					if(!body||body.length < 1){
+						body = null;
+					}else{
+						if(body[0]=="]"){
+							body = body.substr(1);
+						}
+						data = JSON.parse(body);
+					}
+					if(data && data.curuser && data.curuser.loggedin) {
+						send("|/trn " + mainConfig.user + ",0," + data.assertion);
+					} else {
+						// We couldn't log in for some reason
+						error("Error logging in...");
+						process.exit(1);
+					}
+			});
+		}else if(args[1]=="updateuser"&&args[2].toLowerCase()==mainConfig.user.toLowerCase()){
 			send("|/avatar 162");
 			for(let modulename in modules){
-	        	let module = modules[modulename];
-	        	if(module && module.js && module.js.onConnect){
-	        		module.js.onConnect();
-	        	}
-	        }
-        }else{
-        	if(args[1]==="init"){
-        		isInit = true;
-        	}
-        	let chatInfo = getChatInfo(room, args, isInit);
-        	for(let modulename in modules){
-        		let module = modules[modulename];
-        		if(module&&module.messagehooks){
-        			for(let hookname in module.messagehooks){
-        				try{
-        					module.messagehooks[hookname](room, args, isInit);
-        				}catch(e){
-        					error(e.message);
-        					info("Exception while trying message hook from " + modulename + "(hook: " + hookname + ")");
-        				}
-        			}
-        		}
-        		if(module&&module.chathooks){
-        			for(let hookname in module.chathooks){
-        				try{
-        					module.chathooks[hookname](chatInfo);
-        				}catch(e){
-        					error(e.message);
-        					info("Exception while trying chat hook from " + modulename + "(hook: " + hookname + ")");
-        				}
-        			}
-        		}
-        	}
-        }
-    }
+				let module = modules[modulename];
+				if(module && module.js && module.js.onConnect){
+					module.js.onConnect();
+				}
+			}
+		}else{
+			if(args[1]==="init"){
+				isInit = true;
+			}
+			let chatInfo = getChatInfo(room, args, isInit);
+			for(let modulename in modules){
+				let module = modules[modulename];
+				if(module&&module.messagehooks){
+					for(let hookname in module.messagehooks){
+						try{
+							module.messagehooks[hookname](room, args, isInit);
+						}catch(e){
+							error(e.message);
+							info("Exception while trying message hook from " + modulename + "(hook: " + hookname + ")");
+						}
+					}
+				}
+				if(module&&module.chathooks){
+					for(let hookname in module.chathooks){
+						try{
+							module.chathooks[hookname](chatInfo);
+						}catch(e){
+							error(e.message);
+							info("Exception while trying chat hook from " + modulename + "(hook: " + hookname + ")");
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 //Here are some useful functions for all modules to use
@@ -437,13 +437,13 @@ global.idsMatch = function(n1, n2){
 
 //Create necessary folders
 if (!fs.existsSync("./config")){
-    fs.mkdirSync("./config");
+	fs.mkdirSync("./config");
 }
 if (!fs.existsSync("./data")){
-    fs.mkdirSync("./data");
+	fs.mkdirSync("./data");
 }
 if (!fs.existsSync("./logs")){
-    fs.mkdirSync("./logs");
+	fs.mkdirSync("./logs");
 }
 
 global.mainConfig = {}
