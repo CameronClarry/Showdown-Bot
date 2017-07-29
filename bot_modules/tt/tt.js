@@ -1049,7 +1049,9 @@ let commands = {
 	},
 	facts: "factlist",
 	factlist: function(message, args, rank){
-		if(self.data.facts.length){
+		if(!auth.js.rankgeq(rank, self.config.factRank)){
+			chat.js.reply(message, "Your rank is not high enough to manage facts.");
+		}else if(self.data.facts.length){
 			let text = self.data.facts.map(f=>{return f.text}).join("\n\n");
 			request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
 				try{
