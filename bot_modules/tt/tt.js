@@ -1074,7 +1074,7 @@ let commands = {
 	},
 	rules: function(message, args){
 		if(chat&&chat.js){
-			chat.js.reply(message, "Here are the rules for questions: https://docs.google.com/document/d/1t-TWMx-1aQ1eRlXJFjpLME4JNiCfo_s5cU5WaTgxTX0/edit#");
+			chat.js.reply(message, "Here's everything you need to know about Trivia Tracker: http://pstrivia.weebly.com/trivia-tracker.html");
 		}
 	},
 	legacyrules: function(message, args){
