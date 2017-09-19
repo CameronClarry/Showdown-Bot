@@ -1004,7 +1004,7 @@ let commands = {
 			if(!args.length){
 				chat.js.reply(message, "You need to give a fact to add.");
 			}else{
-				let fact = args.join(", ");
+				let fact = message.message.substr(9);
 				let factId = toId(fact);
 				if(self.data.facts.filter(f=>{return f.id == factId}).length){
 					chat.js.reply(message, "That fact already exists.");
