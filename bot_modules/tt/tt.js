@@ -503,16 +503,10 @@ let commands = {
 			}
 		}
 	},
-	yea: "yes",
-	yup: "yes",
-	sure: "yes",
-	yee: "yes",
-	yep: "yes",
-	yeah: "yes",
-	hellyeah: "yes",
-	ofcourse: "yes",
-	butofcourse: "yes",
-	go: "yes",
+	yea: "yes", yup: "yes", sure: "yes", yee: "yes", yep: "yes", yeah: "yes",
+	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
+	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",
+	aye: "yes", ya: "yes", ye: "yes",
 	yes: function(message, args, rank){
 		let room = message.room;
 		let success = false;
