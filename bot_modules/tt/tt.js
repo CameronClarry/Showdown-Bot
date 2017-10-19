@@ -3,25 +3,14 @@ let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let chat = null;
 let auth = null;
 let rooms = null;
-let pg = require("pg");
+let pgclient = null;
 let request = require("request");
-const conInfo = {
-	user: mainConfig.dbuser,
-	password: mainConfig.dbpassword,
-	database: mainConfig.dbname,
-	host: mainConfig.dbhost,
-	port: mainConfig.dbport
-};
 
-const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
 const DELETE_USER_SQL = "DELETE FROM users WHERE id = $1;";
-const INSERT_ALT_SQL = "INSERT INTO alts (username, main_id) VALUES ($1, (SELECT id FROM users WHERE username = $2 FETCH FIRST 1 ROWS ONLY));";
 const DELETE_ALT_SQL = "DELETE FROM alts WHERE username = $1;";
-const GET_USER_SQL = "SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;";
 const GET_ALTS_SQL = "SELECT username FROM alts WHERE main_id = $1;";
 const UPDATE_USER_SQL = "UPDATE users SET display_name = $2 WHERE id = $1;";
 const UPDATE_MAINS_SQL = "UPDATE alts SET main_id = $2 WHERE main_id = $1;";
-const GET_MAINS_SQL = "SELECT alts.username, id, display_name, TRUE AS is_first FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 UNION SELECT username, id, display_name, FALSE AS is_first FROM alts INNER JOIN users ON alts.main_id = users.id WHERE username = $2;";
 
 const INSERT_LB_SQL = "INSERT INTO tt_leaderboards VALUES($1, $2, CURRENT_TIMESTAMP, $3, true);";
 const DELETE_LB_SQL = "DELETE FROM tt_leaderboards WHERE id = $1;";
@@ -52,84 +41,10 @@ const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_poi
 //	// ''
 //}
 
-let pgReconnect = function(message){
-	try{
-		if(self.data && self.data.client){
-			self.data.client.end();
-		}
-	}catch(e){
-		error(e.message);
-	}
-
-	try{
-		self.data.client = new pg.Client(conInfo);
-		self.data.client.connect((err)=>{
-			if(err){
-				error(err);
-				if(message){
-					chat.js.reply(message, "Unable to connect to database.");
-				}
-			}else{
-				ok("Client is connected");
-				chat.js.reply(message, "The client is now connected to the database.");
-				self.data.connected = true;
-			}
-		});
-		self.data.client.on("error",(e)=>{
-			error(e.message);
-		});
-		self.data.client.on("end",()=>{
-			self.data.connected = false;
-			error("Client connection ended");
-		});
-	}catch(e){
-		error(e.message);
-		if(message){
-			chat.js.reply(message, "Unable to connect to database.");
-		}
-	}
-};
-
-let runSql = function(statement, args, onRow, onEnd, onError){
-	if(!self.data.connected){
-		onError("The bot is not connected to the database.");
-	}
-	if(!onError){
-		onError = (err)=>{
-			error(err.message);
-		};
-	}
-	try{
-		let query = self.data.client.query(statement,args);
-		if(onRow) query.on("row", onRow);
-		if(onEnd) query.on("end", onEnd);
-		query.on("error", onError);
-	}catch(err){
-		error(err);
-	}
-};
-
-let getId = function(username, createNewEntry, onEnd, onError){
-	let res;
-	runSql(GET_USER_SQL, [toId(username)], (row)=>{
-		res = row;
-	}, ()=>{
-		if(!res && createNewEntry){
-			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], null, ()=>{
-				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, ()=>{
-					getId(username, createNewEntry, onEnd, onError);
-				}, onError);
-			}, onError);
-		}else{
-			onEnd(res);
-		}
-	}, onError);
-}
-
 //args is [id, leaderboard]
 let getLeaderboardEntry = function(args, onEnd, onError){
 	let res;
-	runSql(GET_LB_ENTRY_SQL, [args[0], toId(args[1])], (row)=>{
+	pgclient.js.runSql(GET_LB_ENTRY_SQL, [args[0], toId(args[1])], (row)=>{
 		res = row;
 	}, ()=>{
 		if(onEnd) onEnd(res);
@@ -138,7 +53,7 @@ let getLeaderboardEntry = function(args, onEnd, onError){
 
 //args is [number of entries to get, leaderboard]
 let listLeaderboardEntries = function(args, onRow, onEnd, onError){
-	runSql(LIST_LB_ENTRIES_SQL.replace("_NUMBER_",args[0]), [toId(args[1])], onRow, onEnd, onError);
+	pgclient.js.runSql(LIST_LB_ENTRIES_SQL.replace("_NUMBER_",args[0]), [toId(args[1])], onRow, onEnd, onError);
 };
 
 //updateFunc takes the old score, and returns what the new score should be
@@ -149,14 +64,14 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 	getLeaderboardEntry(args, (res)=>{
 		if(!res){
 			let newScore = updateFunc(0);
-			runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
+			pgclient.js.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
 				if(onEnd){
 					onEnd(res, newScore);
 				}
 			}, onError);
 		}else{
 			let newScore = updateFunc(res.points);
-			runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
+			pgclient.js.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
 				if(onEnd){
 					onEnd(res, newScore);
 				}
@@ -166,7 +81,7 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 };
 
 let updateLeaderboardEntryByUsername = function(args, updateFunc, onEnd, onError){
-	getId(args[0], true, (res)=>{
+	pgclient.js.getId(args[0], true, (res)=>{
 		updateLeaderboardEntryById([res.id, args[1]], updateFunc, onEnd, onError);
 	}, onError);
 }
@@ -175,11 +90,11 @@ let updateLeaderboardEntryByUsername = function(args, updateFunc, onEnd, onError
 //onEnd takes the user id, rows updated, array of events failed
 let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 	let events = [];
-	runSql(GET_ENABLED_LB_SQL, [], (row)=>{
+	pgclient.js.runSql(GET_ENABLED_LB_SQL, [], (row)=>{
 		events.push(row);
 	}, ()=>{
 		let entries = {};
-		runSql(GET_LB_ENTRIES_SQL, [id], (row)=>{
+		pgclient.js.runSql(GET_LB_ENTRIES_SQL, [id], (row)=>{
 			entries[row.leaderboard] = row;
 		}, ()=>{
 			events = events.map((event)=>{return event.id});
@@ -201,9 +116,9 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 			};
 			for(let i=0;i<events.length;i++){
 				if(entries[events[i]]){
-					runSql(UPDATE_LB_ENTRY_SQL, [id, events[i], updateFunc(entries[events[i]].points)], null, newEnd(events[i]), newError(events[i]));
+					pgclient.js.runSql(UPDATE_LB_ENTRY_SQL, [id, events[i], updateFunc(entries[events[i]].points)], null, newEnd(events[i]), newError(events[i]));
 				}else{
-					runSql(INSERT_LB_ENTRY_SQL, [id, events[i], updateFunc(0)], null, newEnd(events[i]), newError(events[i]));
+					pgclient.js.runSql(INSERT_LB_ENTRY_SQL, [id, events[i], updateFunc(0)], null, newEnd(events[i]), newError(events[i]));
 				}
 			}
 			if(events.length === 0) onEnd(id, 0, 0);
@@ -212,7 +127,7 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 }
 
 let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, onEnd, onError){
-	getId(username, true, (res)=>{
+	pgclient.js.getId(username, true, (res)=>{
 		updateAllLeaderboardEntriesById(res.id, updateFunc, (id, affected, failed)=>{
 			if(onEnd) onEnd(res.display_name, affected, failed);
 		});
@@ -226,7 +141,7 @@ let removeLeaderboardEntry = function(args, onEnd, onError){
 		if(!res){
 			onEnd(res);
 		}else{
-			runSql(DELETE_LB_ENTRY_SQL, args, ()=>{}, ()=>{
+			pgclient.js.runSql(DELETE_LB_ENTRY_SQL, args, ()=>{}, ()=>{
 				if(onEnd){
 					onEnd(res);
 				}
@@ -236,19 +151,19 @@ let removeLeaderboardEntry = function(args, onEnd, onError){
 };
 
 let removeAllLeaderboardEntries = function(id, onEnd, onError){
-	runSql(DELETE_USER_ENTRIES_SQL, [id], null, onEnd, onError);
+	pgclient.js.runSql(DELETE_USER_ENTRIES_SQL, [id], null, onEnd, onError);
 }
 
 let transferAllPoints = function(fromId, toId, onEnd, onError, onAllFinished){
 	let success = true;
 	let fromEntries = {};
 	let entriesToTransfer = 0;
-	runSql(GET_LB_ENTRIES_SQL, [fromId], (row)=>{
+	pgclient.js.runSql(GET_LB_ENTRIES_SQL, [fromId], (row)=>{
 		fromEntries[row.leaderboard] = row;
 		entriesToTransfer++;
 	}, ()=>{
 		let toEntries = {};
-		runSql(GET_LB_ENTRIES_SQL, [toId], (row)=>{
+		pgclient.js.runSql(GET_LB_ENTRIES_SQL, [toId], (row)=>{
 			toEntries[row.leaderboard] = row;
 		}, ()=>{
 			if(entriesToTransfer === 0){
@@ -269,41 +184,30 @@ let transferAllPoints = function(fromId, toId, onEnd, onError, onAllFinished){
 			removeAllLeaderboardEntries(fromId);
 			for(let event in fromEntries){
 				if(toEntries[event]){
-					runSql(UPDATE_LB_ENTRY_SQL, [toId, event, toEntries[event].points + fromEntries[event].points], null, endFunc, errorFunc);
+					pgclient.js.runSql(UPDATE_LB_ENTRY_SQL, [toId, event, toEntries[event].points + fromEntries[event].points], null, endFunc, errorFunc);
 				}else{
-					runSql(INSERT_LB_ENTRY_SQL, [toId, event, fromEntries[event].points], null, endFunc, errorFunc);
+					pgclient.js.runSql(INSERT_LB_ENTRY_SQL, [toId, event, fromEntries[event].points], null, endFunc, errorFunc);
 				}
 			}
 		}, onError);
 	}, onError);
 };
 
-//onEnd should take a functon of an array with two elements
-let getMains = function(username1, username2, createNewEntry, onEnd, onError){
-	let res = [];
-	getId(username1, createNewEntry, (user1)=>{
-		res[0] = user1;
-		getId(username2, createNewEntry, (user2)=>{
-			res[1] = user2;
-			onEnd(res);
-		}, onError);
-	}, onError);
-}
-
 let changeMains = function(id, newName, onEnd, onError){
-	runSql(UPDATE_USER_SQL, [id, newName], null, onEnd, onError);
+	pgclient.js.runSql(UPDATE_USER_SQL, [id, newName], null, onEnd, onError);
 }
 
+// Merges two alts, and their points
 let mergeAlts = function(fromName, toName, onEnd, onError){
-	getMains(fromName, toName, true, (res)=>{
+	pgclient.js.getMains(fromName, toName, true, (res)=>{
 		if(res[0].id === res[1].id){
 			onError("Those two accounts are the same.");
 			return;
 		}
 		transferAllPoints(res[0].id, res[1].id, null, null, (success)=>{
 			if(success){
-				runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], null, ()=>{
-					runSql(DELETE_USER_SQL, [res[0].id], null, ()=>{
+				pgclient.js.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], null, ()=>{
+					pgclient.js.runSql(DELETE_USER_SQL, [res[0].id], null, ()=>{
 						onEnd();
 					}, onError);
 				}, onError);
@@ -320,14 +224,6 @@ exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
 	if(loadData){
-		try{
-			if(self.data && self.data.client){
-				self.data.client.end();
-			}
-		}catch(e){
-			error(e.message);
-		}
-
 		self.data = {
 			games: {},
 			pendingAlts: {},
@@ -335,27 +231,6 @@ exports.onLoad = function(module, loadData){
 			timers: {}
 		};
 		loadFacts();
-
-		try{
-			self.data.client = new pg.Client(conInfo);
-			self.data.client.connect((err)=>{
-				if(err){
-					error(err);
-				}else{
-					ok("Client is connected");
-					self.data.connected = true;
-				}
-			});
-			self.data.client.on("error",(e)=>{
-				error(e.message);
-			});
-			self.data.client.on("end",()=>{
-				self.data.connected = false;
-				error("Client connection ended");
-			});
-		}catch(e){
-			error(e.message);
-		}
 		loadLeaderboard();
 	}
 	self.chathooks = {
@@ -440,6 +315,7 @@ exports.refreshDependencies = function(){
 	chat = getModuleForDependency("chat", "tt");
 	auth = getModuleForDependency("auth", "tt");
 	rooms = getModuleForDependency("rooms", "tt");
+	pgclient = getModuleForDependency("pgclient", "tt");
 };
 exports.onConnect = function(){
 
@@ -503,10 +379,18 @@ let commands = {
 			}
 		}
 	},
+	event: function(message, args, rank){
+		if(args.length>0){
+			let command = args[0].toLowerCase();
+			if(ttleaderboardEventCommands[command]){
+				ttleaderboardEventCommands[command](message, args, rank);
+			}
+		}
+	},
 	yea: "yes", yup: "yes", sure: "yes", yee: "yes", yep: "yes", yeah: "yes",
 	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
 	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",
-	aye: "yes", ya: "yes", ye: "yes",
+	aye: "yes", ya: "yes", ye: "yes", correct: "yes",
 	yes: function(message, args, rank){
 		let room = message.room;
 		let success = false;
@@ -796,14 +680,14 @@ let commands = {
 	},
 	alts: function(message, args, rank){
 		let target = toId(args[0]) ? args[0] : message.user;
-		getMains(message.user, target, false, (res)=>{
+		pgclient.js.getMains(message.user, target, false, (res)=>{
 			if(!auth.js.rankgeq(rank, "%") && (!res[0] || !res[1] || (res[0].id !== res[1].id))){
 				chat.js.reply(message, "Your rank is not high enough to check other users' alts.")
 			}else if(!res[1]){
 				chat.js.reply(message, target + " does not have any alts.");
 			}else{
 				let alts = [];
-				runSql(GET_ALTS_SQL, [res[1].id], (row)=>{
+				pgclient.js.runSql(GET_ALTS_SQL, [res[1].id], (row)=>{
 					alts.push(row);
 				}, ()=>{
 					alts = alts.map((alt)=>{return alt.username});
@@ -865,13 +749,13 @@ let commands = {
 		if(args.length===0 || !args[0]){
 			chat.js.reply(message, "You must specify an alt.");
 		}else{
-			getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
+			pgclient.js.getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
 				if(res.length < 2 || res[0].id !== res[1].id){
 					chat.js.reply(message, "That account is not an alt of yours.");
 				}else if(idsMatch(args[0], res[1].display_name)){
 					chat.js.reply(message, "You cannot remove your main account.");
 				}else{
-					runSql(DELETE_ALT_SQL, [toId(args[0])], null, (res)=>{
+					pgclient.js.runSql(DELETE_ALT_SQL, [toId(args[0])], null, (res)=>{
 						if(res.rowCount === 0){
 							chat.js.reply(message, "That's weird, the query didn't delete anything. Something is probably wrong.");
 						}else{
@@ -894,7 +778,7 @@ let commands = {
 		}else if(args[0].length>20){
 			chat.js.reply(message, "That name is too long.");
 		}else{
-			getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
+			pgclient.js.getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
 				if(!res[0]){
 					chat.js.reply(message, "You do not have any alts.");
 				}else if(!res[1] || res[0].id !== res[1].id){
@@ -1126,11 +1010,6 @@ let ttCommands = {
 			delete self.data.games[room];
 			chat.js.say(room,"**The game of Trivia Tracker has ended.**");
 		}
-	},
-	reconnect: function(message, args, rank){
-		if(auth.js.rankgeq(rank,"@")){
-			pgReconnect(message);
-		}
 	}
 };
 
@@ -1159,14 +1038,14 @@ let ttleaderboardCommands = {
 		let user = args[1] || message.user;
 		let lb = toId(args[2]) || "main";
 		let lbExists = false;
-		runSql(GET_ALL_LB_SQL, [], (row)=>{
+		pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
 			if(row.id === lb) lbExists = true;
 		}, ()=>{
 			if(!lbExists){
 				chat.js.reply(message, "The leaderboard you entered does not exist.");
 			}else{
 				let res;
-				getId(user, false, (res)=>{
+				pgclient.js.getId(user, false, (res)=>{
 					if(!res){
 						chat.js.reply(message, user + " does not have a score on the " + lb + " leaderboard.");
 					}else{
@@ -1198,14 +1077,14 @@ let ttleaderboardCommands = {
 		let lb = toId(args[1]) || "main";
 		let id = toId(message.user);
 		let lbExists = false;
-		runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
+		pgclient.js.runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
 			if(lbRow.id === lb) lbExists = true;
 		}, ()=>{
 			if(!lbExists){
 				chat.js.reply(message, "The leaderboard you entered does not exist.");
 			}else{
 				let res;
-				getId(id, false, (res)=>{
+				pgclient.js.getId(id, false, (res)=>{
 					if(!res){
 						chat.js.reply(message, "You do not have a score on the " + lb + " leaderboard.");
 					}else{
@@ -1215,7 +1094,7 @@ let ttleaderboardCommands = {
 							}else{
 								let score = entry.points;
 								let entries = [];
-								runSql(GET_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
+								pgclient.js.runSql(GET_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
 									entries.push(row)
 								}, (res)=>{
 									if(entries.length === 0){
@@ -1305,7 +1184,7 @@ let ttleaderboardCommands = {
 			let points = parseInt(args[2], 10);
 			let lb = args[3] || "main"
 			let lbExists = false;
-			runSql(GET_ALL_LB_SQL, [], (row)=>{
+			pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
 				if(row.id === lb){
 					lbExists = true;
 				}
@@ -1362,7 +1241,7 @@ let ttleaderboardCommands = {
 		}else if(!auth.js.rankgeq(rank, self.config.editScoreRank)){
 			chat.js.reply(message, "Your rank is not high enough to remove someone's leaderboard entries.");
 		}else{
-			getId(args[1], false, (user)=>{
+			pgclient.js.getId(args[1], false, (user)=>{
 				if(!user){
 					chat.js.reply(message, args[1] + " does not have any leaderboard entries.");
 				}else{
@@ -1385,9 +1264,9 @@ let ttleaderboardCommands = {
 			chat.js.reply(message, "Your rank is not high enough to reset the leaderboard.");
 		}else{
 			if(idsMatch(message.user, self.data.askToReset)){
-				getId(message.user, true, (user)=>{
-					runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
-						runSql(RESET_MAIN_LB_SQL, [user.id], null, (res)=>{
+				pgclient.js.getId(message.user, true, (user)=>{
+					pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
+						pgclient.js.runSql(RESET_MAIN_LB_SQL, [user.id], null, (res)=>{
 							chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
 							self.data.askToReset = "";
 						}, (err)=>{
@@ -1407,21 +1286,13 @@ let ttleaderboardCommands = {
 				chat.js.reply(message, "Are you sure you want to reset the leaderboard? (Enter the reset command again to confirm)");
 			}
 		}
-	},
-	event: function(message, args, rank){
-		if(args.length>1){
-			let command = args[1].toLowerCase();
-			if(ttleaderboardEventCommands[command]){
-				ttleaderboardEventCommands[command](message, args, rank);
-			}
-		}
 	}
 };
 
 let ttleaderboardEventCommands = {
 	list: function(message, args, rank){
 		let events = [];
-		runSql(GET_ALL_LB_SQL, [], (row)=>{
+		pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
 			events.push(row);
 		}, ()=>{
 			if(!events.length){
@@ -1437,21 +1308,21 @@ let ttleaderboardEventCommands = {
 	add: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
 			chat.js.reply(message, "Your rank is not high enough to create a leaderboard.");
-		}else if(args.length<=2 || !toId(args[2])){
+		}else if(args.length<=1 || !toId(args[1])){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
-		}else if(args[2].length > 20){
+		}else if(args[1].length > 20){
 			chat.js.reply(message, "That name is too long.");
 		}else{
 			let displayName = args[2];
 			let lb;
-			runSql(GET_LB_SQL, [toId(displayName)], (row)=>{
+			pgclient.js.runSql(GET_LB_SQL, [toId(displayName)], (row)=>{
 				lb = row;
 			}, ()=>{
 				if(lb){
 					chat.js.reply(message, "A leaderboard already exists with the same name.");
 				}else{
-					getId(message.user, true, (res)=>{
-						runSql(INSERT_LB_SQL, [toId(displayName), displayName, res.id], null, ()=>{
+					pgclient.js.getId(message.user, true, (res)=>{
+						pgclient.js.runSql(INSERT_LB_SQL, [toId(displayName), displayName, res.id], null, ()=>{
 								chat.js.reply(message, "Successfully created a new leaderboard.");
 						}, (err)=>{
 							error(err)
@@ -1471,21 +1342,21 @@ let ttleaderboardEventCommands = {
 	remove: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
 			chat.js.reply(message, "Your rank is not high enough to remove a leaderboard.");
-		}else if(args.length<=2){
+		}else if(args.length<=1){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
-		}else if(toId(args[2]) === "main"){
+		}else if(toId(args[1]) === "main"){
 			chat.js.reply(message, "You cannot remove that leaderboard.");
 		}else{
-			let id = toId(args[2]);
+			let id = toId(args[1]);
 			let lb;
-			runSql(GET_LB_SQL, [id], (row)=>{
+			pgclient.js.runSql(GET_LB_SQL, [id], (row)=>{
 				lb = row;
 			}, ()=>{
 				if(!lb){
 					chat.js.reply(message, "There is no leaderboard with that name.");
 				}else{
-					runSql(DELETE_LB_ENTRIES_SQL, [id], null, (res)=>{
-						runSql(DELETE_LB_SQL, [id], null, ()=>{
+					pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, [id], null, (res)=>{
+						pgclient.js.runSql(DELETE_LB_SQL, [id], null, ()=>{
 							chat.js.reply(message, "Successfully removed the leaderboard and deleted " + res.rowCount + " score(s).");
 						}, (err)=>{
 							error(err)
@@ -1503,10 +1374,10 @@ let ttleaderboardEventCommands = {
 		}
 	},
 	info: function(message, args, rank){
-		let lbName = args[2] || "main";
+		let lbName = args[1] || "main";
 		let id = toId(lbName);
 		let lb;
-		runSql(GET_LB_SQL, [id], (row)=>{
+		pgclient.js.runSql(GET_LB_SQL, [id], (row)=>{
 			lb = row;
 		}, ()=>{
 			if(!lb){
@@ -1524,12 +1395,12 @@ let ttleaderboardEventCommands = {
 	enable: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
 			chat.js.reply(message, "Your rank is not high enough to enable a leaderboard.");
-		}else if(args.length<3){
+		}else if(args.length<2){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
 		}else{
-			let id = toId(args[2]);
+			let id = toId(args[1]);
 			let lbs = {};
-			runSql(GET_ALL_LB_SQL, [], (row)=>{
+			pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
 				lbs[row.id] = row;
 			}, (res)=>{
 				if(!lbs[id]){
@@ -1537,7 +1408,7 @@ let ttleaderboardEventCommands = {
 				}else if(lbs[id].enabled){
 					chat.js.reply(message, "That leaderboard is already enabled.");
 				}else{
-					runSql(UPDATE_LB_SQL, [id, true], null, (res)=>{
+					pgclient.js.runSql(UPDATE_LB_SQL, [id, true], null, (res)=>{
 						chat.js.reply(message, "Successfully enabled the " + lbs[id].display_name + " leaderboard.");
 					}, (err)=>{
 						error(err);
@@ -1553,12 +1424,12 @@ let ttleaderboardEventCommands = {
 	disable: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
 			chat.js.reply(message, "Your rank is not high enough to disable a leaderboard.");
-		}else if(args.length<3){
+		}else if(args.length<2){
 			chat.js.reply(message, "You must specify the name for the leaderboard.");
 		}else{
-			let id = toId(args[2]);
+			let id = toId(args[1]);
 			let lbs = {};
-			runSql(GET_ALL_LB_SQL, [], (row)=>{
+			pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
 				lbs[row.id] = row;
 			}, (res)=>{
 				if(!lbs[id]){
@@ -1566,7 +1437,7 @@ let ttleaderboardEventCommands = {
 				}else if(!lbs[id].enabled){
 					chat.js.reply(message, "That leaderboard is already disabled.");
 				}else{
-					runSql(UPDATE_LB_SQL, [id, false], null, (res)=>{
+					pgclient.js.runSql(UPDATE_LB_SQL, [id, false], null, (res)=>{
 						chat.js.reply(message, "Successfully disabled the " + lbs[id].display_name + " leaderboard.");
 					}, (err)=>{
 						error(err);

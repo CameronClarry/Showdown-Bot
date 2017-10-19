@@ -2,15 +2,8 @@ let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let chat = null;
 let auth = null;
 let rooms = null;
-let pg = require("pg");
+let pgclient = null;
 let request = require("request");
-const conInfo = {
-	user: mainConfig.dbuser,
-	password: mainConfig.dbpassword,
-	database: mainConfig.dbname,
-	host: mainConfig.dbhost,
-	port: mainConfig.dbport
-};
 
 //Queries
 const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
@@ -25,128 +18,11 @@ const DELETE_PLAYER_ACHIEVEMENT_SQL = "DELETE FROM player_achievements WHERE pla
 const DELETE_ACHIEVEMENT_BY_NAME_SQL = "DELETE FROM player_achievements WHERE achievement_id = (SELECT id FROM achievement_list WHERE name_id = $1 FETCH FIRST 1 ROWS ONLY);";
 const GET_PLAYER_ACHIEVEMENTS_SQL = "SELECT achievement_list.name from player_achievements INNER JOIN achievement_list ON player_achievements.achievement_id = achievement_list.id WHERE player_achievements.player_id = $1;";
 
-let pgReconnect = function(message){
-	try{
-		if(self.data && self.data.client){
-			self.data.client.end();
-		}
-	}catch(e){
-		error(e.message);
-	}
-
-	try{
-		self.data.client = new pg.Client(conInfo);
-		self.data.client.connect((err)=>{
-			if(err){
-				error(err);
-				if(message){
-					chat.js.reply(message, "Unable to connect to database.");
-				}
-			}else{
-				ok("Client is connected");
-				chat.js.reply(message, "The client is now connected to the database.");
-				self.data.connected = true;
-			}
-		});
-		self.data.client.on("error",(e)=>{
-			error(e.message);
-		});
-		self.data.client.on("end",()=>{
-			self.data.connected = false;
-			error("Client connection ended");
-		});
-	}catch(e){
-		error(e.message);
-		if(message){
-			chat.js.reply(message, "Unable to connect to database.");
-		}
-	}
-};
-
-//This runs a postgres query, handles errors, etc.
-let runSql = function(statement, args, onRow, onEnd, onError){
-	if(!self.data.connected){
-		onError("The bot is not connected to the database.");
-	}
-	if(!onError){
-		onError = (err)=>{
-			error(err.message);
-		};
-	}
-	try{
-		let query = self.data.client.query(statement,args);
-		if(onRow) query.on("row", onRow);
-		if(onEnd) query.on("end", onEnd);
-		query.on("error", onError);
-	}catch(err){
-		error(err);
-	}
-};
-
-//Takes a username, returns their ID in the database if it exists. Can also add missing users to the database.
-let getId = function(username, createNewEntry, onEnd, onError){
-	let res;
-	runSql(GET_USER_SQL, [toId(username)], (row)=>{
-		res = row;
-	}, ()=>{
-		if(!res && createNewEntry){
-			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], null, ()=>{
-				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, ()=>{
-					getId(username, createNewEntry, onEnd, onError);
-				}, onError);
-			}, onError);
-		}else{
-			onEnd(res);
-		}
-	}, onError);
-}
-
-//onEnd should take a functon of an array with two elements
-let getMains = function(username1, username2, createNewEntry, onEnd, onError){
-	let res = [];
-	getId(username1, createNewEntry, (user1)=>{
-		res[0] = user1;
-		getId(username2, createNewEntry, (user2)=>{
-			res[1] = user2;
-			onEnd(res);
-		}, onError);
-	}, onError);
-}
-
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
 	if(loadData){
-		try{
-			if(self.data && self.data.client){
-					self.data.client.end();
-			}
-		}catch(e){
-			error(e.message);
-		}
-
 		self.data = {};
-
-		try{
-			self.data.client = new pg.Client(conInfo);
-			self.data.client.connect((err)=>{
-				if(err){
-					error(err);
-				}else{
-					ok("Client is connected");
-					self.data.connected = true;
-				}
-			});
-			self.data.client.on("error",(e)=>{
-				error(e.message);
-			});
-			self.data.client.on("end",()=>{
-				self.data.connected = false;
-				error("Client connection ended");
-			});
-		}catch(e){
-			error(e.message);
-		}
 	}
 	self.chathooks = {
 		chathook: function(m){
@@ -176,9 +52,10 @@ exports.onUnload = function(){
 
 };
 exports.refreshDependencies = function(){
-	chat = getModuleForDependency("chat", "tt");
-	auth = getModuleForDependency("auth", "tt");
-	rooms = getModuleForDependency("rooms", "tt");
+	chat = getModuleForDependency("chat", "achievements");
+	auth = getModuleForDependency("auth", "achievements");
+	rooms = getModuleForDependency("rooms", "achievements");
+	pgclient = getModuleForDependency("pgclient", "achievements")
 };
 exports.onConnect = function(){
 

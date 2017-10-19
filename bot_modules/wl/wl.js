@@ -4,14 +4,7 @@ let request = require("request");
 let rooms = null;
 let auth = null;
 let chat = null;
-let pg = require("pg");
-const conInfo = {
-	user: mainConfig.dbuser,
-	password: mainConfig.dbpassword,
-	database: mainConfig.dbname,
-	host: mainConfig.dbhost,
-	port: mainConfig.dbport
-};
+let pgclient = null;
 const VOTE_TIME = 30;
 const DECIDE_TIME = 30;
 const BANK_TIME = 6;
@@ -28,83 +21,10 @@ const GET_ENTRY_SQL = "SELECT * FROM wl_lb WHERE id = $1 FETCH FIRST 1 ROWS ONLY
 const UPDATE_ENTRY_SQL = "UPDATE wl_lb SET correct = $2, incorrect = $3, passed = $4, wins = $5, banked = $6, won = $7 WHERE id = $1;"
 const INSERT_ENTRY_SQL = "INSERT INTO wl_lb VALUES($1, $2, $3, $4, $5, $6, $7);"
 
-let pgReconnect = function(message){
-	try{
-		if(self.data && self.data.client){
-			self.data.client.end();
-		}
-	}catch(e){
-		error(e.message);
-	}
-
-	try{
-		self.data.client = new pg.Client(conInfo);
-		self.data.client.connect((err)=>{
-			if(err){
-				error(err);
-				if(message){
-					chat.js.reply(message, "Unable to connect to database.");
-				}
-			}else{
-				ok("Client is connected");
-				chat.js.reply(message, "The client is now connected to the database.");
-				self.data.connected = true;
-			}
-		});
-		self.data.client.on("error",(e)=>{
-			error(e.message);
-		});
-		self.data.client.on("end",()=>{
-			self.data.connected = false;
-			error("Client connection ended");
-		});
-	}catch(e){
-		error(e.message);
-		if(message){
-			chat.js.reply(message, "Unable to connect to database.");
-		}
-	}
-}
-
-let runSql = function(statement, args, onRow, onEnd, onError){
-	if(!onError){
-		onError = (err)=>{
-			error(err.message);
-		};
-	}
-	if(!self.data.connected){
-		onError("The bot is not connected to the database.");
-	}
-	try{
-		let query = self.data.client.query(statement,args);
-		if(onRow) query.on("row", onRow);
-		if(onEnd) query.on("end", onEnd);
-		query.on("error", onError);
-	}catch(err){
-		error(err);
-	}
-};
-
-let getId = function(username, createNewEntry, onEnd, onError){
-	let res;
-	runSql(GET_USER_SQL, [toId(username)], (row)=>{
-		res = row;
-	}, ()=>{
-		if(!res && createNewEntry){
-			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], null, ()=>{
-				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, ()=>{
-					getId(username, createNewEntry, onEnd, onError);
-				}, onError);
-			}, onError);
-		}else{
-			onEnd(res);
-		}
-	}, onError);
-}
 
 let getEntryById = function(id, onEnd, onError){
 	let res;
-	runSql(GET_ENTRY_SQL, [id], (row)=>{
+	pgclient.js.runSql(GET_ENTRY_SQL, [id], (row)=>{
 		res = row;
 	}, ()=>{
 		onEnd(res);
@@ -113,7 +33,7 @@ let getEntryById = function(id, onEnd, onError){
 
 let getEntryByName = function(username, onEnd, onError){
 	let res;
-	getId(username, false, (user)=>{
+	pgclient.js.getId(username, false, (user)=>{
 		if(user){
 			getEntryById(user.id, (res)=>{
 				onEnd(res);
@@ -125,11 +45,11 @@ let getEntryByName = function(username, onEnd, onError){
 }
 
 let updateEntry = function(entry, onEnd, onError){
-	runSql(UPDATE_ENTRY_SQL, [entry.id, entry.correct, entry.incorrect, entry.passed, entry.wins, entry.banked, entry.won], onEnd, onError);
+	pgclient.js.runSql(UPDATE_ENTRY_SQL, [entry.id, entry.correct, entry.incorrect, entry.passed, entry.wins, entry.banked, entry.won], onEnd, onError);
 }
 
 let insertEntry = function(entry, onEnd, onError){
-	runSql(INSERT_ENTRY_SQL, [entry.id, entry.correct, entry.incorrect, entry.passed, entry.wins, entry.banked, entry.won], onEnd, onError);
+	pgclient.js.runSql(INSERT_ENTRY_SQL, [entry.id, entry.correct, entry.incorrect, entry.passed, entry.wins, entry.banked, entry.won], onEnd, onError);
 }
 
 let updateById = function(id, updateFunc, onEnd, onError){
@@ -144,7 +64,7 @@ let updateById = function(id, updateFunc, onEnd, onError){
 }
 
 let updateByUsername = function(username, updateFunc, onEnd, onError){
-	getId(username, true, (user)=>{
+	pgclient.js.getId(username, true, (user)=>{
 		updateById(user.id, updateFunc, onEnd, onError);
 	}, onError);
 }
@@ -153,13 +73,6 @@ exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
 	if(loadData){
-		try{
-			if(self.data && self.data.client){
-				self.data.client.end();
-			}
-		}catch(e){
-			error(e.message);
-		}
 		self.data = {
 			games: {},
 			questions: {
@@ -167,26 +80,6 @@ exports.onLoad = function(module, loadData){
 				final: []
 			}
 		};
-		try{
-			self.data.client = new pg.Client(conInfo);
-			self.data.client.connect((err)=>{
-				if(err){
-					error(err);
-				}else{
-					ok("Client is connected");
-					self.data.connected = true;
-				}
-			});
-			self.data.client.on("error",(e)=>{
-				error(e.message);
-			});
-			self.data.client.on("end",()=>{
-				self.data.connected = false;
-				error("Client connection ended");
-			});
-		}catch(e){
-			error(e.message);
-		}
 		loadQuestions();
 	}
 
@@ -232,6 +125,7 @@ exports.refreshDependencies = function(){
 	rooms = getModuleForDependency("rooms", "wl");
 	auth = getModuleForDependency("auth", "wl");
 	chat = getModuleForDependency("chat", "wl");
+	pgclient = getModuleForDependency("pgclient", "wl");
 };
 
 exports.onConnect = function(){
@@ -865,7 +759,7 @@ let wlcommands = {
 let wllcommands = {
 	check: function(message, args, rank){
 		let username = args[1] && toId(args[1]) ? args[1] : message.user;
-		getId(username, false, (user)=>{
+		pgclient.js.getId(username, false, (user)=>{
 			if(!user){
 				chat.js.reply(message, username + " does not have a leaderboard entry.");
 			}else{
