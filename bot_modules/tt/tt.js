@@ -961,7 +961,7 @@ let commands = {
 		}
 	},
 	intro: function(message, args, rank){
-		chat.js.reply(message, "Here is a beginner's guide to Trivia Tracker (with pictures!): https://docs.google.com/document/d/1dHRz0vSEuF3WwWnqxVZdss9C1dZE37DrmAVqt0HRTEk");
+		chat.js.reply(message, "Here is a beginner's guide to Trivia Tracker (with pictures!): https://pstrivia.weebly.com/trivia-tracker.html#intro");
 	},
 	plug: function(message, args, rank){
 		chat.js.reply(message, "https://plug.dj/trivia");
