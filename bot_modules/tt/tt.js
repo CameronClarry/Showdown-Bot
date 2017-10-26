@@ -542,12 +542,12 @@ let commands = {
 			}else{
 				let history = game.history;
 				let name = history[history.length-1].active;
-				chat.js.reply(message, name + " currently has BP" + (game.bpOpen ? " (BP is open)." : "."));
+				chat.js.strictReply(message, name + " currently has BP" + (game.bpOpen ? " (BP is open)." : "."));
 				success = true;
 			}
 		}
 		if(!success){
-			chat.js.reply(message, response);
+			chat.js.strictReply(message, response);
 		}
 	},
 	openbp: "bpopen",
@@ -676,7 +676,7 @@ let commands = {
 	next: function(message, args, rank){
 		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
 		let response = "The next official is (theoretically) in " + millisToTime(timeDiff) + ".";
-		chat.js.reply(message, response);
+		chat.js.strictReply(message, response);
 	},
 	alts: function(message, args, rank){
 		let target = toId(args[0]) ? args[0] : message.user;
@@ -920,9 +920,9 @@ let commands = {
 	randomfact: "fact",
 	fact: function(message, args, rank){
 		if(self.data.facts.length){
-			chat.js.reply(message, "__" + self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text + "__");
+			chat.js.strictReply(message, "__" + self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text + "__");
 		}else{
-			chat.js.reply(message, "There are no facts :<");
+			chat.js.strictReply(message, "There are no facts :<");
 		}
 	},
 	facts: "factlist",
@@ -1025,13 +1025,13 @@ let ttleaderboardCommands = {
 			rows.push(row);
 		},()=>{
 			if(!rows.length){
-				chat.js.reply(message, "There are no players on the " + lb + " leaderboard.");
+				chat.js.strictReply(message, "There are no players on the " + lb + " leaderboard.");
 			}else{
-				chat.js.reply(message, "The top " + rows.length + " score" + (rows.length === 1 ? "" : "s") + " in the " + lb + " leaderboard " + (rows.length === 1 ? "is" : "are") + ": " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".");
+				chat.js.strictReply(message, "The top " + rows.length + " score" + (rows.length === 1 ? "" : "s") + " in the " + lb + " leaderboard " + (rows.length === 1 ? "is" : "are") + ": " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".");
 			}
 		},(err)=>{
 			error(err);
-			chat.js.reply(message, "There was either an error fetching the scores or the leaderboard you entered does not exist.");
+			chat.js.strictReply(message, "There was either an error fetching the scores or the leaderboard you entered does not exist.");
 		});
 	},
 	check: function(message, args, rank){
@@ -1042,32 +1042,32 @@ let ttleaderboardCommands = {
 			if(row.id === lb) lbExists = true;
 		}, ()=>{
 			if(!lbExists){
-				chat.js.reply(message, "The leaderboard you entered does not exist.");
+				chat.js.strictReply(message, "The leaderboard you entered does not exist.");
 			}else{
 				let res;
 				pgclient.js.getId(user, false, (res)=>{
 					if(!res){
-						chat.js.reply(message, user + " does not have a score on the " + lb + " leaderboard.");
+						chat.js.strictReply(message, user + " does not have a score on the " + lb + " leaderboard.");
 					}else{
 						getLeaderboardEntry([res.id, lb], (entry)=>{
 							if(!entry){
-								chat.js.reply(message, res.display_name + " does not have a score on the " + lb + " leaderboard.");
+								chat.js.strictReply(message, res.display_name + " does not have a score on the " + lb + " leaderboard.");
 							}else{
-								chat.js.reply(message, res.display_name + "'s score on the " + lb + " leaderboard is " + entry.points + ".");
+								chat.js.strictReply(message, res.display_name + "'s score on the " + lb + " leaderboard is " + entry.points + ".");
 							}
 						},(err)=>{
 							error(err);
-							chat.js.reply(message, "There was an error fetching the score for " + res.display_name + ".");
+							chat.js.strictReply(message, "There was an error fetching the score for " + res.display_name + ".");
 						});
 					}
 				}, (err)=>{
 					error(err);
-					chat.js.reply(message, "There was an error getting " + user + "'s id.");
+					chat.js.strictReply(message, "There was an error getting " + user + "'s id.");
 				});
 			}
 		}, (err)=>{
 			error(err);
-			chat.js.reply(message, "There was an error getting the leaderboard list.");
+			chat.js.strictReply(message, "There was an error getting the leaderboard list.");
 		});
 
 
