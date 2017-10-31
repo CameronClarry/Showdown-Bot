@@ -286,13 +286,14 @@ exports.onLoad = function(module, loadData){
 							}
 						}
 					}else if(command === "n"){
-						if(args[2][0] === "‽" || args[2][0] === "!"){ // Let's go ahead and open BP if the user is muted or locked
-							if(!game.bpOpen){
-								chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
-							}
-							game.bpOpen = "auth";
-						}else if(idsMatch(lastHist.active, args[3])){
+						if(idsMatch(lastHist.active, args[3])){
 							lastHist.active = args[2];
+							if(args[2][0] === "‽" || args[2][0] === "!"){ // Let's go ahead and open BP if the user is muted or locked
+								if(!game.bpOpen){
+									chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
+								}
+								game.bpOpen = "auth";
+							}
 						}
 					}else if(command === "j"){
 						if((game.timeout || game.bpOpen === "leave") && idsMatch(lastHist.active, args[2])){
