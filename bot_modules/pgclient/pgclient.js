@@ -57,13 +57,13 @@ let pgReconnect = function(message){
 
 //This runs a postgres query, handles errors, etc.
 let runSql = function(statement, args, onRow, onEnd, onError){
-	if(!self.data.connected){
-		onError("The bot is not connected to the database.");
-	}
 	if(!onError){
 		onError = (err)=>{
-			error(err.message);
+			error(err);
 		};
+	}
+	if(!self.data.connected){
+		onError("The bot is not connected to the database.");
 	}
 	try{
 		let query = self.data.client.query(statement,args);

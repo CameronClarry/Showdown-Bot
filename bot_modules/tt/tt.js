@@ -271,10 +271,12 @@ exports.onLoad = function(module, loadData){
 							if(!game.bpOpen){
 								game.timeout = setTimeout(function(){
 									try{
-										game.bpOpen = "leave";
-										game.timeout = null;
-										if(chat&&chat.js){
-											chat.js.say(room, "**" + lastHist.active.trim() + " has left, so BP is now open (say 'me' or 'bp' to claim it).**");
+										if(!game.bpOpen){
+											game.bpOpen = "leave";
+											game.timeout = null;
+											if(chat&&chat.js){
+												chat.js.say(room, "**" + lastHist.active.trim() + " has left, so BP is now open (say 'me' or 'bp' to claim it).**");
+											}
 										}
 									}catch(e){
 										error("Error with player leave callback");
@@ -284,7 +286,12 @@ exports.onLoad = function(module, loadData){
 							}
 						}
 					}else if(command === "n"){
-						if(idsMatch(lastHist.active, args[3])){
+						if(args[2][0] === "‽" || args[2][0] === "!"){ // Let's go ahead and open BP if the user is muted or locked
+							if(!game.bpOpen){
+								chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
+							}
+							game.bpOpen = "auth";
+						}else if(idsMatch(lastHist.active, args[3])){
 							lastHist.active = args[2];
 						}
 					}else if(command === "j"){
@@ -297,6 +304,14 @@ exports.onLoad = function(module, loadData){
 								game.bpOpen = null;
 								chat.js.say(room, "**" + args[2].trim() + " has rejoined, so BP is no longer open.**");
 							}
+						}
+					}else if(command === "unlink" && args[2].toLowerCase() === "hide"){
+						if(idsMatch(args[3], lastHist.active)){
+							// The user must've done something very bad so opening BP is probably a good idea
+							if(!game.bpOpen){
+								chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
+							}
+							game.bpOpen = "auth";
 						}
 					}
 				}
@@ -407,7 +422,8 @@ let commands = {
 				let userMatchesHistory = idsMatch(history[history.length-1].active, message.user);
 				if(userMatchesHistory && !history[history.length-1].hasAsked && !auth.js.rankgeq(rank, self.config.manageBpRank)){
 					response = "You must ask a question in bold before you use ~yes. If your question was veto'd, please ask a new one or discuss it with a staff member.";
-					userMatchesHistory = false;
+				}else if(!auth.js.rankgeq(rank, self.config.manageBpRank) && game.bpOpen){
+					response = "You cannot ~yes while bp is open.";
 				}else if(auth.js.rankgeq(rank, self.config.manageBpRank) || userMatchesHistory){
 					let nextPlayer = rooms.js.getDisplayName(args[0], room);
 					let result = tryBatonPass(room, args[0], {active:nextPlayer, undo:function(){
