@@ -1330,7 +1330,7 @@ let ttleaderboardEventCommands = {
 		}else if(args[1].length > 20){
 			chat.js.reply(message, "That name is too long.");
 		}else{
-			let displayName = args[2];
+			let displayName = args[1];
 			let lb;
 			pgclient.js.runSql(GET_LB_SQL, [toId(displayName)], (row)=>{
 				lb = row;
