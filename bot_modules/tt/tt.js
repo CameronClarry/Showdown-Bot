@@ -830,6 +830,8 @@ let commands = {
 	timer: function(message, args){
 		let room = toRoomId(args[2]) || message.room;
 		let announcement = args[1] || "Timer's up!";
+		announcement = announcement.replace('/', '');
+		info(announcement)
 		let duration = args[0] && /^\d+$/.test(args[0]) && parseInt(args[0]);
 		if(duration>30){
 			duration = 0;
