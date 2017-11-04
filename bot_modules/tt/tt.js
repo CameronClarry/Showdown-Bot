@@ -1648,7 +1648,7 @@ let defaultConfigs = {
 	manageBlRank: "@",
 	editScoreRank: "@",
 	resetLeaderboardRank: "#",
-	manageEventRank: "#",
+	manageEventRank: "@",
 	remindTime: 240,
 	openTime: 60,
 	leaveGraceTime: 20,
