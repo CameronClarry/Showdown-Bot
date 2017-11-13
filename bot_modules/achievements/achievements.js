@@ -66,9 +66,9 @@ let commands = {
 	ach: "achievement",
 	achievement: function(message, args, rank){
 		if(args.length>0){
-			let command = args.shift().toLowerCase();
+			let command = args[0].toLowerCase();
 			if(achievementCommands[command]){
-				achievementCommands[command](message, args, rank);
+				achievementCommands[command](message, args.slice(1), rank);
 				return;
 			}
 		}
@@ -91,7 +91,7 @@ let achievementCommands = {
 				}else if(points==-1){
 					chat.js.reply(message, "The value must be a non-negative integer.")
 				}else{
-					runSql(INSERT_ACHIEVEMENT_SQL, [name, id, desc, points], (row)=>{
+					pgclient.js.runSql(INSERT_ACHIEVEMENT_SQL, [name, id, desc, points], (row)=>{
 					},()=>{
 						chat.js.reply(message, "Successfully created the achievement.");
 					},(err)=>{
@@ -113,8 +113,8 @@ let achievementCommands = {
 				if(!id){
 					chat.js.reply(message, "The name needs at least one alphanumeric character.");
 				}else{
-					runSql(DELETE_ACHIEVEMENT_BY_NAME_SQL, [id], ()=>{}, ()=>{
-						runSql(DELETE_ACHIEVEMENT_SQL, [id], (row)=>{
+					pgclient.js.runSql(DELETE_ACHIEVEMENT_BY_NAME_SQL, [id], ()=>{}, ()=>{
+						pgclient.js.runSql(DELETE_ACHIEVEMENT_SQL, [id], (row)=>{
 						},(res)=>{
 							if(res.rowCount===0){
 								chat.js.reply(message, "That achievement doesn't exist.");
@@ -139,9 +139,9 @@ let achievementCommands = {
 			chat.js.reply(message, "Your rank is not high enough to manage achievements.");
 		}
 	},
-	list: function(message, args, rank){
+	list: function(message, args, rank){ //TODO: Allow a user to be specified, in which case it will list their achievements
 		let output = "ACHIEVEMENT LIST\n################\n\n";
-		runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (row)=>{
+		pgclient.js.runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (row)=>{
 			output+="Name: " + row.name + ", Points: " + row.value + ", Description: \n" + row.description + "\n\n";
 		}, (res)=>{
 			request.post({url:'https://hastebin.com/documents', body: output}, function(err,httpResponse,body){
@@ -157,36 +157,13 @@ let achievementCommands = {
 		});
 	},
 	award: function(message, args, rank){
+		info(args);
 		if(!auth.js.rankgeq(rank,self.config.achievementManageRank)){
 			chat.js.reply(message, "Your rank is not high enough to manage achievements.");
 		}else if(args.length<2){
 			chat.js.reply(message, "You must specify the user and the achievement.");
 		}else{
-			let username = args[0];
-			let achievement = toId(args[1]);
-			getId(username, true, (user)=>{
-				let achievementid;
-				runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (row)=>{
-					achievementid = row.id;
-				}, (res)=>{
-					if(!achievementid){
-						chat.js.reply(message, "There's no achievement with that name.");
-					}else{
-						runSql(INSERT_PLAYER_ACHIEVEMENT_SQL, [user.id, achievementid], null, (res)=>{
-							chat.js.reply(message, "Successfully gave the achievement.");
-						}, (err)=>{
-							error(err);
-							chat.js.reply(message, "Something went wrong giving the achievement. Does the user already have it?");
-						})
-					}
-				}, (err)=>{
-					error(err);
-					chat.js.reply(message, "Something went wrong getting the achievement.");
-				});
-			}, (err)=>{
-				error(err);
-				chat.js.reply(message, "Something went wrong getting the user.");
-			});
+			awardAchievement(args[0], args[1], (result)=>{chat.js.reply(message, result)}, (result)=>{chat.js.reply(message, result)});
 		}
 	},
 	unaward: function(message, args, rank){
@@ -197,19 +174,19 @@ let achievementCommands = {
 		}else{
 			let username = args[0];
 			let achievement = toId(args[1]);
-			getId(username, false, (user)=>{
+			pgclient.js.getId(username, false, (user)=>{
 				if(!user){
 					chat.js.reply(message, "That user does not exist.");
 					return;
 				}
 				let achievementid;
-				runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (row)=>{
+				pgclient.js.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (row)=>{
 					achievementid = row.id;
 				}, (res)=>{
 					if(!achievementid){
 						chat.js.reply(message, "There's no achievement with that name.");
 					}else{
-						runSql(DELETE_PLAYER_ACHIEVEMENT_SQL, [user.id, achievementid], null, (res)=>{
+						pgclient.js.runSql(DELETE_PLAYER_ACHIEVEMENT_SQL, [user.id, achievementid], null, (res)=>{
 							if(res.rowCount===0){
 								chat.js.reply(message, user.display_name + " doesn't have that achievement.");
 							}else{
@@ -232,12 +209,12 @@ let achievementCommands = {
 	},
 	check: function(message, args, rank){
 		let username = args[0] || message.user;
-		getId(username, false, (user)=>{
+		pgclient.js.getId(username, false, (user)=>{
 			if(!user){
 				chat.js.reply(message, "The user " + username + " doesn't exist.");
 			}else{
 				let output = user.display_name + "'s achievements:\n";
-				runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [user.id], (row)=>{
+				pgclient.js.runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [user.id], (row)=>{
 					output += row.name + "\n";
 				},(res)=>{
 					request.post({url:'https://hastebin.com/documents', body: output}, function(err,httpResponse,body){
@@ -261,6 +238,40 @@ let achievementCommands = {
 	},
 
 };
+
+let awardAchievement = function(username, achievement, onSuccess, onFailure){
+	if(!onSuccess){
+		onSuccess = (message)=>{info(message)};
+	}
+	if(!onFailure){
+		onFailure = (message)=>{error(message)};
+	}
+	achievement = toId(achievement);
+	pgclient.js.getId(username, true, (user)=>{
+		let achievementid;
+		pgclient.js.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (row)=>{
+			achievementid = row.id;
+		}, (res)=>{
+			if(!achievementid){
+				onFailure("Tried to give " + username + " the achievement " + achievement + ", but it doesn't exist.");
+			}else{
+				pgclient.js.runSql(INSERT_PLAYER_ACHIEVEMENT_SQL, [user.id, achievementid], null, (res)=>{
+					onSuccess("Successfully gave " + username + " the achievement " + achievement + ".");
+				}, (err)=>{
+					error(err);
+					onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong. Maybe the already had it.");
+				})
+			}
+		}, (err)=>{
+			error(err);
+			onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong getting the achievement.");
+		});
+	}, (err)=>{
+		error(err);
+		onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong getting the user.");
+	});
+}
+exports.awardAchievement = awardAchievement;
 
 let defaultConfigs = {
 	achievementManageRank: "@"
