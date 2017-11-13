@@ -27,7 +27,7 @@ Command|Usage|Required Rank
 `ttl remove, [user]`|Removes the specified user from all leaderboards.|@
 `~ttl reset`|This resets the main leaderboard. Use with caution.|#
 
-These commands are used to manage the temporary leaderboards (events).
+These commands are used to manage the temporary leaderboards (events). Note: all these commands can be accessed with either `~event` or `~minigame`.
 
 Command|Usage|Required Rank
 -|-|:-:
@@ -37,6 +37,8 @@ Command|Usage|Required Rank
 `~event info, [name]`|Gives a variety of information on the event specified such as when it was made, who made it, etc.|None
 `~event enable, [name]`|Enables the given event. Scores will be updated in it from regular Trivia Tracker play and ~ttl add.|@
 `~event disable, [name]`|Disables the given event. Scores in it will no longer be updated from regular Trivia Tracker play and ~ttl add.|@
+`~event start, [name]`|This will add an event to the event list, with the specified name. It also disables all other leaderboards.|@
+`~event end, [name]`|This removes the given event. It also enables all other leaderboards (even if they were originally disabled).|@
 
 Regular Trivia Tracker commands:
 
