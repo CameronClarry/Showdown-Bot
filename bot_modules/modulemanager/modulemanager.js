@@ -1,4 +1,5 @@
 let fs = require("fs");
+let request = require("request");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
 let chat = null;
@@ -179,7 +180,12 @@ let configFuncs = {
 				for(let config in module.config){
 					configs.push(config + ": " + module.config[config]);
 				}
-				chat.js.reply(message, "These are the config options for " + name + ": " + configs.join(", "));
+				request.post({url:'https://hastebin.com/documents', body: configs.join("\n")}, function(err,httpResponse,body){
+					if(err){
+						chat.js.reply(message, "There was an errer in the response from hastebin.");
+					}
+					chat.js.pm(message.user, "hastebin.com/" + JSON.parse(body).key);
+				});
 			}else{
 				chat.js.reply(message, "That module does not exist.");
 			}
@@ -208,6 +214,47 @@ let configFuncs = {
 			}
 		}else{
 			chat.js.reply(message, "That module does not exist.");
+		}
+	},
+	update: function(message, args){
+		let name = toId(args[0]);
+		if(args.length<2){
+			chat.js.reply(message, "You must give the module, and a link to a hastebin raw paste.");
+		}else if(!name || !modules[name]){
+			chat.js.reply(message, "The module '" + name + "' does not exist.");
+		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
+			let module = modules[name];
+			let response = "Finished updating the configs.";
+			request.get(args[1],function(err, response2, body){
+				if(err){
+						error(err);
+						chat.js.reply(message, err);
+						return;
+				}
+				let configs = body.split("\n");
+				for(let i=0;i<configs.length;i++){
+					let config = configs[i].split(":");
+					let property = config[0];
+					if(module.config[property]){
+						let value = getProperty(config[1].trim(), module.js.configTypes[property]);
+						if(value){
+							module.config[property] = value;
+						}else{
+							response = "Invalid value given for " + property + ".";
+							info(module.js.configTypes[property])
+							info(config[1]);
+							info(value);
+							error(response);
+						}
+					}else{
+						response = "The property " + property + " doesn't exist.";
+						error(response);
+					}
+				}
+				chat.js.pm(message.user, response);
+			});
+		}else{
+			chat.js.reply(message, "There was something wrong with your link, make sure it's only the raw paste.");
 		}
 	}
 };
