@@ -19,6 +19,8 @@ const GET_ALL_LB_SQL = "SELECT * FROM tt_leaderboards;";
 const GET_ENABLED_LB_SQL = "SELECT * FROM tt_leaderboards WHERE enabled = TRUE;";
 const RESET_MAIN_LB_SQL = "UPDATE tt_leaderboards SET created_on = CURRENT_TIMESTAMP, created_by = $1 WHERE id = 'main';";
 const UPDATE_LB_SQL = "UPDATE tt_leaderboards SET enabled = $2 WHERE id = $1;";
+const ENABLE_ALL_LB_SQL = "UPDATE tt_leaderboards SET enabled = true;";
+const DISABLE_ALL_LB_SQL = "UPDATE tt_leaderboards SET enabled = false;";
 
 const GET_LB_ENTRY_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;";
 const GET_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;";
@@ -395,6 +397,7 @@ let commands = {
 			}
 		}
 	},
+	minigame: "event",
 	event: function(message, args, rank){
 		if(args.length>0){
 			let command = args[0].toLowerCase();
@@ -1465,6 +1468,86 @@ let ttleaderboardEventCommands = {
 			}, (err)=>{
 				error(err);
 				chat.js.reply("There was an error when retrieving the leaderboards.");
+			});
+		}
+	},
+	start: function(message, args, rank){
+		// First disable all leaderboards
+		// Then start a new leaderboard
+		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
+			chat.js.reply(message, "Your rank is not high enough to create a leaderboard.");
+		}else if(args.length<=1 || !toId(args[1])){
+			chat.js.reply(message, "You must specify the name for the leaderboard.");
+		}else if(args[1].length > 20){
+			chat.js.reply(message, "That name is too long.");
+		}else{
+			let displayName = args[1];
+			let lb;
+			pgclient.js.runSql(GET_LB_SQL, [toId(displayName)], (row)=>{
+				lb = row;
+			}, ()=>{
+				if(lb){
+					chat.js.reply(message, "A leaderboard already exists with the same name.");
+				}else{
+					pgclient.js.runSql(DISABLE_ALL_LB_SQL, [], null, ()=>{
+						pgclient.js.getId(message.user, true, (res)=>{
+							pgclient.js.runSql(INSERT_LB_SQL, [toId(displayName), displayName, res.id], null, ()=>{
+									chat.js.reply(message, "Successfully started the event.");
+							}, (err)=>{
+								error(err)
+								chat.js.reply(message, "There was an error while creating the new leaderboard.");
+							});
+						}, (err)=>{
+							error(err);
+							chat.js.reply(message, "There was a problem getting your id.");
+						});
+					}, (err)=>{
+						error(err)
+						chat.js.reply(message, "There was an error while disabling the other leaderboards.");
+					});
+				}
+			}, (err)=>{
+				error(err);
+				chat.js.reply(message, "Something went wrong when trying to fetch the leaderboard list.");
+			});
+		}
+	},
+	end: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
+			chat.js.reply(message, "Your rank is not high enough to remove a leaderboard.");
+		}else if(args.length<=1){
+			chat.js.reply(message, "You must specify the name for the leaderboard.");
+		}else if(toId(args[1]) === "main"){
+			chat.js.reply(message, "You cannot remove that leaderboard.");
+		}else{
+			let id = toId(args[1]);
+			let lb;
+			pgclient.js.runSql(GET_LB_SQL, [id], (row)=>{
+				lb = row;
+			}, ()=>{
+				if(!lb){
+					chat.js.reply(message, "There is no leaderboard with that name.");
+				}else{
+					pgclient.js.runSql(ENABLE_ALL_LB_SQL, [], null, ()=>{
+						pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, [id], null, (res)=>{
+							pgclient.js.runSql(DELETE_LB_SQL, [id], null, ()=>{
+								chat.js.reply(message, "Successfully ended the event and deleted " + res.rowCount + " score(s).");
+							}, (err)=>{
+								error(err)
+								chat.js.reply(message, "There was an error while removing the leaderboard.");
+							});
+						}, (err)=>{
+							error(err)
+							chat.js.reply(message, "There was an error while removing the leaderboard.");
+						});
+					}, (err)=>{
+						error(err)
+						chat.js.reply(message, "There was an error while enabling the other leaderboards.");
+					});
+				}
+			}, (err)=>{
+				error(err);
+				chat.js.reply(message, "Something went wrong when trying to fetch the leaderboard list.");
 			});
 		}
 	}
