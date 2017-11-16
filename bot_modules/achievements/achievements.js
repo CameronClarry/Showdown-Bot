@@ -241,7 +241,7 @@ let achievementCommands = {
 
 let awardAchievement = function(username, achievement, onSuccess, onFailure){
 	if(!onSuccess){
-		onSuccess = (message)=>{info(message)};
+		onSuccess = (p, a)=>{info(p + " earned achievement " + a)};
 	}
 	if(!onFailure){
 		onFailure = (message)=>{error(message)};
@@ -251,12 +251,13 @@ let awardAchievement = function(username, achievement, onSuccess, onFailure){
 		let achievementid;
 		pgclient.js.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (row)=>{
 			achievementid = row.id;
+			username = row.name
 		}, (res)=>{
 			if(!achievementid){
 				onFailure("Tried to give " + username + " the achievement " + achievement + ", but it doesn't exist.");
 			}else{
 				pgclient.js.runSql(INSERT_PLAYER_ACHIEVEMENT_SQL, [user.id, achievementid], null, (res)=>{
-					onSuccess("Successfully gave " + username + " the achievement " + achievement + ".");
+					onSuccess(user.display_name, username);
 				}, (err)=>{
 					error(err);
 					onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong. Maybe the already had it.");

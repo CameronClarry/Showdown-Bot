@@ -4,7 +4,11 @@ let chat = null;
 let auth = null;
 let rooms = null;
 let pgclient = null;
+let achievements = null;
 let request = require("request");
+
+const GOVERNING_ROOM = "trivia"
+exports.GOVERNING_ROOM = GOVERNING_ROOM
 
 const DELETE_USER_SQL = "DELETE FROM users WHERE id = $1;";
 const DELETE_ALT_SQL = "DELETE FROM alts WHERE username = $1;";
@@ -24,13 +28,13 @@ const DISABLE_ALL_LB_SQL = "UPDATE tt_leaderboards SET enabled = false;";
 
 const GET_LB_ENTRY_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;";
 const GET_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;";
+const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;";
 const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;"
 const INSERT_LB_ENTRY_SQL = "INSERT INTO tt_points VALUES ($1, $2, $3);";
 const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND leaderboard = $2;";
 const DELETE_LB_ENTRY_SQL = "DELETE FROM tt_points WHERE id = $1 AND leaderboard = $2;";
 const DELETE_USER_ENTRIES_SQL = "DELETE FROM tt_points WHERE id = $1;";
 const DELETE_LB_ENTRIES_SQL = "DELETE FROM tt_points WHERE leaderboard = $1;";
-const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.leaderboard = $1 ORDER BY lb.points DESC;";
 
 
 
@@ -58,9 +62,18 @@ let listLeaderboardEntries = function(args, onRow, onEnd, onError){
 	pgclient.js.runSql(LIST_LB_ENTRIES_SQL.replace("_NUMBER_",args[0]), [toId(args[1])], onRow, onEnd, onError);
 };
 
+let getAllLeaderboardEntries = function(leaderboard, onEnd, onError){
+	let entries = [];
+	pgclient.js.runSql(GET_ALL_LB_ENTRIES_SQL, [toId(leaderboard)], (row)=>{
+		entries.push(row);
+	}, ()=>{
+		onEnd(entries);
+	}, onError);
+};
+
 //updateFunc takes the old score, and returns what the new score should be
 //onEnd takes the old row and new score, and does whatever
-//args is [id, leaderboard]
+//args is [id, leaderboard, display name]
 let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 	let res;
 	getLeaderboardEntry(args, (res)=>{
@@ -68,6 +81,7 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 			let newScore = updateFunc(0);
 			pgclient.js.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
 				if(onEnd){
+					achievementsOnScoreUpdate(args[2], args[1], 0, newScore);
 					onEnd(res, newScore);
 				}
 			}, onError);
@@ -75,6 +89,7 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 			let newScore = updateFunc(res.points);
 			pgclient.js.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
 				if(onEnd){
+					achievementsOnScoreUpdate(args[2], args[1], res.points, newScore);
 					onEnd(res, newScore);
 				}
 			}, onError);
@@ -84,13 +99,15 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 
 let updateLeaderboardEntryByUsername = function(args, updateFunc, onEnd, onError){
 	pgclient.js.getId(args[0], true, (res)=>{
-		updateLeaderboardEntryById([res.id, args[1]], updateFunc, onEnd, onError);
+		info("res in username:")
+		info(JSON.stringify(res));
+		updateLeaderboardEntryById([res.id, args[1], res.display_name], updateFunc, onEnd, onError);
 	}, onError);
 }
 
 //updateFunc takes the old score, and returns what the new score should be
 //onEnd takes the user id, rows updated, array of events failed
-let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
+let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, onError){
 	let events = [];
 	pgclient.js.runSql(GET_ENABLED_LB_SQL, [], (row)=>{
 		events.push(row);
@@ -119,8 +136,10 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 			for(let i=0;i<events.length;i++){
 				if(entries[events[i]]){
 					pgclient.js.runSql(UPDATE_LB_ENTRY_SQL, [id, events[i], updateFunc(entries[events[i]].points)], null, newEnd(events[i]), newError(events[i]));
+					achievementsOnScoreUpdate(username, events[i], entries[events[i]].points, updateFunc(entries[events[i]].points));
 				}else{
 					pgclient.js.runSql(INSERT_LB_ENTRY_SQL, [id, events[i], updateFunc(0)], null, newEnd(events[i]), newError(events[i]));
+					achievementsOnScoreUpdate(username, events[i], 0, updateFunc(0));
 				}
 			}
 			if(events.length === 0) onEnd(id, 0, 0);
@@ -130,7 +149,7 @@ let updateAllLeaderboardEntriesById = function(id, updateFunc, onEnd, onError){
 
 let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, onEnd, onError){
 	pgclient.js.getId(username, true, (res)=>{
-		updateAllLeaderboardEntriesById(res.id, updateFunc, (id, affected, failed)=>{
+		updateAllLeaderboardEntriesById(res.id, res.display_name, updateFunc, (id, affected, failed)=>{
 			if(onEnd) onEnd(res.display_name, affected, failed);
 		});
 	}, onError);
@@ -334,6 +353,7 @@ exports.refreshDependencies = function(){
 	auth = getModuleForDependency("auth", "tt");
 	rooms = getModuleForDependency("rooms", "tt");
 	pgclient = getModuleForDependency("pgclient", "tt");
+	achievements = getModuleForDependency("achievements", "tt");
 };
 exports.onConnect = function(){
 
@@ -1279,28 +1299,36 @@ let ttleaderboardCommands = {
 			});
 		}
 	},
+	test: function(message, args, rank){
+		getAllLeaderboardEntries("main", (arr)=>{
+			info(JSON.stringify(arr));
+		});
+	},
 	reset: function(message, args, rank){
 		let leaderboard = self.data.leaderboard;
 		if(!auth.js.rankgeq(rank, self.config.resetLeaderboardRank)){
 			chat.js.reply(message, "Your rank is not high enough to reset the leaderboard.");
 		}else{
 			if(idsMatch(message.user, self.data.askToReset)){
-				pgclient.js.getId(message.user, true, (user)=>{
-					pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
-						pgclient.js.runSql(RESET_MAIN_LB_SQL, [user.id], null, (res)=>{
-							chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
-							self.data.askToReset = "";
+				getAllLeaderboardEntries("main", (arr)=>{
+					pgclient.js.getId(message.user, true, (user)=>{
+						pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
+							pgclient.js.runSql(RESET_MAIN_LB_SQL, [user.id], null, ()=>{
+								chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
+								self.data.askToReset = "";
+								achievementsOnReset("main", arr);
+							}, (err)=>{
+								error(err);
+								chat.js.reply(message, "There was an updating the leaderboard info.");
+							})
 						}, (err)=>{
-							error(err);
-							chat.js.reply(message, "There was an updating the leaderboard info.");
-						})
+							error(err)
+							chat.js.reply(message, "There was an error while removing the leaderboard.");
+						});
 					}, (err)=>{
-						error(err)
-						chat.js.reply(message, "There was an error while removing the leaderboard.");
+						error(err);
+						chat.js.reply(message, "There was an error while getting your id.");
 					});
-				}, (err)=>{
-					error(err);
-					chat.js.reply(message, "There was an error while getting your id.");
 				});
 			}else{
 				self.data.askToReset = message.user;
@@ -1721,6 +1749,75 @@ let loadFacts = function(){
 	}
 	info(result);
 };
+
+// Achievement crap
+// This is called when a leaderboard is reset.
+// leaderboard is the string id of the leaderboard being reset.
+// scores is an array of {display_name, points}, sorted descending by points.
+// There are achievements for getting first, getting top 5, and getting 6th
+let achievementsOnReset = function(leaderboard, scores){
+	info(JSON.stringify(scores))
+	if(scores.length > 0 && leaderboard === "main"){ // Awarding achievements
+		let firstPlace = scores.filter((e)=>{return e.points === scores[0].points});
+		for(let i=0;i<firstPlace.length;i++){
+			achievements.js.awardAchievement(firstPlace[i].display_name, "Hatmor", (p,a)=>{});
+		}
+		let num = firstPlace.length;
+		while(num<5 && num < scores.length){ // Using black magic to find all players in the top 5
+			num += scores.filter((e)=>{return e.points === scores[num].points}).length;
+		}
+		let top5 = scores.slice(firstPlace.length, num);
+		for(let i=0;i<top5.length;i++){
+			achievements.js.awardAchievement(top5[i].display_name, "Elite", (p,a)=>{});
+		}
+		info(prettyList(firstPlace.map((e)=>{return e.display_name})));
+		info(prettyList(top5.map((e)=>{return e.display_name})));
+		let message = "Congratulations to " + prettyList(firstPlace.map((e)=>{return e.display_name})) + " for getting first";
+		if(top5.length){
+			message += ", and to " + prettyList(top5.map((e)=>{return e.display_name})) + " for being in the top five!";
+		}else{
+			message += "!"
+		}
+		chat.js.say(GOVERNING_ROOM, message)
+		info(num)
+		info(scores.length)
+		if(num === 5 && scores.length > 5){
+			let consolation = scores.filter((e)=>{return e.points === scores[5].points});
+			info(JSON.stringify(consolation));
+			for(let i=0;i<consolation.length;i++){
+				achievements.js.awardAchievement(consolation[i].display_name, "Consolation Prize", (p,a)=>{
+					chat.js.say(GOVERNING_ROOM, p + " has earned the achievement '" + a + "'!");
+				});
+			}
+			info(prettyList(consolation.map((e)=>{return e.display_name})));
+		}
+	}
+}
+
+let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
+	if(leaderboard === "main"){
+		if(oldScore<250 && newScore >= 250){
+			achievements.js.awardAchievement(user, "Super", (p,a)=>{
+				chat.js.say(GOVERNING_ROOM, p + " has earned the achievement '" + a + "'!");
+			});
+		}
+		if(oldScore<500 && newScore >= 500){
+			achievements.js.awardAchievement(user, "Mega", (p,a)=>{
+				chat.js.say(GOVERNING_ROOM, p + " has earned the achievement '" + a + "'!");
+			});
+		}
+		if(oldScore<750 && newScore >= 750){
+			achievements.js.awardAchievement(user, "Ultra", (p,a)=>{
+				chat.js.say(GOVERNING_ROOM, p + " has earned the achievement '" + a + "'!");
+			});
+		}
+		if(oldScore<1000 && newScore >= 1000){
+			achievements.js.awardAchievement(user, "Hyper", (p,a)=>{
+				chat.js.say(GOVERNING_ROOM, p + " has earned the achievement '" + a + "'!");
+			});
+		}
+	}
+}
 
 let defaultConfigs = {
 	timerRank: "%",

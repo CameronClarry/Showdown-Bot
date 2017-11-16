@@ -432,7 +432,18 @@ global.toRoomId = function(text){
 };
 
 global.idsMatch = function(n1, n2){
-		return toId(n1) === toId(n2) && typeof n1 === "string" && typeof n2 === "string";
+	return toId(n1) === toId(n2) && typeof n1 === "string" && typeof n2 === "string";
+};
+
+global.prettyList = function(arr){
+	if(arr.length == 1){
+		return arr[0];
+	}else if(arr.length == 2){
+		return arr[0] + " and " + arr[1];
+	}else if(arr.length > 2){
+		return arr.slice(0,arr.length-1).join(", ") + ", and " + arr[arr.length-1];
+	}
+	return "";
 }
 
 //Create necessary folders

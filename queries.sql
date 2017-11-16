@@ -79,6 +79,9 @@ SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users 
 --GET_LB_ENTRIES_SQL
 SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;
 
+--GET_ALL_LB_ENTRIES_SQL
+SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;
+
 --LSIT_LB_ENTRIES_SQL
 SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.leaderboard = $1 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;
 
