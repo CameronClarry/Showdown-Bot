@@ -1756,8 +1756,7 @@ let loadFacts = function(){
 // scores is an array of {display_name, points}, sorted descending by points.
 // There are achievements for getting first, getting top 5, and getting 6th
 let achievementsOnReset = function(leaderboard, scores){
-	info(JSON.stringify(scores))
-	if(scores.length > 0 && leaderboard === "main"){ // Awarding achievements
+	if(scores.length > 0 && leaderboard === "main" && achievements && achievements.js){ // Awarding achievements
 		let firstPlace = scores.filter((e)=>{return e.points === scores[0].points});
 		for(let i=0;i<firstPlace.length;i++){
 			achievements.js.awardAchievement(firstPlace[i].display_name, "Hatmor", (p,a)=>{});
@@ -1770,8 +1769,6 @@ let achievementsOnReset = function(leaderboard, scores){
 		for(let i=0;i<top5.length;i++){
 			achievements.js.awardAchievement(top5[i].display_name, "Elite", (p,a)=>{});
 		}
-		info(prettyList(firstPlace.map((e)=>{return e.display_name})));
-		info(prettyList(top5.map((e)=>{return e.display_name})));
 		let message = "Congratulations to " + prettyList(firstPlace.map((e)=>{return e.display_name})) + " for getting first";
 		if(top5.length){
 			message += ", and to " + prettyList(top5.map((e)=>{return e.display_name})) + " for being in the top five!";
@@ -1779,23 +1776,19 @@ let achievementsOnReset = function(leaderboard, scores){
 			message += "!"
 		}
 		chat.js.say(GOVERNING_ROOM, message)
-		info(num)
-		info(scores.length)
 		if(num === 5 && scores.length > 5){
 			let consolation = scores.filter((e)=>{return e.points === scores[5].points});
-			info(JSON.stringify(consolation));
 			for(let i=0;i<consolation.length;i++){
 				achievements.js.awardAchievement(consolation[i].display_name, "Consolation Prize", (p,a)=>{
 					chat.js.say(GOVERNING_ROOM, p + " has earned the achievement '" + a + "'!");
 				});
 			}
-			info(prettyList(consolation.map((e)=>{return e.display_name})));
 		}
 	}
 }
 
 let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
-	if(leaderboard === "main"){
+	if(leaderboard === "main" && achievements && achievements.js){
 		if(oldScore<250 && newScore >= 250){
 			achievements.js.awardAchievement(user, "Super", (p,a)=>{
 				chat.js.say(GOVERNING_ROOM, p + " has earned the achievement '" + a + "'!");
