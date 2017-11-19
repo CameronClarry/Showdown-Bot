@@ -378,20 +378,18 @@ let messageListener = function(m){
 				}
 			}
 		}
-		if(idsMatch(lastHist.active, m.user) && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(m.message)){
+		let rank = auth.js.getEffectiveRoomRank(m, "trivia");
+		if((auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)) && lastHist.hasAsked){
+			if(/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message)){
+				lastHist.hasAsked = false;
+				clearTimers(game);
+				game.remindTimer = setTimeout(()=>{
+					onRemind(game);
+				}, self.config.remindTime*1000);
+			}
+		}else if(idsMatch(lastHist.active, m.user) && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(m.message)){
 			clearTimers(game);
 			lastHist.hasAsked = true;
-		}else{
-			let rank = auth.js.getEffectiveRoomRank(m, "trivia");
-			if(auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)){
-				if(/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message)){
-					lastHist.hasAsked = false;
-					clearTimers(game);
-					game.remindTimer = setTimeout(()=>{
-						onRemind(game);
-					}, self.config.remindTime*1000);
-				}
-			}
 		}
 	}
 };
