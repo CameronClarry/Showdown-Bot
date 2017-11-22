@@ -249,7 +249,8 @@ exports.onLoad = function(module, loadData){
 			games: {},
 			pendingAlts: {},
 			askToReset: "",
-			timers: {}
+			timers: {},
+			tempVoices: {}
 		};
 		loadFacts();
 		loadLeaderboard();
@@ -379,8 +380,6 @@ let messageListener = function(m){
 			}
 		}
 		let rank = auth.js.getEffectiveRoomRank(m, "trivia");
-		info("This is the active");
-		info(lastHist.active)
 		if((auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)) && lastHist.hasAsked && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message))){
 			lastHist.hasAsked = false;
 			clearTimers(game);
@@ -388,7 +387,6 @@ let messageListener = function(m){
 				onRemind(game);
 			}, self.config.remindTime*1000/2);
 		}else if(idsMatch(lastHist.active, m.user) && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(m.message)){
-			info("Question asked, clearing timers");
 			clearTimers(game);
 			lastHist.hasAsked = true;
 		}
@@ -648,6 +646,7 @@ let commands = {
 					}else{
 						response = "BP is not open.";
 					}
+					clearTimers(game);
 				}else if(idsMatch(lastHist.active, message.user) && game.bpOpen === "user"){
 						success = true;
 						game.bpOpen = null;
@@ -982,6 +981,48 @@ let commands = {
 		}else{
 			chat.js.reply(message, "There are no facts :<");
 		}
+	},
+	finals: function(message, args, rank){
+		let room = message.room;
+		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
+			if(!self.data.tempVoices[room]) self.data.tempVoices[room] = {};
+			for(let i=0;i<args.length;i++){
+				let id = toId(args[i]);
+				if(!self.data.tempVoices[room][id] && rooms.js.getDisplayName(id, room) && auth.js.getTrueRoomRank(id, room) === " "){
+					self.data.tempVoices[room][id] = true;
+					chat.js.say(room, "/roomvoice " + id);
+				}
+			}
+			chat.js.say(room, "/modchat +");
+		}
+		info(JSON.stringify(self.data.tempVoices));
+	},
+	dv: function(message, args, rank){
+		let room = message.room;
+		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
+			for(let i=0;i<args.length;i++){
+				let id = toId(args[i]);
+				if(self.data.tempVoices[room][id]){
+					delete self.data.tempVoices[room][id];
+					chat.js.say(room, "/roomdeauth " + id);
+				}
+			}
+		}
+		info(JSON.stringify(self.data.tempVoices));
+	},
+	endfinals: function(message, args, rank){
+		let room = message.room;
+		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
+			if(self.data.tempVoices){
+				for(let id in self.data.tempVoices[room]){
+					info(id);
+					delete self.data.tempVoices[room][id];
+					chat.js.say(room, "/roomdeauth " + id);
+				}
+			}
+			chat.js.say(room, "/modchat ac");
+		}
+		info(JSON.stringify(self.data.tempVoices));
 	},
 	info: "help",
 	commands: "help",
@@ -1619,7 +1660,6 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 			result = true;
 			game.bpOpen = null;
 			clearTimers(game);
-
 			game.remindTimer = setTimeout(()=>{
 				onRemind(game);
 			}, remindTime*1000);
@@ -1821,6 +1861,7 @@ let defaultConfigs = {
 	editScoreRank: "@",
 	resetLeaderboardRank: "#",
 	manageEventRank: "@",
+	voicechatRank: "@",
 	remindTime: 240,
 	openTime: 60,
 	leaveGraceTime: 20,
@@ -1840,6 +1881,7 @@ let configTypes = {
 	editScoreRank: "rank",
 	resetLeaderboardRank: "rank",
 	manageEventRank: "rank",
+	voicechatRank: "rank",
 	remindTime: "int",
 	openTime: "int",
 	leaveGraceTime: "int",
