@@ -30,7 +30,9 @@ let logToFile = function(text){
 		let month = now.getUTCMonth()+1;
 		let date = now.getUTCDate();
 		let filename = "logs/" + year + "-" + (month < 10 ? "0" : "") + month + "-" + (date < 10 ? "0" : "") + date + ".txt";
-		fs.appendFile(filename, "\n[" + new Date().toUTCString() + "]" + text);
+		fs.appendFile(filename, "\n[" + new Date().toUTCString() + "]" + text,(err) => {
+		  if (err) throw err;
+		});
 	}catch(err){
 		console.log("ERROR LOGGING: " + err);
 	}
