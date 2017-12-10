@@ -253,6 +253,7 @@ exports.onLoad = function(module, loadData){
 			tempVoices: {}
 		};
 		loadFacts();
+		loadBatches();
 		loadLeaderboard();
 	}
 	self.chathooks = {
@@ -982,6 +983,86 @@ let commands = {
 			chat.js.reply(message, "There are no facts :<");
 		}
 	},
+	minigamelist: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, self.config.batchRank)){
+			chat.js.reply(message, "Your rank is not high enough to manage query batches.");
+		}else if(true){
+			let text = JSON.stringify(self.data.batches, null, "\t");
+			request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+				try{
+					chat.js.reply(message, "Here is a list of all the batches: hastebin.com/" + JSON.parse(body).key);
+				}catch(e){
+					error(e.message);
+					chat.js.reply(message, "Something was wrong with the response from hastebin.");
+				}
+			});
+		}else{
+			chat.js.reply(message, "There are no query batches :<");
+		}
+	},
+	minigameupdate: function(message, args, rank){
+		let response = "oops";
+		let success = false;
+		if(!auth.js.rankgeq(rank, self.config.batchRank)){
+			response = "Your rank is not high enough to manage query batches.";
+		}else if(args.length < 1){
+			response = "You must give a link to the query batches.";
+		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[0])){
+			success = true;
+			request.get(args[0],function(err, response, body){
+				if(err){
+						error(err);
+						chat.js.reply(message, err);
+						return;
+				}
+				try{
+					info(body);
+					self.data.batches = JSON.parse(body);
+					saveBatches();
+					chat.js.pm(message.user, "Updated the query batches.");
+				}catch(e){
+					error(e);
+					chat.js.pm(message.user, "There was an error parsing the text in the hastebin link.");
+				}
+			});
+		}else{
+			response = "There was something wrong with your link, make sure it's only the raw paste.";
+		}
+		if(!success){
+			chat.js.pm(message.user, response);
+		}
+	},
+	minigame: function(message, args, rank){
+		let command = toId(args[0]);
+		let qbatch = self.data.batches[command];
+		if(qbatch){
+			if(auth.js.rankgeq(rank, qbatch.rank)){
+				let queries = qbatch.queries.slice();
+				info("Queries:");
+				info(JSON.stringify(queries));
+				info("End of queries");
+				let queryFunc = (queries)=>{
+					info(JSON.stringify(queries));
+					info(queries[0]);
+					if(queries.length){
+						pgclient.js.runSql(queries.shift(), null, null, ()=>{
+							queryFunc(queries);
+						}, (err)=>{
+							error(err);
+							chat.js.reply(message, "There was an error executing one of the queries.");
+						});
+					}else{
+						chat.js.reply(message, qbatch.response || "Successfully executed the queries.");
+					}
+				}
+				queryFunc(queries);
+			}else{
+				chat.js.reply(message, "Your rank is not high enough to use that query batch.");
+			}
+		}else{
+			chat.js.reply(message, "There's no query batch with that name.");
+		}
+	},
 	finals: function(message, args, rank){
 		let room = message.room;
 		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
@@ -1119,8 +1200,12 @@ let ttleaderboardCommands = {
 		let user = args[1] || message.user;
 		let lb = toId(args[2]) || "main";
 		let lbExists = false;
+		let lbname = "";
 		pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
-			if(row.id === lb) lbExists = true;
+			if(row.id === lb){
+				lbExists = true;
+				lbname = row.display_name;
+			}
 		}, ()=>{
 			if(!lbExists){
 				chat.js.strictReply(message, "The leaderboard you entered does not exist.");
@@ -1128,13 +1213,13 @@ let ttleaderboardCommands = {
 				let res;
 				pgclient.js.getId(user, false, (res)=>{
 					if(!res){
-						chat.js.strictReply(message, user + " does not have a score on the " + lb + " leaderboard.");
+						chat.js.strictReply(message, user + " does not have a score on the " + lbname + " leaderboard.");
 					}else{
 						getLeaderboardEntry([res.id, lb], (entry)=>{
 							if(!entry){
-								chat.js.strictReply(message, res.display_name + " does not have a score on the " + lb + " leaderboard.");
+								chat.js.strictReply(message, res.display_name + " does not have a score on the " + lbname + " leaderboard.");
 							}else{
-								chat.js.strictReply(message, res.display_name + "'s score on the " + lb + " leaderboard is " + entry.points + ".");
+								chat.js.strictReply(message, res.display_name + "'s score on the " + lbname + " leaderboard is " + entry.points + ".");
 							}
 						},(err)=>{
 							error(err);
@@ -1158,8 +1243,12 @@ let ttleaderboardCommands = {
 		let lb = toId(args[1]) || "main";
 		let id = toId(message.user);
 		let lbExists = false;
+		let lbname = "";
 		pgclient.js.runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
-			if(lbRow.id === lb) lbExists = true;
+			if(lbRow.id === lb){
+				lbExists = true;
+				lbname = row.display_name;
+			}
 		}, ()=>{
 			if(!lbExists){
 				chat.js.reply(message, "The leaderboard you entered does not exist.");
@@ -1167,11 +1256,11 @@ let ttleaderboardCommands = {
 				let res;
 				pgclient.js.getId(id, false, (res)=>{
 					if(!res){
-						chat.js.reply(message, "You do not have a score on the " + lb + " leaderboard.");
+						chat.js.reply(message, "You do not have a score on the " + lbname + " leaderboard.");
 					}else{
 						getLeaderboardEntry([res.id, lb], (entry)=>{
 							if(!entry){
-								chat.js.reply(message, "You do not have a score on the " + lb + " leaderboard.");
+								chat.js.reply(message, "You do not have a score on the " + lbname + " leaderboard.");
 							}else{
 								let score = entry.points;
 								let entries = [];
@@ -1263,11 +1352,13 @@ let ttleaderboardCommands = {
 		}else{
 			let user = args[1];
 			let points = parseInt(args[2], 10);
-			let lb = args[3] || "main"
+			let lb = toId(args[3]) || "main"
+			let lbname = "";
 			let lbExists = false;
 			pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
 				if(row.id === lb){
 					lbExists = true;
+					lbname = row.display_name;
 				}
 			}, ()=>{
 				if(!lbExists){
@@ -1277,9 +1368,9 @@ let ttleaderboardCommands = {
 						return points;
 					}, (res, newPoints)=>{
 						if(!res){
-							chat.js.reply(message, "Created a new " + lb + " leaderboard entry for " + user + " and set their score to " + newPoints + ".");
+							chat.js.reply(message, "Created a new " + lbname + " leaderboard entry for " + user + " and set their score to " + newPoints + ".");
 						}else{
-							chat.js.reply(message, "Updated the score for " + res.display_name + ". Their " + lb + " leaderboard score changed from " + res.points + " to " + newPoints + ".");
+							chat.js.reply(message, "Updated the score for " + res.display_name + ". Their " + lbname + " leaderboard score changed from " + res.points + " to " + newPoints + ".");
 						}
 					}, (err)=>{
 						error(err);
@@ -1538,86 +1629,6 @@ let ttleaderboardEventCommands = {
 				chat.js.reply("There was an error when retrieving the leaderboards.");
 			});
 		}
-	},
-	start: function(message, args, rank){
-		// First disable all leaderboards
-		// Then start a new leaderboard
-		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
-			chat.js.reply(message, "Your rank is not high enough to create a leaderboard.");
-		}else if(args.length<=1 || !toId(args[1])){
-			chat.js.reply(message, "You must specify the name for the leaderboard.");
-		}else if(args[1].length > 20){
-			chat.js.reply(message, "That name is too long.");
-		}else{
-			let displayName = args[1];
-			let lb;
-			pgclient.js.runSql(GET_LB_SQL, [toId(displayName)], (row)=>{
-				lb = row;
-			}, ()=>{
-				if(lb){
-					chat.js.reply(message, "A leaderboard already exists with the same name.");
-				}else{
-					pgclient.js.runSql(DISABLE_ALL_LB_SQL, [], null, ()=>{
-						pgclient.js.getId(message.user, true, (res)=>{
-							pgclient.js.runSql(INSERT_LB_SQL, [toId(displayName), displayName, res.id], null, ()=>{
-									chat.js.reply(message, "Successfully started the event.");
-							}, (err)=>{
-								error(err)
-								chat.js.reply(message, "There was an error while creating the new leaderboard.");
-							});
-						}, (err)=>{
-							error(err);
-							chat.js.reply(message, "There was a problem getting your id.");
-						});
-					}, (err)=>{
-						error(err)
-						chat.js.reply(message, "There was an error while disabling the other leaderboards.");
-					});
-				}
-			}, (err)=>{
-				error(err);
-				chat.js.reply(message, "Something went wrong when trying to fetch the leaderboard list.");
-			});
-		}
-	},
-	end: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, self.config.manageEventRank)){
-			chat.js.reply(message, "Your rank is not high enough to remove a leaderboard.");
-		}else if(args.length<=1){
-			chat.js.reply(message, "You must specify the name for the leaderboard.");
-		}else if(toId(args[1]) === "main"){
-			chat.js.reply(message, "You cannot remove that leaderboard.");
-		}else{
-			let id = toId(args[1]);
-			let lb;
-			pgclient.js.runSql(GET_LB_SQL, [id], (row)=>{
-				lb = row;
-			}, ()=>{
-				if(!lb){
-					chat.js.reply(message, "There is no leaderboard with that name.");
-				}else{
-					pgclient.js.runSql(ENABLE_ALL_LB_SQL, [], null, ()=>{
-						pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, [id], null, (res)=>{
-							pgclient.js.runSql(DELETE_LB_SQL, [id], null, ()=>{
-								chat.js.reply(message, "Successfully ended the event and deleted " + res.rowCount + " score(s).");
-							}, (err)=>{
-								error(err)
-								chat.js.reply(message, "There was an error while removing the leaderboard.");
-							});
-						}, (err)=>{
-							error(err)
-							chat.js.reply(message, "There was an error while removing the leaderboard.");
-						});
-					}, (err)=>{
-						error(err)
-						chat.js.reply(message, "There was an error while enabling the other leaderboards.");
-					});
-				}
-			}, (err)=>{
-				error(err);
-				chat.js.reply(message, "Something went wrong when trying to fetch the leaderboard list.");
-			});
-		}
 	}
 };
 
@@ -1786,7 +1797,36 @@ let loadFacts = function(){
 	}catch(e){
 		error(e.message);
 	}
-	info(result);
+};
+
+let saveBatches = function(){
+	try{
+		let filename = "data/batches.json";
+		let batchFile = fs.openSync(filename,"w");
+		fs.writeSync(batchFile,JSON.stringify(self.data.batches, null, "\t"));
+		fs.closeSync(batchFile);
+	}catch(e){
+		error(e.message);
+	}
+}
+
+let loadBatches = function(){
+	let result = "Could not load the query batches.";
+	try{
+		let filename = "data/batches.json";
+		if(fs.existsSync(filename)){
+			self.data.batches = JSON.parse(fs.readFileSync(filename, "utf8"));
+			result = "Found and loaded the facts.";
+		}else{
+			self.data.batches = [];
+			let batchFile = fs.openSync(filename,"w");
+			fs.writeSync(batchFile,JSON.stringify(self.data.batches, null, "\t"));
+			fs.closeSync(batchFile);
+			result = "Could not find the query batch file, made a new one.";
+		}
+	}catch(e){
+		error(e.message);
+	}
 };
 
 // Achievement crap
@@ -1854,6 +1894,7 @@ let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
 let defaultConfigs = {
 	timerRank: "%",
 	factRank: "+",
+	batchRank: "#",
 	startGameRank: "+",
 	endGameRank: "%",
 	manageBpRank: "+",
@@ -1874,6 +1915,7 @@ exports.defaultConfigs = defaultConfigs;
 let configTypes = {
 	timerRank: "rank",
 	factRank: "rank",
+	batchRank: "rank",
 	startGameRank: "rank",
 	endGameRank: "rank",
 	manageBpRank: "rank",

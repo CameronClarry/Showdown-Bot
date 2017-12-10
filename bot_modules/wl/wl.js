@@ -828,7 +828,7 @@ let questioncommands = {
 		let response = "oops";
 		let success = false;
 		if(!auth.js.rankgeq(qwrank, self.config.questionManageRank)){
-			response = "You rank is not high enough to import questions.";
+			response = "Your rank is not high enough to import questions.";
 		}else if(args.length < 2){
 			response = "You must give a link to the questions.";
 		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
