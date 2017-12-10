@@ -415,7 +415,6 @@ let commands = {
 			}
 		}
 	},
-	minigame: "event",
 	event: function(message, args, rank){
 		if(args.length>0){
 			let command = args[0].toLowerCase();
