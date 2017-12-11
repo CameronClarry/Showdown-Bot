@@ -1246,7 +1246,7 @@ let ttleaderboardCommands = {
 		pgclient.js.runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
 			if(lbRow.id === lb){
 				lbExists = true;
-				lbname = row.display_name;
+				lbname = lbRow.display_name;
 			}
 		}, ()=>{
 			if(!lbExists){
