@@ -1062,7 +1062,7 @@ let commands = {
 			chat.js.reply(message, "There's no query batch with that name.");
 		}
 	},
-	finals: function(message, args, rank){
+	voice: function(message, args, rank){
 		let room = message.room;
 		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
 			if(!self.data.tempVoices[room]) self.data.tempVoices[room] = {};
@@ -1077,6 +1077,7 @@ let commands = {
 		}
 		info(JSON.stringify(self.data.tempVoices));
 	},
+	devoice: "dv",
 	dv: function(message, args, rank){
 		let room = message.room;
 		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
@@ -1090,7 +1091,8 @@ let commands = {
 		}
 		info(JSON.stringify(self.data.tempVoices));
 	},
-	endfinals: function(message, args, rank){
+	devoiceall: "dvall",
+	dvall: function(message, args, rank){
 		let room = message.room;
 		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
 			if(self.data.tempVoices){
