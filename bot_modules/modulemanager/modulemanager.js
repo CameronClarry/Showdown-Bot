@@ -251,6 +251,7 @@ let configFuncs = {
 						error(response);
 					}
 				}
+				saveConfig(name);
 				chat.js.pm(message.user, response);
 			});
 		}else{
