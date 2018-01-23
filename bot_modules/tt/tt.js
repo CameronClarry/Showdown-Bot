@@ -461,7 +461,7 @@ let commands = {
 					}else{
 						if(nextPlayer && getBlacklistEntry(toId(nextPlayer))){
 							if(!game.bpOpen){
-								response = "**" + nextPlayer + " is on the blacklist, so BP is now open.**"
+								response = "**" + nextPlayer.slice(1) + " is on the blacklist, so BP is now open.**"
 							}else{
 								response = result.response;
 							}
