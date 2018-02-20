@@ -900,7 +900,7 @@ let commands = {
 				chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
 			}
 		}else{
-			chat.js.reply(message, "You must specify a room."));
+			chat.js.reply(message, "You must specify a room.");
 		}
 	},
 	addfact: function(message, args, rank){
