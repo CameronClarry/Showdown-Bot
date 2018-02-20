@@ -139,10 +139,11 @@ let achievementCommands = {
 			chat.js.reply(message, "Your rank is not high enough to manage achievements.");
 		}
 	},
-	list: function(message, args, rank){ //TODO: Allow a user to be specified, in which case it will list their achievements
+	list: function(message, args, rank){
 		let output = "ACHIEVEMENT LIST\n################\n\n";
 		pgclient.js.runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (row)=>{
-			output+="Name: " + row.name + ", Points: " + row.value + ", Description: \n" + row.description + "\n\n";
+			//output+="Name: " + row.name + ", Points: " + row.value + ", Description: \n" + row.description + "\n\n"; //This can be used if points ever matter
+			output+="Name: " + row.name + ", Description: \n" + row.description + "\n\n";
 		}, (res)=>{
 			request.post({url:'https://hastebin.com/documents', body: output}, function(err,httpResponse,body){
 				try{

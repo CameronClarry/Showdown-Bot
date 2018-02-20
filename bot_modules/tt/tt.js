@@ -850,8 +850,7 @@ let commands = {
 	//~timer [minutes], {message}, {room}
 	timer: function(message, args){
 		let room = toRoomId(args[2]) || message.room;
-		let announcement = args[1] || "Timer's up!";
-		announcement = announcement.replace(/[/!]/g, '');
+		let announcement = "/wall " + args[1] || "/wall Timer's up!";
 		let duration = args[0] && /^\d+$/.test(args[0]) && parseInt(args[0]);
 		if(duration>30){
 			duration = 0;
@@ -901,19 +900,7 @@ let commands = {
 				chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
 			}
 		}else{
-			let timerName = "user:" + toId(message.user);
-			if(self.data.timers[timerName]){
-				clearTimeout(self.data.timers[timerName].timer);
-				delete self.data.timers[timerName];
-			}
-			self.data.timers[timerName] = {
-				room: room,
-				timer: setTimeout(()=>{
-					delete self.data.timers[timerName];
-					chat.js.pm(message.user, announcement);
-				}, duration*60*1000)
-			};
-			chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
+			chat.js.reply(message, "You must specify a room."));
 		}
 	},
 	addfact: function(message, args, rank){
