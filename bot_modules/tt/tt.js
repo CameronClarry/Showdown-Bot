@@ -558,6 +558,8 @@ let commands = {
 		let success = false;
 		if(args.length>1 && auth.js.rankgeq(rank, self.config.manageBpRank)){
 			room = toRoomId(args[1]);
+		}else if(args.length === 0){
+			room = "trivia";
 		}
 		let response = "There is no trivia game in " + room + ".";
 		let game = self.data.games[room];
