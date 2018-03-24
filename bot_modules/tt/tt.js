@@ -36,6 +36,10 @@ const DELETE_LB_ENTRY_SQL = "DELETE FROM tt_points WHERE id = $1 AND leaderboard
 const DELETE_USER_ENTRIES_SQL = "DELETE FROM tt_points WHERE id = $1;";
 const DELETE_LB_ENTRIES_SQL = "DELETE FROM tt_points WHERE leaderboard = $1;";
 
+const GET_AVG_POINTS = "SELECT AVG(points) avg_points FROM tt_points WHERE points > 0 AND leaderboard = $1;";
+const GET_STD_POINTS = "SELECT STDDEV_POP(points) std_points FROM tt_points WHERE points > 0 AND leaderboard = $1;";
+const GET_NUM_PLAYERS = "SELECT COUNT(*) num_players FROM tt_points WHERE points > 0 AND leaderboard = $1;";
+
 
 
 //game:{
@@ -1294,43 +1298,52 @@ let ttleaderboardCommands = {
 		});
 	},
 	stats: function(message, args, rank){
-		chat.js.reply(message, "Not yet implemented :<");
-		let response = "Not yet implemented :<";
-		return;
-		let leaderboard = self.data.leaderboard.players;
-		let userEntry = leaderboard[toId(getMain(message.user))];
-		let entries = [];
-		let totalScore = 0;
-		for(let name in leaderboard){
-			let entry = leaderboard[name];
-			if(entry.score && entry.score>-1){
-				entries.push(entry);
-				totalScore += entry.score;
-			}
-		}
-		entries.sort(function(item1, item2){
-			return item1.score > item2.score ? -1 : 1;
-		});
-		let numPlayers = entries.length;
-		if(numPlayers !== 0){
-			let median;
-			if(numPlayers%2 === 0){
-				median = (entries[numPlayers/2].score+entries[numPlayers/2+1].score)/2;
-			}else{
-				median = entries[Math.floor(numPlayers/2)].score;
-			}
-			let mean = totalScore/numPlayers;
-			let sd = 0;
-			for(let i=0;i<entries.length;i++){
-				sd += Math.pow(entries[i].score - mean,2);
-			}
-			sd = Math.sqrt(sd/numPlayers);
-			response = "Total players: " + numPlayers + ", mean score: " + Math.round(mean*100)/100 + ", median: " + median + ", standard deviation: " + Math.round(sd*100)/100;
-		}else{
-			response = "There is no one on the leaderboard.";
-		}
 
-		chat.js.reply(message, response);
+		let lb = toId(args[1]) || "main";
+		let avg, std, num, lbname;
+		let lbExists = false;
+
+		pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
+			if(row.id === lb){
+				lbExists = true;
+				lbname = row.display_name;
+			}
+		}, ()=>{
+			if(!lbExists){
+				chat.js.reply(message, "That leaderboard doesn't exist.");
+			}else{
+				pgclient.js.runSql(GET_NUM_PLAYERS, [lb], (row)=>{
+					num = row.num_players;
+				}, ()=>{
+					if(num === 0){
+						chat.js.reply(message, "There are no players on that leaderboard.");
+					}else{
+						pgclient.js.runSql(GET_STD_POINTS, [lb], (row)=>{
+							std = Math.round(row.std_points*100)/100;
+						}, ()=>{
+							pgclient.js.runSql(GET_AVG_POINTS, [lb], (row)=>{
+								avg = Math.round(row.avg_points*10)/10;
+							}, ()=>{
+								chat.js.reply(message, "There are " + num + " players on the " + lbname + " leaderboard. The average score is " + avg + " and the standard deviation is " + std + ".");
+							}, (err)=>{
+								error(err);
+								chat.js.reply(message, "There was an error getting the leaderboard information.");
+							});
+						}, (err)=>{
+							error(err);
+							chat.js.reply(message, "There was an error getting the leaderboard information.");
+						});
+					}
+				}, (err)=>{
+					error(err);
+					chat.js.reply(message, "There was an error getting the leaderboard information.");
+				});
+
+			}
+		}, (err)=>{
+			error(err);
+			chat.js.reply(message, "There was an error getting the leaderboard list.");
+		});
 	},
 	set: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, self.config.editScoreRank)){
