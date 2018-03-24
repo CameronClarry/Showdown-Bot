@@ -1313,7 +1313,7 @@ let ttleaderboardCommands = {
 				chat.js.reply(message, "That leaderboard doesn't exist.");
 			}else{
 				pgclient.js.runSql(GET_NUM_PLAYERS, [lb], (row)=>{
-					num = row.num_players;
+					num = parseInt(row.num_players);
 				}, ()=>{
 					if(num === 0){
 						chat.js.reply(message, "There are no players on that leaderboard.");
