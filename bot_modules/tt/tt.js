@@ -843,9 +843,9 @@ let commands = {
 	},
 	removeformatting: function(message, args, rank){
 		if(!auth.js.rankgeq(rank,"@")){
-			chat.js.reply("You rank isn't high enough to do that.");
+			chat.js.reply(message, "You rank isn't high enough to do that.");
 		}else if (args.length < 1){
-			chat.js.reply("You need to give a player to fix.");
+			chat.js.reply(message, "You need to give a player to fix.");
 		}else{
 			let id = toId(args[0]);
 			pgclient.js.getId(id, false, (row)=>{
