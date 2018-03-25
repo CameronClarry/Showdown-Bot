@@ -1284,14 +1284,14 @@ let ttleaderboardCommands = {
 								let entries = [];
 								pgclient.js.runSql(GET_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
 									entries.push(row)
-								}, (res)=>{
+								}, (res2)=>{
 									if(entries.length === 0){
 										chat.js.reply(message, "There doesn't seem to be anyone on the leaderboard. Maybe something went wrong.");
 									}else if(entries.length === 1){
 										chat.js.reply(message, "You are the only person on the leaderboard (and your score is " + score + ").");
 									}else{
 										if(entries[0].points === score){
-											let nextPlayer = idsMatch(entries[0].display_name, id) ? entries[1] : entries[0];
+											let nextPlayer = idsMatch(entries[0].display_name, res.display_name) ? entries[1] : entries[0];
 											chat.js.reply(message, "You are first on the leaderboard, second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
 										}else{
 											let higherEntries = entries.filter(item=>{return item.points > score});
