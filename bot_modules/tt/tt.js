@@ -828,7 +828,7 @@ let commands = {
 				}else if(!res[1] || res[0].id !== res[1].id){
 					chat.js.reply(message, "That account is not one of your alts.");
 				}else{
-					changeMains(res[0].id, removeRank(args[0]), ()=>{
+					changeMains(res[0].id, removeFormatting(removeRank(args[0])), ()=>{
 						chat.js.reply(message, "Your name was successfully changed.");
 					}, (err)=>{
 						error(JSON.stringify(err));
@@ -838,6 +838,30 @@ let commands = {
 			}, (err)=>{
 				error(err);
 				chat.js.reply(message, "Something went wrong when finding your main.");
+			});
+		}
+	},
+	removeformatting: function(message, args, rank){
+		if(!auth.js.rankgeq(rank,"@")){
+			chat.js.reply("You rank isn't high enough to do that.");
+		}else if (args.length < 1){
+			chat.js.reply("You need to give a player to fix.");
+		}else{
+			let id = toId(args[0]);
+			pgclient.js.getId(id, false, (row)=>{
+				if(!row){
+					chat.js.reply(message, "That user does not have an entry.");
+				}else{
+					changeMains(row.id, id, ()=>{
+						chat.js.reply(message, "Successfully reset the main mane.");
+					}, (err)=>{
+						error(err);
+						chat.js.reply(message, "Something went wrong when updating the main.");
+					});
+				}
+			}, (err)=>{
+				error(err)
+				chat.js.reply(message, "Something went wrong when finding the main account.");
 			});
 		}
 	},
@@ -1892,6 +1916,14 @@ let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
 			});
 		}
 	}
+}
+
+let removeFormatting = function(text){
+	let reg = /([_~*`^])\1(.+)\1\1/g;
+	while(reg.test(text)){
+		text = text.replace(reg, "$2");
+	}
+	return text;
 }
 
 let defaultConfigs = {
