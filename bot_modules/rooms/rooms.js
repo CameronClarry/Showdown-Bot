@@ -1,7 +1,6 @@
 let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let auth = null;
-let formatregex = /([_~*`^])\1(.+)\1\1/g;
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
@@ -87,7 +86,7 @@ let roomActions = {
 		let id = toId(args[2]);
 		let rooms = self.data.rooms;
 		if(rooms[room]){
-			rooms[room].users[id] = {displayName: replaceAll(args[2].trim(),formatregex)};
+			rooms[room].users[id] = {displayName: removeFormatting(args[2].trim())};
 		}
 	},
 	L: "leave",
@@ -107,7 +106,7 @@ let roomActions = {
 		let rooms = self.data.rooms;
 		if(rooms[room]){
 			delete rooms[room].users[toId(oldName)];
-			rooms[room].users[toId(newName)] = {displayName: replaceAll(newName.trim(),formatregex)};
+			rooms[room].users[toId(newName)] = {displayName: removeFormatting(newName.trim())};
 		}
 	},
 	deinit: function(room, args){
@@ -137,7 +136,7 @@ let roomActions = {
 		if(self.data.rooms[room]){
 			let userlist = args[2].split(",");
 			for(var i=1;i<userlist.length;i++){
-				self.data.rooms[room].users[toId(userlist[i])] = {displayName: replaceAll(userlist[i].trim(),formatregex)};
+				self.data.rooms[room].users[toId(userlist[i])] = {displayName: removeFormatting(userlist[i].trim())};
 			}
 		}
 	}
@@ -207,9 +206,14 @@ let getDisplayName = function(user, room){
 }
 exports.getDisplayName = getDisplayName;
 
-let replaceAll = function(text, reg){
+let removeFormatting = function(text){
+	let reg = /([_~*`^])\1(.+)\1\1/g;
 	while(reg.test(text)){
 		text = text.replace(reg, "$2");
+	}
+	reg = /\[\[(.+)\]\]/g;
+	while(reg.test(text)){
+		text = text.replace(reg, "$1");
 	}
 	return text;
 }

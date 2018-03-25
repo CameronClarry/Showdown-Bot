@@ -1923,6 +1923,10 @@ let removeFormatting = function(text){
 	while(reg.test(text)){
 		text = text.replace(reg, "$2");
 	}
+	reg = /\[\[(.+)\]\]/g;
+	while(reg.test(text)){
+		text = text.replace(reg, "$1");
+	}
 	return text;
 }
 
