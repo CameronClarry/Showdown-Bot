@@ -1345,13 +1345,21 @@ let clearTimers = function(game){
 
 let saveQuestions = function(){
 	let path = "data/questions.json";
-	fs.writeFileSync(path,JSON.stringify(self.data.questions, null, "\t"));
+	try{
+		fs.writeFileSync(path,JSON.stringify(self.data.questions, null, "\t"));
+	}catch(e){
+		error(e);
+	}
 };
 
 let loadQuestions = function(){
 	let path = "data/questions.json";
 	if(fs.existsSync(path)){
-		self.data.questions = JSON.parse(fs.readFileSync(path, 'utf8'));
+		try{
+			self.data.questions = JSON.parse(fs.readFileSync(path, 'utf8'));
+		}catch(e){
+			error(e);
+		}
 	}
 	for(let i=0;i<self.data.questions.regular.length;i++){
 		if(!self.data.questions.regular[i].category){
