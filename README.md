@@ -22,6 +22,7 @@ Command|Usage|Required Rank
 `~ttl check, {user}, {leaderboard}`|This command checks your score on the leaderboard, or the score of {user} if specified. The leaderboard defaults to the main one, but may be specified.|None
 `ttl list, {number}, {leaderboard}`|This lists the top five users on the leaderboard. The number of users to list and leaderboard to list from can be specified.|None
 `~ttl summary, {leaderboard}`|Gets a variety of statistics on your ranking in the main leaderboard, or any other leaderboard that is specified|None
+`~ttl stats, {leaderboard}`|Gets a variety of statistics the main leaderboard, or any other leaderboard that is specified|None
 `~ttl set, [user], [points], {leaderboard}`|Sets the given user's score to the given number (must be positive). Defaults to acting on the main leaderboard, but can be specified.|@
 `~ttl add, [user], [points]`|This adds (or subtracts) the given number of points to (or from) all of the given user's scores. This affects all leaderboards.|@
 `ttl remove, [user]`|Removes the specified user from all leaderboards.|@
@@ -58,16 +59,38 @@ Command|Usage|Required Rank
 `~blacklist remove, [user]`|Removes the given user from the blacklist.|@
 `~blacklist check [user]`|Checks if the given user is on the blacklist.|@
 
+Achievement commands:
+
+Command|Usage|Required Rank
+-|-|:-:
+`~ach add, [name], [description], [points]`|Adds the given achievement to the achievement list. The name must be at most 40 characters long, and must contain at least one alphanumeric character.|@
+`~ach remove, [name]`|Removes the given achievement from the achievement list.|@
+`~ach list`|Gives a list of all current achievements, their descriptions, and point values.|None
+`~ach check, {name}`|Returns a list of all your achievements, or those of the user specified.|None
+`~ach award, [user], [achievement]`|Attempts to award the specified achievement.|@
+`~ach unaward, [user], [achievement]`|Attempts to revoke the specified achievement.|@
+
+Minigame helper commands:
+
+Command|Usage|Required Rank
+-|-|:-:
+`~minigamelist`|Provides a list of all available minigame commands.|#
+`~minigameupdate`|Overwrites the list of minigame commands.|#
+`~minigame [minigame name]`|Executes the given minigame. The effects and required rank will depend on which one is being executed.|Varies
+`~voice [user1], {user2}, {user3}, ...`|Attempts to voice the given users and start modchat.|@
+`~devoice [user1], {user2}, {user3}, ...`|Devoices the given users if they were previously voiced by the bot, and ends modchat if all users have been devoiced.|@
+`~devoiceall`|Devoices all users that were voiced with the `~voice` command, and ends modchat.|@
+
 Misc commands:
 
 Command|Usage|Required Rank
 -|-|:-:
 `~next`|Displays when the next official will be.|None
-`~alts {user}`|Displays your alts, or the alts of the [user] if you have the required rank.|%
-`~alt [user]`|Links your account with [user]. This command must be used from both accounts to complete the link.|None
+`~alts {user}`|Displays your alts, or the alts of `{user}` if you have the required rank.|%
+`~alt [user]`|Links your account with `[user]`. This command must be used from both accounts to complete the link.|None
 `~removealt [user]`|Removes the specified account from your linked accounts. It cannot be your main account.|None
 `~main [name]`|Changes your main account. The name given must match one of your alts in alphanumeric characters (eg. StRuChNi! is acceptable for Struchni). This is the name that you will be referred to as in all leaderboard listings.|None
-`~timer [minutes], {message}, {room}`|This will set a timer to go off in [minutes] minutes. The message can be specified, otherwise a default will be used. The room can also be specified, defaulting to the room the message is used in. Note that slashes (/) and exclamation marks (!) will be removed from the message.|+
+`~timer [minutes], {message}, {room}`|This will set a timer to go off in [minutes] minutes. The message can be specified, otherwise a default will be used. The room can also be specified, defaulting to the room the message is used in. Note that the message will always use `/wall`.|+
 `~addfact [fact]`|Adds the given fact to the database.|+
 `~removefact [fact]`|Removes the given fact.|+
 `~factlist`|This will PM you a pastebin of all facts in the database.|+

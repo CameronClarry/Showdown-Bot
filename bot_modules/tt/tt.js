@@ -1457,11 +1457,6 @@ let ttleaderboardCommands = {
 			});
 		}
 	},
-	test: function(message, args, rank){
-		getAllLeaderboardEntries("main", (arr)=>{
-			info(JSON.stringify(arr));
-		});
-	},
 	reset: function(message, args, rank){
 		let leaderboard = self.data.leaderboard;
 		if(!auth.js.rankgeq(rank, self.config.resetLeaderboardRank)){
