@@ -121,7 +121,7 @@ global.saveConfig = function(name){
 //Manages the bot modules
 global.modules = {};
 global.loadModule = function(name, loadData){
-	let path = "./bot_modules/" + name + "/" + name;
+	let path = "./bot_modules/" + name;
 	try{
 		delete require.cache[require.resolve(path)];
 		let requiredBy = [];
@@ -155,7 +155,7 @@ global.loadModule = function(name, loadData){
 };
 global.unloadModule = function(name){
 	if(modules[name]){
-		let path = "./bot_modules/" + name + "/" + name;
+		let path = "./bot_modules/" + name;
 		delete require.cache[require.resolve(path)];
 		let requiredBy = modules[name].requiredBy;
 		if(modules[name].js.onUnload){
