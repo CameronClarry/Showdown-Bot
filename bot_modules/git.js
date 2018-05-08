@@ -1,7 +1,5 @@
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let git = require("nodegit");
-let path = require("path");
-let repoDir = "../../../Showdown-Bot";
 let repository;
 let auth;
 let chat;
@@ -67,7 +65,7 @@ let commands = {
 let gitCommands = {
 	reset: function(message, args, rank){
 		let repository;
-		git.Repository.open(path.resolve(__dirname, repoDir))
+		git.Repository.open(cwd)
 		.then(function(repo) {
 			repository = repo;
 			return repository.fetch('origin');
@@ -84,7 +82,7 @@ let gitCommands = {
 	},
 	latest: function(message, args, rank){
 		let repository;
-		git.Repository.open(path.resolve(__dirname, repoDir))
+		git.Repository.open(cwd)
 		.then(function(repo) {
 			repository = repo;
 			return repository.fetch('origin');
@@ -98,7 +96,7 @@ let gitCommands = {
 	},
 	diff: function(message, args, rank){
 		let repository;
-		git.Repository.open(path.resolve(__dirname, repoDir))
+		git.Repository.open(cwd)
 		.then(function(repo){
 			repository = repo;
 			return repository.fetch('origin');

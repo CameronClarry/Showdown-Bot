@@ -47,6 +47,11 @@ node_modules/*
 
 #Other unwanted files
 *.bat
+*.aux
+*.log
+*.pdf
+*.tex
+*.png
 config/*
 data/*
 logs/*

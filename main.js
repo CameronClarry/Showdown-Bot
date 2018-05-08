@@ -448,6 +448,8 @@ global.prettyList = function(arr){
 	return "";
 }
 
+global.cwd = process.cwd();
+
 //Create necessary folders
 if (!fs.existsSync("./config")){
 	fs.mkdirSync("./config");

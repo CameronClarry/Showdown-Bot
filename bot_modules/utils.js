@@ -19,7 +19,9 @@ exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
 	if(loadData){
-		self.data = {};
+		self.data = {
+			askToRestart: null
+		};
 	}
 	self.chathooks = {
 		chathook: function(m){
@@ -63,6 +65,19 @@ let commands = {
 	color: "colour",
 	colour: function(message, args, rank){
 		chat.js.reply(message, hashColour(toId(args[0])));
+	},
+	restart: function(message, args, rank){
+		if(idsMatch(message.user, mainConfig.owner) && mainConfig.owner){
+			if(!self.data.askToRestart){
+				chat.js.reply(message, "WARNING: All this really does is crash the bot and let the system restart the program if it is set up to do so. This should only be used when the main file must be reloaded, and there is a system in place to restart the bot. Use the command again to confirm.");
+				self.data.askToRestart = true;
+			}else{
+				chat.js.reply(message, "Restarting (crashing)...");
+				setTimeout(100, ()=>{
+					callNonexistantFunction();
+				});
+			}
+		}
 	}
 };
 
