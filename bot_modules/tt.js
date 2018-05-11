@@ -103,15 +103,13 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 
 let updateLeaderboardEntryByUsername = function(args, updateFunc, onEnd, onError){
 	pgclient.js.getId(args[0], true, (res)=>{
-		info("res in username:")
-		info(JSON.stringify(res));
 		updateLeaderboardEntryById([res.id, args[1], res.display_name], updateFunc, onEnd, onError);
 	}, onError);
 }
 
 //updateFunc takes the old score, and returns what the new score should be
 //onEnd takes the user id, rows updated, array of events failed
-let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, onError){
+let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, onError, eventFilter){
 	let events = [];
 	pgclient.js.runSql(GET_ENABLED_LB_SQL, [], (row)=>{
 		events.push(row);
@@ -121,6 +119,11 @@ let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, 
 			entries[row.leaderboard] = row;
 		}, ()=>{
 			events = events.map((event)=>{return event.id});
+			info(eventFilter)
+			if(eventFilter){
+				info('Found filter, filtering.')
+				events = events.filter(eventFilter)
+			}
 			let	pendingEvents = events.length;
 			let failed = [];
 			let newEnd = (event)=>{
@@ -151,11 +154,11 @@ let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, 
 	}, onError);
 }
 
-let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, onEnd, onError){
+let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, onEnd, onError, eventFilter){
 	pgclient.js.getId(username, true, (res)=>{
 		updateAllLeaderboardEntriesById(res.id, res.display_name, updateFunc, (id, affected, failed)=>{
 			if(onEnd) onEnd(res.display_name, affected, failed);
-		});
+		}, null, eventFilter);
 	}, onError);
 }
 
@@ -1032,7 +1035,6 @@ let commands = {
 						return;
 				}
 				try{
-					info(body);
 					self.data.batches = JSON.parse(body);
 					saveBatches();
 					chat.js.pm(message.user, "Updated the query batches.");
@@ -1054,12 +1056,7 @@ let commands = {
 		if(qbatch){
 			if(auth.js.rankgeq(rank, qbatch.rank)){
 				let queries = qbatch.queries.slice();
-				info("Queries:");
-				info(JSON.stringify(queries));
-				info("End of queries");
 				let queryFunc = (queries)=>{
-					info(JSON.stringify(queries));
-					info(queries[0]);
 					if(queries.length){
 						pgclient.js.runSql(queries.shift(), null, null, ()=>{
 							queryFunc(queries);
@@ -1114,7 +1111,6 @@ let commands = {
 		if(auth.js.rankgeq(rank, self.config.voicechatRank) && auth.js.rankgeq(auth.js.getTrueRoomRank(mainConfig.user, room), "@")){
 			if(self.data.tempVoices){
 				for(let id in self.data.tempVoices[room]){
-					info(id);
 					delete self.data.tempVoices[room][id];
 					chat.js.say(room, "/roomdeauth " + id);
 				}
@@ -1431,7 +1427,7 @@ let ttleaderboardCommands = {
 			}, (err)=>{
 				error(err);
 				chat.js.reply(message, "There was an error updating the scores.");
-			});
+			}, eventFilter);
 		}
 	},
 	remove: function(message, args, rank){
@@ -1500,7 +1496,7 @@ let ttleaderboardEventCommands = {
 			if(!events.length){
 				chat.js.reply(message, "There are no leaderboards right now.");
 			}else{
-				chat.js.reply(message, "These are the current leaderboads: " + events.map((event)=>{return event.display_name}).join(", "));
+				chat.js.reply(message, "These are the current leaderboards: " + events.map((event)=>{return event.display_name}).join(", "));
 			}
 		}, (err)=>{
 			error(err);

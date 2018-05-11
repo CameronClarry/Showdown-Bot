@@ -24,7 +24,7 @@ Command|Usage|Required Rank
 `~ttl summary, {leaderboard}`|Gets a variety of statistics on your ranking in the main leaderboard, or any other leaderboard that is specified|None
 `~ttl stats, {leaderboard}`|Gets a variety of statistics the main leaderboard, or any other leaderboard that is specified|None
 `~ttl set, [user], [points], {leaderboard}`|Sets the given user's score to the given number (must be positive). Defaults to acting on the main leaderboard, but can be specified.|@
-`~ttl add, [user], [points]`|This adds (or subtracts) the given number of points to (or from) all of the given user's scores. This affects all leaderboards.|@
+`~ttl add, [user], [points], {leaderboard}`|This adds (or subtracts) the given number of points to (or from) the given user's scores. This affects all leaderboards, unless `{leaderboard}` is specified in which case only that leaderboard is affected.|@
 `ttl remove, [user]`|Removes the specified user from all leaderboards.|@
 `~ttl reset`|This resets the main leaderboard. Use with caution.|#
 
