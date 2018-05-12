@@ -119,7 +119,6 @@ let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, 
 			entries[row.leaderboard] = row;
 		}, ()=>{
 			events = events.map((event)=>{return event.id});
-			info(eventFilter)
 			if(eventFilter){
 				info('Found filter, filtering.')
 				events = events.filter(eventFilter)
@@ -1416,6 +1415,7 @@ let ttleaderboardCommands = {
 		}else{
 			let user = args[1];
 			let points = parseInt(args[2], 10);
+			let eventFilter = args[3] ? (e)=>{return idsMatch(args[3], e)} : null;
 			updateAllLeaderboardEntriesByUsername(user, (oldPoints)=>{
 				return Math.max(oldPoints + points, 0);
 			}, (name, affected, failed)=>{
