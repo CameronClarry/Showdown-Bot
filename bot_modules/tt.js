@@ -256,7 +256,8 @@ exports.onLoad = function(module, loadData){
 			pendingAlts: {},
 			askToReset: "",
 			timers: {},
-			tempVoices: {}
+			tempVoices: {},
+			flags: {}
 		};
 		loadFacts();
 		loadBatches();
@@ -397,6 +398,21 @@ let messageListener = function(m){
 			clearTimers(game);
 			lastHist.hasAsked = true;
 		}
+		if(game && self.data.flags["timer"] && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(m.message)){
+			let timerName = "room:" + m.room;
+			if(self.data.timers[timerName]){
+				clearTimeout(self.data.timers[timerName].timer);
+				delete self.data.timers[timerName];
+			}
+			self.data.timers[timerName] = {
+				room: m.room,
+				timer: setTimeout(()=>{
+					delete self.data.timers[timerName];
+					chat.js.say(m.room, "/wall Timer's up!");
+				}, 60*1000)
+			};
+			chat.js.say(m.room, "Set the timer for one minute.");
+		}
 	}
 };
 
@@ -432,7 +448,7 @@ let commands = {
 	yea: "yes", yup: "yes", sure: "yes", yee: "yes", yep: "yes", yeah: "yes",
 	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
 	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",
-	aye: "yes", ya: "yes", ye: "yes", correct: "yes", yeet: "yes",
+	aye: "yes", ya: "yes", ye: "yes", correct: "yes", yeet: "yes", ja: "yes",
 	yes: function(message, args, rank){
 		let room = message.room;
 		let success = false;
@@ -1057,12 +1073,22 @@ let commands = {
 				let queries = qbatch.queries.slice();
 				let queryFunc = (queries)=>{
 					if(queries.length){
-						pgclient.js.runSql(queries.shift(), null, null, ()=>{
+						if(queries[0].substring(0,2) === '--'){
+							let parts = queries.shift().substr(2).split(" ")
+							if(parts.length === 1){
+								delete self.data.flags[parts[0]]
+							}else{
+								self.data.flags[parts[0]] = parts[1]
+							}
 							queryFunc(queries);
-						}, (err)=>{
-							error(err);
-							chat.js.reply(message, "There was an error executing one of the queries.");
-						});
+						}else{
+							pgclient.js.runSql(queries.shift(), null, null, ()=>{
+								queryFunc(queries);
+							}, (err)=>{
+								error(err);
+								chat.js.reply(message, "There was an error executing one of the queries.");
+							});
+						}
 					}else{
 						chat.js.reply(message, qbatch.response || "Successfully executed the queries.");
 					}
@@ -1088,7 +1114,6 @@ let commands = {
 			}
 			chat.js.say(room, "/modchat +");
 		}
-		info(JSON.stringify(self.data.tempVoices));
 	},
 	devoice: "dv",
 	dv: function(message, args, rank){
@@ -1102,7 +1127,6 @@ let commands = {
 				}
 			}
 		}
-		info(JSON.stringify(self.data.tempVoices));
 	},
 	devoiceall: "dvall",
 	dvall: function(message, args, rank){
@@ -1116,7 +1140,6 @@ let commands = {
 			}
 			chat.js.say(room, "/modchat ac");
 		}
-		info(JSON.stringify(self.data.tempVoices));
 	},
 	info: "help",
 	commands: "help",
