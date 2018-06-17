@@ -812,7 +812,11 @@ let commands = {
 			chat.js.reply(message, "You must specify an alt.");
 		}else{
 			pgclient.js.getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
-				if(res.length < 2 || res[0].id !== res[1].id){
+				if(!res[0]){
+					chat.js.reply(message, "You do not have any alts.");
+				}else if(!res[1]){
+					chat.js.reply(message, "That account has no alts.");
+				}else if(res[0].id !== res[1].id){
 					chat.js.reply(message, "That account is not an alt of yours.");
 				}else if(idsMatch(args[0], res[1].display_name)){
 					chat.js.reply(message, "You cannot remove your main account.");
@@ -843,7 +847,9 @@ let commands = {
 			pgclient.js.getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
 				if(!res[0]){
 					chat.js.reply(message, "You do not have any alts.");
-				}else if(!res[1] || res[0].id !== res[1].id){
+				}else if(!res[1]){
+					chat.js.reply(message, "That account has no alts.");
+				}else if(res[0].id !== res[1].id){
 					chat.js.reply(message, "That account is not one of your alts.");
 				}else{
 					changeMains(res[0].id, removeFormatting(removeRank(args[0])), ()=>{
