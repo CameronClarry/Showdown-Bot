@@ -29,7 +29,8 @@ const DISABLE_ALL_LB_SQL = "UPDATE tt_leaderboards SET enabled = false;";
 const GET_LB_ENTRY_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;";
 const GET_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;";
 const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;";
-const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;"
+const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;";
+const LIST_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;";
 const INSERT_LB_ENTRY_SQL = "INSERT INTO tt_points VALUES ($1, $2, $3);";
 const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND leaderboard = $2;";
 const DELETE_LB_ENTRY_SQL = "DELETE FROM tt_points WHERE id = $1 AND leaderboard = $2;";
@@ -1232,6 +1233,34 @@ let ttleaderboardCommands = {
 				chat.js.strictReply(message, "There are no players on the " + lb + " leaderboard.");
 			}else{
 				chat.js.strictReply(message, "The top " + rows.length + " score" + (rows.length === 1 ? "" : "s") + " in the " + lb + " leaderboard " + (rows.length === 1 ? "is" : "are") + ": " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".");
+			}
+		},(err)=>{
+			error(err);
+			chat.js.strictReply(message, "There was either an error fetching the scores or the leaderboard you entered does not exist.");
+		});
+	},
+	listall: function(message, args, rank){
+		let lb = toId(args[1]) || "main";
+		let rows = [];
+		if(!auth.js.rankgeq(rank, "#")){
+			return;
+		}
+		pgclient.js.runSql(LIST_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
+			rows.push(row);
+		},()=>{
+			if(!rows.length){
+				chat.js.strictReply(message, "There are no players on the " + lb + " leaderboard.");
+			}else{
+				let text = "Listed here all players with a score of at least 1 on the " + lb + " leaderboard.\n";
+				text = text + "\n" + rows.map((row)=>{return (row.display_name || row.id1) + ": " + row.points}).join("\n")
+				request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+					try{
+						chat.js.strictReply(message, "Here is the full leaderboard: hastebin.com/" + JSON.parse(body).key);
+					}catch(e){
+						error(e.message);
+						chat.js.strictReply(message, "Something went wrong with the response from hastebin.");
+					}
+				});
 			}
 		},(err)=>{
 			error(err);
