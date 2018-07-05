@@ -389,12 +389,19 @@ let messageListener = function(m){
 			}
 		}
 		let rank = auth.js.getEffectiveRoomRank(m, "trivia");
-		if((auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)) && lastHist.hasAsked && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message))){
-			lastHist.hasAsked = false;
-			clearTimers(game);
-			game.remindTimer = setTimeout(()=>{
-				onRemind(game);
-			}, self.config.remindTime*1000/2);
+		if((auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)) && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message))){
+			if(lastHist.hasAsked){
+				lastHist.hasAsked = false;
+				clearTimers(game);
+				game.remindTimer = setTimeout(()=>{
+					onRemind(game);
+				}, self.config.remindTime*1000/2);
+			}
+
+			if(auth.js.rankgeq(rank, self.config.manageBpRank) && (/boldfail/i.test(toId(m.message)))){
+				chat.js.say(m.room, "!rfaq bold");
+			}
+
 		}else if(idsMatch(lastHist.active, m.user) && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(m.message)){
 			clearTimers(game);
 			lastHist.hasAsked = true;
