@@ -496,6 +496,8 @@ let commands = {
 								response = result.response;
 							}
 							game.bpOpen = "auth";
+							chat.js.say(room, response);
+							success = true;
 						}else{
 							response = result.response;
 						}
