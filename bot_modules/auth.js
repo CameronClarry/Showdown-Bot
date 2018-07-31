@@ -1,6 +1,6 @@
 let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
+let ranks = [" ", "★", "+", "%", "@", "*", "&", "#", "~"];
 let chat = null;
 let rooms = null;
 exports.onLoad = function(module, loadData){

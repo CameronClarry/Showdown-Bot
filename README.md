@@ -25,6 +25,8 @@ Command|Usage|Required Rank
 `~ttl stats, {leaderboard}`|Gets a variety of statistics the main leaderboard, or any other leaderboard that is specified|None
 `~ttl set, [user], [points], {leaderboard}`|Sets the given user's score to the given number (must be positive). Defaults to acting on the main leaderboard, but can be specified.|@
 `~ttl add, [user], [points], {leaderboard}`|This adds (or subtracts) the given number of points to (or from) the given user's scores. This affects all leaderboards, unless `{leaderboard}` is specified in which case only that leaderboard is affected.|@
+`~ttl addto, [user], [points], [leaderboard]`|This adds (or subtracts) the given number of points to (or from) the given user's score. This only affects the given leaderboard, and works even if it is disabled.|@
+`ttl remove, [user]`|Removes the specified user from all leaderboards.|@
 `ttl remove, [user]`|Removes the specified user from all leaderboards.|@
 `~ttl reset`|This resets the main leaderboard. Use with caution.|#
 
@@ -90,7 +92,7 @@ Command|Usage|Required Rank
 `~alt [user]`|Links your account with `[user]`. This command must be used from both accounts to complete the link.|None
 `~removealt [user]`|Removes the specified account from your linked accounts. It cannot be your main account.|None
 `~main [name]`|Changes your main account. The name given must match one of your alts in alphanumeric characters (eg. StRuChNi! is acceptable for Struchni). This is the name that you will be referred to as in all leaderboard listings.|None
-`~timer [minutes], {message}, {room}`|This will set a timer to go off in [minutes] minutes. The message can be specified, otherwise a default will be used. The room can also be specified, defaulting to the room the message is used in. Note that the message will always use `/wall`.|+
+`~timer {minutes}, {seconds}, {message}, {room}`|This will set a timer to go off in {minutes} minutes and {seconds} seconds. The message can be specified, otherwise a default will be used. The room can also be specified, defaulting to the room the message is used in. Note that the message will always use `/wall`. `~timer end` can be used to clear a timer.|+
 `~addfact [fact]`|Adds the given fact to the database.|+
 `~removefact [fact]`|Removes the given fact.|+
 `~factlist`|This will PM you a pastebin of all facts in the database.|+

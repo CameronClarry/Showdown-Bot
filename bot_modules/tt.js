@@ -457,6 +457,7 @@ let commands = {
 	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
 	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", yeet: "yes", ja: "yes",
+	correctomundo: "yes",
 	yes: function(message, args, rank){
 		let room = message.room;
 		let success = false;
@@ -913,16 +914,15 @@ let commands = {
 	},
 	//~timer [minutes], {message}, {room}
 	timer: function(message, args){
-		let room = toRoomId(args[2]) || message.room;
-		let announcement = args[1] ? "/wall " + args[1] : "/wall Timer's up!";
-		let duration = args[0] && /^\d+$/.test(args[0]) && parseInt(args[0]);
-		if(duration>30){
-			duration = 0;
-		}
+		let room = toRoomId(args[3]) || message.room;
+		let announcement = args[2] ? "/wall " + args[2] : "/wall Timer's up!";
+		let duration = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0])*60 : 0;
+		let seconds = args[1] && /^\d+$/.test(args[1]) ? parseInt(args[1]) : 0;
+		duration = duration + seconds;
 		if(toId(args[0]) === "end"){
 			if(room){
 				let timerName = "room:" + room;
-				let rank = auth.js.getRoomRank(message.user, room);
+				let rank = auth.js.getRank(message.user, room);
 				if(!auth.js.rankgeq(rank, self.config.timerRank)){
 					chat.js.reply(message, "Your rank is not high enough to end the timer.");
 				}else if(self.data.timers[timerName]){
@@ -945,7 +945,7 @@ let commands = {
 		}else if(!duration){
 			chat.js.reply(message, "You must give a positive integer less than 30 for the duration.");
 		}else if(room){
-			let rank = auth.js.getRoomRank(message.user, room);
+			let rank = auth.js.getRank(message.user, room);
 			let timerName = "room:" + room;
 			if(!auth.js.rankgeq(rank, self.config.timerRank)){
 				chat.js.reply(message, "Your rank is not high enough to set timers in " + room + ".");
@@ -959,9 +959,9 @@ let commands = {
 					timer: setTimeout(()=>{
 						delete self.data.timers[timerName];
 						chat.js.say(room, announcement);
-					}, duration*60*1000)
+					}, duration*1000)
 				};
-				chat.js.reply(message, "Set the timer for " + duration + " minute" + (duration === 1 ? "." : "s."));
+				chat.js.reply(message, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
 			}
 		}else{
 			chat.js.reply(message, "You must specify a room.");
@@ -1495,6 +1495,50 @@ let ttleaderboardCommands = {
 				error(err);
 				chat.js.reply(message, "There was an error updating the scores.");
 			}, eventFilter);
+		}
+	},
+	addto: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, self.config.editScoreRank)){
+			chat.js.reply(message, "Your rank is not high enough to change someone's score.");
+		}else	if(args.length<4 || !toId(args[1])){
+			chat.js.reply(message, "You must specify the user's name, the number of points to add, and the leaderboard.");
+		}else if(!/^[\d]+$/.test(args[2])){
+			chat.js.reply(message, "Invalid number format for the number of points.");
+		}else{
+			let user = args[1];
+			let points = parseInt(args[2], 10);
+			let lb = toId(args[3])
+			let lbname = "";
+			let lbExists = false;
+			if(!lb){
+				chat.js.reply(message, "You must give a valid leaderboard.")
+			}
+			pgclient.js.runSql(GET_ALL_LB_SQL, [], (row)=>{
+				if(row.id === lb){
+					lbExists = true;
+					lbname = row.display_name;
+				}
+			}, ()=>{
+				if(!lbExists){
+					chat.js.reply(message, "That leaderboard doesn't exist.");
+				}else{
+					updateLeaderboardEntryByUsername([user, lb], (oldPoints)=>{
+						return oldPoints + points;
+					}, (res, newPoints)=>{
+						if(!res){
+							chat.js.reply(message, "Created a new " + lbname + " leaderboard entry for " + user + " and set their score to " + newPoints + ".");
+						}else{
+							chat.js.reply(message, "Updated the score for " + res.display_name + ". Their " + lbname + " leaderboard score changed from " + res.points + " to " + newPoints + ".");
+						}
+					}, (err)=>{
+						error(err);
+						chat.js.reply(message, "There was an error updating the score.");
+					});
+				}
+			}, (err)=>{
+				error(err);
+				chat.js.reply(message, "There was an error getting the leaderboard list.");
+			})
 		}
 	},
 	remove: function(message, args, rank){
