@@ -922,7 +922,7 @@ let commands = {
 		if(toId(args[0]) === "end"){
 			if(room){
 				let timerName = "room:" + room;
-				let rank = auth.js.getRank(message.user, room);
+				let rank = auth.js.getEffectiveRoomRank(message, room);
 				if(!auth.js.rankgeq(rank, self.config.timerRank)){
 					chat.js.reply(message, "Your rank is not high enough to end the timer.");
 				}else if(self.data.timers[timerName]){
@@ -945,7 +945,7 @@ let commands = {
 		}else if(!duration){
 			chat.js.reply(message, "You must give a positive integer less than 30 for the duration.");
 		}else if(room){
-			let rank = auth.js.getRank(message.user, room);
+			let rank = auth.js.getEffectiveRoomRank(message, room);
 			let timerName = "room:" + room;
 			if(!auth.js.rankgeq(rank, self.config.timerRank)){
 				chat.js.reply(message, "Your rank is not high enough to set timers in " + room + ".");
