@@ -1506,7 +1506,7 @@ let ttleaderboardCommands = {
 			chat.js.reply(message, "Your rank is not high enough to change someone's score.");
 		}else	if(args.length<4 || !toId(args[1])){
 			chat.js.reply(message, "You must specify the user's name, the number of points to add, and the leaderboard.");
-		}else if(!/^[\d]+$/.test(args[2])){
+		}else if(!/^-?[\d]+$/.test(args[2])){
 			chat.js.reply(message, "Invalid number format for the number of points.");
 		}else{
 			let user = args[1];

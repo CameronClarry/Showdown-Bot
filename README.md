@@ -27,7 +27,6 @@ Command|Usage|Required Rank
 `~ttl add, [user], [points], {leaderboard}`|This adds (or subtracts) the given number of points to (or from) the given user's scores. This affects all leaderboards, unless `{leaderboard}` is specified in which case only that leaderboard is affected.|@
 `~ttl addto, [user], [points], [leaderboard]`|This adds (or subtracts) the given number of points to (or from) the given user's score. This only affects the given leaderboard, and works even if it is disabled.|@
 `ttl remove, [user]`|Removes the specified user from all leaderboards.|@
-`ttl remove, [user]`|Removes the specified user from all leaderboards.|@
 `~ttl reset`|This resets the main leaderboard. Use with caution.|#
 
 These commands are used to manage the temporary leaderboards (events). Note: all these commands can be accessed with either `~event` or `~minigame`.
