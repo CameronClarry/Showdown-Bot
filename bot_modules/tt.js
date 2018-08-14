@@ -459,9 +459,12 @@ let commands = {
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", yeet: "yes", ja: "yes",
 	correctomundo: "yes",
 	yes: function(message, args, rank){
+		let shouldUndo = false;
 		let room = message.room;
 		let success = false;
-		if(args.length>1 && auth.js.rankgeq(rank, self.config.manageBpRank)){
+		if(args.length>1 && auth.js.rankgeq(rank, self.config.manageBpRank) && toId(args[1]) === "afk"){
+			shouldUndo = true;
+		}else if(args.length>1 && auth.js.rankgeq(rank, self.config.manageBpRank)){
 			room = toRoomId(args[1]);
 		}
 		let response = "There is no trivia game in " + room + ".";
@@ -482,7 +485,7 @@ let commands = {
 						updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
 							return Math.max(oldPoints - self.config.correctPoints, 0);
 						});
-					}}, false);
+					}}, shouldUndo);
 					success = result.result;
 					if(success){
 						updateAllLeaderboardEntriesByUsername(nextPlayer, (oldPoints)=>{
@@ -549,8 +552,14 @@ let commands = {
 					game.bpOpen = null;
 					if(history.length>0){
 						let newActive = history[history.length-1].active;
-						if(rooms.js.isInRoom(newActive, room)){
-							response += ", it is now " + newActive + "'s turn to ask a question.**";
+						let newDisplayName = rooms.js.getDisplayName(newActive, room);
+						if(newDisplayName){
+							if(newDisplayName[0] === "!" || newDisplayName[0] === "‽"){
+								response += ". Since " + newActive + " is muted or locked, BP is open.**";
+								game.bpOpen = "auth";
+							}else{
+								response += ", it is now " + newActive + "'s turn to ask a question.**";
+							}
 						}else{
 							if(user){
 								history.add({active: user, undo: null});
@@ -1777,6 +1786,8 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 			response = "The user " + nextPlayer + " is not in the room " + room + ".";
 		}else if(idsMatch(nextPlayer, history[history.length-1].active)){
 			response = "It is already " + displayName + "'s turn to ask a question.";
+		}else if(displayName[0] === "‽" || displayName[0] === "!"){
+			response = "The user " + nextPlayer + " is either muted or locked.";
 		}else if(getBlacklistEntry(toId(nextPlayer))){
 			response = displayName + " is on the blacklist.";
 		}else if(displayName !== null){
