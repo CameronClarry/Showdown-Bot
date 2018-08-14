@@ -46,7 +46,7 @@ Regular Trivia Tracker commands:
 
 Command|Usage|Required Rank
 -|-|:-:
-`~yes [user]`|This command should be used when [user] gets your question correct. You must be the one with BP to use this.|None
+`~yes [user], {afk}`|This command should be used when [user] gets your question correct. You must be the one with BP to use this. For auth, if the `afk` is included, the previous points that were awarded will be undone.|None
 `~no [number]`|This undoes that last [number] of turns.|+
 `~bp [user]`|This gives the specified user BP, but does not change any points.|+
 `~bpopen`|Opens BP, allowing it to be claimed. Can only be used by the person with BP, or someone with the required rank. If an auth opens it, only an auth can close it.|+
