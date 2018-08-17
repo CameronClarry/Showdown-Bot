@@ -924,56 +924,54 @@ let commands = {
 	//~timer [minutes], {message}, {room}
 	timer: function(message, args){
 		let room = toRoomId(args[3]) || message.room;
+		let rank = auth.js.getEffectiveRoomRank(message, room);
 		let announcement = args[2] ? "/wall " + args[2] : "/wall Timer's up!";
-		let duration = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0])*60 : 0;
-		let seconds = args[1] && /^\d+$/.test(args[1]) ? parseInt(args[1]) : 0;
-		duration = duration + seconds;
-		if(toId(args[0]) === "end"){
-			if(room){
-				let timerName = "room:" + room;
-				let rank = auth.js.getEffectiveRoomRank(message, room);
-				if(!auth.js.rankgeq(rank, self.config.timerRank)){
-					chat.js.reply(message, "Your rank is not high enough to end the timer.");
-				}else if(self.data.timers[timerName]){
-					clearTimeout(self.data.timers[timerName].timer);
-					delete self.data.timers[timerName];
-					chat.js.reply(message, "Successfully cleared the timer for " + room + ".");
-				}else{
-					chat.js.reply(message, "There isn't a timer for " + room + ".");
-				}
+		let duration, minutes, seconds, min, max = 0;
+		if(args[0] && /^\d+$/.test(args[0])){
+			minutes = parseInt(args[0]);
+		}else if(args[0] && /^\d+:\d+$/.test(args[0])){
+			min = parseInt(args[0].split(":")[0]);
+			max = parseInt(args[0].split(":")[1]);
+			minutes = Math.floor(Math.random()*(max - min + 1)) + min;
+		}
+		if(args[1] && /^\d+$/.test(args[1])){
+			seconds = parseInt(args[1]);
+		}else if(args[1] && /^\d+:\d+$/.test(args[1])){
+			min = parseInt(args[1].split(":")[0]);
+			max = parseInt(args[1].split(":")[1]);
+			seconds = Math.floor(Math.random()*(max - min + 1)) + min;
+		}
+		duration = minutes*60 + seconds;
+		info(duration);
+		if(!auth.js.rankgeq(rank, self.config.timerRank)){
+			chat.js.reply(message, "Your rank is not high enough to manage timers.");
+		}else if(!room){
+			chat.js.reply(message, "You must specify a room.");
+		}else if(toId(args[0]) === "end"){
+			let timerName = "room:" + room;
+			if(self.data.timers[timerName]){
+				clearTimeout(self.data.timers[timerName].timer);
+				delete self.data.timers[timerName];
+				chat.js.reply(message, "Successfully cleared the timer for " + room + ".");
 			}else{
-				let timerName = "user:" + toId(message.user);
-				if(self.data.timers[timerName]){
-					clearTimeout(self.data.timers[timerName].timer);
-					delete self.data.timers[timerName];
-					chat.js.reply(message, "Successfully cleared your personal timer.");
-				}else{
-					chat.js.reply(message, "You don't have a personal timer.");
-				}
+				chat.js.reply(message, "There isn't a timer for " + room + ".");
 			}
 		}else if(!duration){
-			chat.js.reply(message, "You must give a positive integer less than 30 for the duration.");
-		}else if(room){
-			let rank = auth.js.getEffectiveRoomRank(message, room);
-			let timerName = "room:" + room;
-			if(!auth.js.rankgeq(rank, self.config.timerRank)){
-				chat.js.reply(message, "Your rank is not high enough to set timers in " + room + ".");
-			}else{
-				if(self.data.timers[timerName]){
-					clearTimeout(self.data.timers[timerName].timer);
-					delete self.data.timers[timerName];
-				}
-				self.data.timers[timerName] = {
-					room: room,
-					timer: setTimeout(()=>{
-						delete self.data.timers[timerName];
-						chat.js.say(room, announcement);
-					}, duration*1000)
-				};
-				chat.js.reply(message, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
-			}
+			chat.js.reply(message, "You must give a time of at least one second.");
 		}else{
-			chat.js.reply(message, "You must specify a room.");
+			let timerName = "room:" + room;
+			if(self.data.timers[timerName]){
+				clearTimeout(self.data.timers[timerName].timer);
+				delete self.data.timers[timerName];
+			}
+			self.data.timers[timerName] = {
+				room: room,
+				timer: setTimeout(()=>{
+					delete self.data.timers[timerName];
+					chat.js.say(room, announcement);
+				}, duration*1000)
+			};
+			chat.js.reply(message, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
 		}
 	},
 	addfact: function(message, args, rank){
@@ -1188,6 +1186,9 @@ let commands = {
 	},
 	plug: function(message, args, rank){
 		chat.js.reply(message, "https://plug.dj/trivia");
+	},
+	shuffle: function(message, args, rank){
+		chat.js.reply(message, shuffle(args).join(", "))
 	}
 };
 

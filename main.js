@@ -298,10 +298,12 @@ global.send = function (data) {
 
 function handle(message){
 	let chunks = message.split("\n");
-	let room = chunks[0].toLowerCase();
+	let room;
 	let isInit = false;
 	if(chunks[0][0]==">"){
 		room = chunks.splice(0,1)[0].substr(1);
+	}else{
+		room = "lobby";
 	}
 	for(let i=0;i<chunks.length;i++){
 		let args = chunks[i].split("|");
@@ -346,6 +348,7 @@ function handle(message){
 		}else{
 			if(args[1]==="init"){
 				isInit = true;
+				chunks = chunks.splice(0,4)
 			}
 			let chatInfo = getChatInfo(room, args, isInit);
 			for(let modulename in modules){
@@ -360,7 +363,7 @@ function handle(message){
 						}
 					}
 				}
-				if(module&&module.chathooks){
+				if(module&&module.chathooks&&!isInit){
 					for(let hookname in module.chathooks){
 						try{
 							module.chathooks[hookname](chatInfo);
@@ -415,7 +418,7 @@ global.removeRank = function(text){
 		return text.replace(/^[\s!\+%@#&\?\*]/,"");
 	}
 	return "";
-}
+};
 
 //Removes all non-alphanumeric characters from text, and makes it lower case
 global.toId = function(text){
@@ -446,7 +449,20 @@ global.prettyList = function(arr){
 		return arr.slice(0,arr.length-1).join(", ") + ", and " + arr[arr.length-1];
 	}
 	return "";
-}
+};
+
+// Returns a random permutation of arr
+global.shuffle = function(arr){
+	let newarr, tmp, j;
+	newarr = arr.slice(0)
+	for(let i=arr.length-1; i>0; i--){
+		j = Math.floor(Math.random()*(i+1));
+		tmp = newarr[i];
+		newarr[i] = newarr[j];
+		newarr[j] = tmp
+	}
+	return newarr;
+};
 
 global.cwd = process.cwd();
 
