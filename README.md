@@ -50,7 +50,7 @@ Command|Usage|Required Rank
 `~no [number]`|This undoes that last [number] of turns.|+
 `~bp [user]`|This gives the specified user BP, but does not change any points.|+
 `~bpopen`|Opens BP, allowing it to be claimed. Can only be used by the person with BP, or someone with the required rank. If an auth opens it, only an auth can close it.|+
-`~bpclose`|Closes BP. Can only be used bp the user that opened it, or someone with the required rank.|+
+`~bpclose`|Closes BP. Can only be used by the user that opened it, or someone with the required rank.|+
 
 Blacklist commands:
 

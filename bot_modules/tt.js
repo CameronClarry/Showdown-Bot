@@ -926,7 +926,7 @@ let commands = {
 		let room = toRoomId(args[3]) || message.room;
 		let rank = auth.js.getEffectiveRoomRank(message, room);
 		let announcement = args[2] ? "/wall " + args[2] : "/wall Timer's up!";
-		let duration, minutes, seconds, min, max = 0;
+		let duration=0, minutes=0, seconds=0, min, max;
 		if(args[0] && /^\d+$/.test(args[0])){
 			minutes = parseInt(args[0]);
 		}else if(args[0] && /^\d+:\d+$/.test(args[0])){
