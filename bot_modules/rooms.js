@@ -52,7 +52,7 @@ exports.onUnload = function(){
 	leaveAllRooms();
 };
 exports.refreshDependencies = function(){
-	auth = getModuleForDependency("auth", "modulemanager");
+	auth = getModuleForDependency("auth", "rooms");
 };
 exports.onConnect = function(){
 	joinAllRooms();

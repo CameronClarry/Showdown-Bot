@@ -921,9 +921,9 @@ let commands = {
 			chat.js.reply(message, "Saved leaderboard.");
 		}
 	},
-	//~timer [minutes], {message}, {room}
+	//~timer [minutes], [seconds], {message}, {warning}, {room}
 	timer: function(message, args){
-		let room = toRoomId(args[3]) || message.room;
+		let room = toRoomId(args[4]) || message.room;
 		let rank = auth.js.getEffectiveRoomRank(message, room);
 		let announcement = args[2] ? "/wall " + args[2] : "/wall Timer's up!";
 		let duration=0, minutes=0, seconds=0, min, max;
@@ -942,7 +942,7 @@ let commands = {
 			seconds = Math.floor(Math.random()*(max - min + 1)) + min;
 		}
 		duration = minutes*60 + seconds;
-		info(duration);
+		let warning = /^\d+$/.test(args[3]) ? parseInt(args[3]) : 0;
 		if(!auth.js.rankgeq(rank, self.config.timerRank)){
 			chat.js.reply(message, "Your rank is not high enough to manage timers.");
 		}else if(!room){
@@ -951,6 +951,7 @@ let commands = {
 			let timerName = "room:" + room;
 			if(self.data.timers[timerName]){
 				clearTimeout(self.data.timers[timerName].timer);
+				if(self.data.timers[timerName].warning) clearTimeout(self.data.timers[timerName].warning);
 				delete self.data.timers[timerName];
 				chat.js.reply(message, "Successfully cleared the timer for " + room + ".");
 			}else{
@@ -958,6 +959,8 @@ let commands = {
 			}
 		}else if(!duration){
 			chat.js.reply(message, "You must give a time of at least one second.");
+		}else if(warning >= duration){
+			chat.js.reply(message, "The warning must be less than the duration.")
 		}else{
 			let timerName = "room:" + room;
 			if(self.data.timers[timerName]){
@@ -969,7 +972,11 @@ let commands = {
 				timer: setTimeout(()=>{
 					delete self.data.timers[timerName];
 					chat.js.say(room, announcement);
-				}, duration*1000)
+				}, duration*1000),
+				warning: warning > 0 ? setTimeout(()=>{
+					delete self.data.timers[timerName]["warning"];
+					chat.js.say(room, warning + " seconds left!");
+				}, (duration-warning)*1000) : null
 			};
 			chat.js.reply(message, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
 		}

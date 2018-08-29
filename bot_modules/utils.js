@@ -3,18 +3,6 @@ let chat;
 let auth;
 const ROOM = "";
 
-// auction: {
-// 	items: [],
-// 	players: {p1:{
-// 		money: 0,
-// 		items: []
-// 	}},
-// 	price: 0,
-// 	winner: "",
-// 	active: false,
-// 	endTimer: null
-// }
-
 exports.onLoad = function(module, loadData){
 	self = module;
 	self.js.refreshDependencies();
