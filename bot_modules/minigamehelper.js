@@ -171,8 +171,8 @@ let commands = {
       }
     }
 	},
-  tl: "titanlist",
-  titanlist: function(message, args, rank){
+  dc: "duelclear",
+  duelclear: function(message, args, rank){
 		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
       duelPlayers = {};
       chat.js.reply(message, "Cleared the duel player list.");
