@@ -13,7 +13,7 @@ exports.GOVERNING_ROOM = GOVERNING_ROOM
 const DELETE_USER_SQL = "DELETE FROM users WHERE id = $1;";
 const DELETE_ALT_SQL = "DELETE FROM alts WHERE username = $1;";
 const GET_ALTS_SQL = "SELECT username FROM alts WHERE main_id = $1;";
-const UPDATE_USER_SQL = "UPDATE users SET display_name = $2 WHERE id = $1;";
+const UPDATE_USER_SQL = "UPDATE users SET display_name = $2, username = $3 WHERE id = $1;";
 const UPDATE_MAINS_SQL = "UPDATE alts SET main_id = $2 WHERE main_id = $1;";
 
 const INSERT_LB_SQL = "INSERT INTO tt_leaderboards VALUES($1, $2, CURRENT_TIMESTAMP, $3, true);";
@@ -222,7 +222,7 @@ let transferAllPoints = function(fromId, toId, onEnd, onError, onAllFinished){
 };
 
 let changeMains = function(id, newName, onEnd, onError){
-	pgclient.js.runSql(UPDATE_USER_SQL, [id, newName], null, onEnd, onError);
+	pgclient.js.runSql(UPDATE_USER_SQL, [id, newName, toId(newName)], null, onEnd, onError);
 }
 
 // Merges two alts, and their points
@@ -828,18 +828,23 @@ let commands = {
 		}
 	},
 	removealt: function(message, args, rank){
+		let canEditOthers = auth.js.rankgeq(rank, "@");
 		if(args.length===0 || !args[0]){
 			chat.js.reply(message, "You must specify an alt.");
 		}else{
 			pgclient.js.getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
-				if(!res[0]){
+				if(!res[0] && !canEditOthers){
 					chat.js.reply(message, "You do not have any alts.");
 				}else if(!res[1]){
 					chat.js.reply(message, "That account has no alts.");
-				}else if(res[0].id !== res[1].id){
+				}else if(res[0].id !== res[1].id && !canEditOthers){
 					chat.js.reply(message, "That account is not an alt of yours.");
 				}else if(idsMatch(args[0], res[1].display_name)){
-					chat.js.reply(message, "You cannot remove your main account.");
+					if(res[0].id !== res[1].id){
+						chat.js.reply(message, "You cannot remove their main account.");
+					}else{
+						chat.js.reply(message, "You cannot remove your main account.");
+					}
 				}else{
 					pgclient.js.runSql(DELETE_ALT_SQL, [toId(args[0])], null, (res)=>{
 						if(res.rowCount === 0){
@@ -859,24 +864,33 @@ let commands = {
 		}
 	},
 	main:function(message, args, rank){
+		let canEditOthers = auth.js.rankgeq(rank, "@");
 		if(args.length===0 || !args[0]){
 			chat.js.reply(message, "You must specify an alt.");
 		}else if(args[0].length>20){
 			chat.js.reply(message, "That name is too long.");
 		}else{
 			pgclient.js.getMains(message.user, args[0], idsMatch(args[0], message.user), (res)=>{
-				if(!res[0]){
+				if(!res[0] && !canEditOthers){
 					chat.js.reply(message, "You do not have any alts.");
 				}else if(!res[1]){
 					chat.js.reply(message, "That account has no alts.");
-				}else if(res[0].id !== res[1].id){
+				}else if(res[0].id !== res[1].id && !canEditOthers){
 					chat.js.reply(message, "That account is not one of your alts.");
 				}else{
-					changeMains(res[0].id, removeFormatting(removeRank(args[0])), ()=>{
-						chat.js.reply(message, "Your name was successfully changed.");
+					changeMains(res[1].id, removeFormatting(removeRank(args[0])), ()=>{
+						if(res[0].id !== res[1].id){
+							chat.js.reply(message, "Their name was successfully changed.");
+						}else{
+							chat.js.reply(message, "Your name was successfully changed.");
+						}
 					}, (err)=>{
 						error(JSON.stringify(err));
-						chat.js.reply(message, "There was an error while changing your main account name.");
+						if(res[0].id !== res[1].id){
+							chat.js.reply(message, "There was an error while changing their main account name.");
+						}else{
+							chat.js.reply(message, "There was an error while changing your main account name.");
+						}
 					});
 				}
 			}, (err)=>{

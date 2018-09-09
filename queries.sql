@@ -36,7 +36,7 @@ SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users O
 SELECT username FROM alts WHERE main_id = $1;
 
 --UPDATE_USER_SQL
-UPDATE users SET display_name = $2 WHERE id = $1;
+UPDATE users SET display_name = $2, username = $3 WHERE id = $1;
 
 --UPDATE_MAINS_SQL
 UPDATE alts SET main_id = $2 WHERE main_id = $1;
