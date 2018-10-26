@@ -691,6 +691,7 @@ let commands = {
 						response = "BP is not open.";
 					}
 					clearTimers(game);
+
 				}else if(idsMatch(lastHist.active, message.user) && game.bpOpen === "user"){
 						success = true;
 						game.bpOpen = null;
@@ -1876,7 +1877,7 @@ let onTimeUp = function(game){
 	if(!game.bpOpen){
 		chat.js.say(game.room, "**BP is now open (say 'me' or 'bp' to claim it).**");
 		game.bpOpen = "timer";
-	}else if(game.bpOpen == "leave"){
+	}else if(game.bpOpen == "leave" || game.bpOpen == "user"){
 		game.bpOpen = "timer";
 	}
 	clearTimers(game);
