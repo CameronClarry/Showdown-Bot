@@ -389,7 +389,7 @@ let messageListener = function(m){
 			}
 		}
 		let rank = auth.js.getEffectiveRoomRank(m, "trivia");
-		if((auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)) && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message))){
+		if((auth.js.rankgeq(rank, self.config.manageBpRank) || idsMatch(lastHist.active, m.user)) && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(m.message) || /^\/announce .*veto.*/i.test(m.message)) && !idsMatch(m.user, mainConfig.user)){
 			if(lastHist.hasAsked){
 				lastHist.hasAsked = false;
 				clearTimers(game);
@@ -453,11 +453,15 @@ let commands = {
 			}
 		}
 	},
+	yeet: function(message, args, rank){
+		chat.js.pm(message.user, "Please note that ~yeet is currently being phased out. It will continue to work for a few weeks, but will be removed eventually.")
+		commands["yes"](message,args,rank);
+	},
 	yea: "yes", yup: "yes", sure: "yes", yee: "yes", yep: "yes", yeah: "yes",
 	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
 	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",
-	aye: "yes", ya: "yes", ye: "yes", correct: "yes", yeet: "yes", ja: "yes",
-	correctomundo: "yes",
+	aye: "yes", ya: "yes", ye: "yes", correct: "yes", ja: "yes",
+	correctomundo: "yes", indeed: "yes",
 	yes: function(message, args, rank){
 		let shouldUndo = false;
 		let room = message.room;
