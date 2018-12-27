@@ -453,10 +453,6 @@ let commands = {
 			}
 		}
 	},
-	yeet: function(message, args, rank){
-		chat.js.pm(message.user, "Please note that ~yeet is currently being phased out. It will continue to work for a few weeks, but will be removed eventually.")
-		commands["yes"](message,args,rank);
-	},
 	yea: "yes", yup: "yes", sure: "yes", yee: "yes", yep: "yes", yeah: "yes",
 	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
 	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",

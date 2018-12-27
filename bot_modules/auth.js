@@ -288,12 +288,12 @@ let saveAuth = function(){
 
 let loadAuth = function(){
 	try{
-		let normalOwner = toId(mainConfig.owner);
+		let ownerId = toId(mainConfig.owner);
 		let filename = "data/authlist.json";
 		if(fs.existsSync(filename)){
 			self.data.authlist = JSON.parse(fs.readFileSync(filename, "utf8"));
-			if(!self.data.authlist[normalOwner]||!self.data.authlist[normalOwner].rooms||self.data.authlist[normalOwner].rooms.Global!=="~"){
-				self.data.authlist[normalOwner] = {
+			if(!self.data.authlist[ownerId]||!self.data.authlist[ownerId].rooms||self.data.authlist[ownerId].rooms.Global!=="~"){
+				self.data.authlist[ownerId] = {
 					displayName: mainConfig.owner,
 					ranks: {
 						Global: "~"
@@ -303,7 +303,7 @@ let loadAuth = function(){
 			return;
 		}else{
 			self.data.authlist = {};
-			self.data.authlist[normalOwner] = {
+			self.data.authlist[ownerId] = {
 				displayName: mainConfig.owner,
 				ranks: {
 					Global: "~"

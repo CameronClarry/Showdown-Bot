@@ -61,9 +61,9 @@ let commands = {
 				self.data.askToRestart = true;
 			}else{
 				chat.js.reply(message, "Restarting (crashing)...");
-				setTimeout(100, ()=>{
+				setTimeout(()=>{
 					callNonexistantFunction();
-				});
+				},100);
 			}
 		}
 	}
