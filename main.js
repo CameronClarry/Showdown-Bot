@@ -476,6 +476,9 @@ if (!fs.existsSync("./data")){
 if (!fs.existsSync("./logs")){
 	fs.mkdirSync("./logs");
 }
+if (!fs.existsSync("./backups")){
+	fs.mkdirSync("./backups");
+}
 
 global.mainConfig = {}
 loadConfig("main");

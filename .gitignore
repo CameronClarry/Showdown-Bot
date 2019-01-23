@@ -46,6 +46,7 @@ Temporary Items
 node_modules/*
 
 #Other unwanted files
+package-lock.json
 *.bat
 *.aux
 *.log
@@ -55,3 +56,4 @@ node_modules/*
 config/*
 data/*
 logs/*
+backups/*

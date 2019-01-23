@@ -6,6 +6,7 @@ let rooms = null;
 let pgclient = null;
 let achievements = null;
 let request = require("request");
+let spawn = require('child_process').spawn;
 
 const GOVERNING_ROOM = "trivia"
 exports.GOVERNING_ROOM = GOVERNING_ROOM
@@ -382,7 +383,7 @@ let messageListener = function(m){
 					if(displayName){
 						let result = tryBatonPass(m.room, displayName, {active:displayName,undo: null}, game.bpOpen !== "auth", self.config.remindTime/2, true);
 						if(result.result){
-							chat.js.say(m.room, "**It is now " + displayName + "'s turn to ask a question.**");
+							chat.js.say(m.room, result.response);
 						}
 					}
 				}
@@ -815,7 +816,7 @@ let commands = {
 					chat.js.reply(message, "Successfully linked accounts.");
 				}, (err)=>{
 					error(JSON.stringify(err));
-					chat.js.reply(message, "There was an error while linking accounts.");
+					chat.js.reply(message, "There was an error while linking accounts: " + JSON.stringify(err));
 				});
 			}else{
 				if(!pendingAlts[user]){
@@ -824,7 +825,7 @@ let commands = {
 				if(pendingAlts[user].indexOf(altuser) === -1){
 					pendingAlts[user].push(altuser);
 				}
-				chat.js.reply(message, "Now say \"~alt " + user + "\" on that account to link them.");
+				chat.js.reply(message, "Now say \"~alt " + user + "\" on that account to link them. Make sure all your linked accounts are registered or your points may be at risk.");
 			}
 		}
 	},
@@ -1606,26 +1607,48 @@ let ttleaderboardCommands = {
 			chat.js.reply(message, "Your rank is not high enough to reset the leaderboard.");
 		}else{
 			if(idsMatch(message.user, self.data.askToReset)){
-				getAllLeaderboardEntries("main", (arr)=>{
-					pgclient.js.getId(message.user, true, (user)=>{
-						pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
-							pgclient.js.runSql(RESET_MAIN_LB_SQL, [user.id], null, ()=>{
-								chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
-								self.data.askToReset = "";
-								achievementsOnReset("main", arr);
-							}, (err)=>{
-								error(err);
-								chat.js.reply(message, "There was an updating the leaderboard info.");
-							})
-						}, (err)=>{
-							error(err)
-							chat.js.reply(message, "There was an error while removing the leaderboard.");
-						});
-					}, (err)=>{
-						error(err);
-						chat.js.reply(message, "There was an error while getting your id.");
+				try{
+					let child = spawn("pg_dump", [mainConfig.dbname]);
+					let parts = [];
+					child.stdout.on("data", (data)=>{
+						parts.push(data);
 					});
-				});
+					child.on('error', (err)=>{
+						error("There was an error with the subprocess.");
+						chat.js.reply(message, "There was an error with the subprocess responsible for creating the database dump.");
+					});
+					child.on("exit", (code, signal)=>{
+						let text = parts.join("");
+						let filename = "backups/" + new Date().toISOString() + ".dump";
+						fs.writeFile(filename, text, (err)=>{
+							// Now that the database has been written, it's okay to reset
+							getAllLeaderboardEntries("main", (arr)=>{
+								pgclient.js.getId(message.user, true, (user)=>{
+									pgclient.js.runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
+										pgclient.js.runSql(RESET_MAIN_LB_SQL, [user.id], null, ()=>{
+											chat.js.reply(message, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.");
+											self.data.askToReset = "";
+											achievementsOnReset("main", arr);
+										}, (err)=>{
+											error(err);
+											chat.js.reply(message, "There was an updating the leaderboard info.");
+										})
+									}, (err)=>{
+										error(err)
+										chat.js.reply(message, "There was an error while removing the leaderboard.");
+									});
+								}, (err)=>{
+									error(err);
+									chat.js.reply(message, "There was an error while getting your id.");
+								});
+							});
+						});
+					});
+				}catch(e){
+					error(e.message);
+					chat.js.reply(message, "There was an error creating the subprocess responsible for creating the database dump.");
+				}
+
 			}else{
 				self.data.askToReset = message.user;
 				chat.js.reply(message, "Are you sure you want to reset the leaderboard? (Enter the reset command again to confirm)");
@@ -1843,6 +1866,9 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 			}, remindTime*1000);
 
 			response = "**It is now " + displayName + "'s turn to ask a question.**";
+			if(shouldUndo){
+				response = response + " __" + lastHist.active + "__ lost any points they gained last round because they opened BP."
+			}
 		}
 	}
 	return {result: result, response: response};
