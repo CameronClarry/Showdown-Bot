@@ -1268,14 +1268,15 @@ let ttleaderboardCommands = {
 			number = parseInt(args[1], 10);
 		}
 		let rows = [];
+		rank = auth.js.getEffectiveRoomRank(message, message.room);
 		listLeaderboardEntries([number, lb], (row)=>{
 			rows.push(row);
 		},()=>{
 			if(!rows.length){
 				chat.js.strictReply(message, "There are no players on the " + lb + " leaderboard.");
 			}else{
-				if(args[3] && message.room === 'trivia' && auth.js.rankgeq(rank, "%")){
-					sayScores(rows, lb);
+				if(args[3] &&  auth.js.rankgeq(rank, "%")){
+					sayScores(rows, lb, message.room);
 				}else{
 					chat.js.strictReply(message, "The top " + rows.length + " score" + (rows.length === 1 ? "" : "s") + " in the " + lb + " leaderboard " + (rows.length === 1 ? "is" : "are") + ": " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".");
 				}
@@ -1874,14 +1875,14 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 	return {result: result, response: response};
 };
 
-let sayScores = function(scores, lb){
-	let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th colspan=\"2\">" + lb + "</th></tr><tr style=\"background-color: #209331\"><th style=\"width: 150px\">User</th><th>Score</th></tr>";
+let sayScores = function(scores, lb, room){
+	let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black\" border=1><tr style=\"background-color: #209331\"><th colspan=\"2\">" + lb + "</th></tr><tr style=\"background-color: #209331\"><th style=\"width: 150px\">User</th><th>Score</th></tr>";
 	for(let i=0;i<scores.length;i++){
 		message = message + "<tr><td>" + (scores[i].display_name || scores[i].id1) + "</td><td>" + scores[i].points + "</td></tr>";
 	}
 	message = message + "</table>"
 
-	chat.js.say("trivia", message);
+	chat.js.say(room, message);
 }
 
 let onRemind = function(game){
