@@ -319,7 +319,7 @@ exports.onLoad = function(module, loadData){
 						}
 					}else if(command === "n"){
 						if(idsMatch(lastHist.active, args[3])){
-							lastHist.active = args[2];
+							lastHist.active = removeFormatting(args[2].trim());
 							if(args[2][0] === "‽" || args[2][0] === "!"){ // Let's go ahead and open BP if the user is muted or locked
 								if(!game.bpOpen){
 									chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
