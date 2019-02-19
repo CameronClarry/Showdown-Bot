@@ -1,14 +1,24 @@
 let fs = require("fs");
+let request = require("request");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let chat = null;
 let auth = null;
-exports.onLoad = function(module, loadData){
+exports.onLoad = function(module, shouldLoadData){
 	self = module;
 	self.js.refreshDependencies();
-	if(loadData){
-		self.data = {};
-		loadNews();
-		loadQotd();
+	if(shouldLoadData){
+		self.data = {
+			qotd: {
+				question: "",
+				submissions: []},
+			news: [],
+			philqs: []
+		};
+		self.data.qotd = {
+			question: "",
+			submissions: []
+		};
+		loadData();
 	}
 	self.chathooks = {
 		chathook: function(m){
@@ -61,7 +71,7 @@ let commands = {
 					from: message.user,
 					when: new Date().toUTCString()
 				});
-				saveNews();
+				saveData();
 				chat.js.reply(message, "Added this to the news list: " + url);
 			}else{
 				chat.js.reply(message, "You don't have the required rank in Scholastic to update the news.");
@@ -85,7 +95,7 @@ let commands = {
 				self.data.qotd.question = args[0];
 				self.data.qotd.submissions = {};
 				response = "Set the current question to be " + args[0] + ".";
-				saveQotd();
+				saveData();
 			}else{
 				response = "Your rank is not high enough to change the question.";
 			}
@@ -108,7 +118,7 @@ let commands = {
 				user: message.user,
 				date: new Date().toUTCString()
 			};
-			saveQotd();
+			saveData();
 		}
 		chat.js.reply(message, response);
 	},
@@ -118,7 +128,7 @@ let commands = {
 			if(auth.js.rankgeq(rank,"@")){
 				self.data.qotd.solution = args[0];
 				response = "Set the current solution to be " + args[0] + ".";
-				saveQotd();
+				saveData();
 			}else{
 				response = "Your rank is not high enough to change the solution.";
 			}
@@ -126,33 +136,91 @@ let commands = {
 			response = "Here is the solution to the previous question: " + self.data.qotd.solution + ". To submit your answer, PM me ~submit followed by your answer, either as text or a link to a picture/pastebin/etc.";
 		}
 		chat.js.reply(message, response);
+	},
+		//Scholastic voices use this to dispense a random question
+		if(auth.js.rankgeq(rank, "+")){
+			if(self.data.philqs.length === 0){
+				chat.js.reply(message, "There are no questions.");
+			}else{
+				chat.js.reply(message, self.data.philqs[Math.floor(Math.random()*self.data.philqs.length)]);
+			}
+		}else{
+			chat.js.reply(message, "Your rank is not high enough to display questions.")
+		}
+	},
+		//If the required rank is met, upload the current question set to hastebin and give a link
+		if(auth.js.rankgeq(rank, "@")){
+			let qlist = self.data.philqs;
+			if(qlist.length === 0){
+				chat.js.reply(message, "There are currently no questions.");
+			}else{
+				let text = qlist.join("\n");
+				request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+					chat.js.pm(message.user, "hastebin.com/" + JSON.parse(body).key);
+				});
+			}
+		}else{
+			chat.js.reply(message, "Your rank is not high enough to see the question list.");
+		}
+	},
+		//If the required rank is met, update question set to given hastbin link
+		let response = "oops";
+		let success = false;
+		if(!auth.js.rankgeq(rank, "#")){
+			response = "Your rank is not high enough to set the questions.";
+		}else if(args.length === 0){
+			response = "You must give a link to the questions.";
+		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[0])){
+			success = true;
+			let response = "oops again";
+			request.get(args[0],function(err, response, body){
+				if(err){
+						error(err);
+						chat.js.reply(message, err);
+						return;
+				}
+				let questions = body.split("\n");
+				if(questions.length === 0){
+					response = "No questions were found.";
+				}else{
+					self.data.philqs = questions;
+					saveData();
+					response = "Set the question list, there are now " + questions.length + " questions.";
+				}
+				chat.js.pm(message.user, response);
+			});
+		}else{
+			response = "There was something wrong with your link, make sure it's only the raw paste.";
+		}
+		if(!success){
+			chat.js.pm(message.user, response);
+		}
 	}
 };
 
-let saveNews = function(){
+let saveData = function(){
 	try{
-		let filename = "data/newslist.json";
-		let newsFile = fs.openSync(filename,"w");
-		fs.writeSync(newsFile,JSON.stringify(self.data.news, null, "\t"));
-		fs.closeSync(newsFile);
+		let filename = "data/scholdata.json";
+		let dataFile = fs.openSync(filename,"w");
+		fs.writeSync(dataFile,JSON.stringify(self.data, null, "\t"));
+		fs.closeSync(dataFile);
 	}catch(e){
 		error(e.message);
 	}
-}
+};
 
-let loadNews = function(){
-	let result = "Could not load the news list.";
+let loadData = function(){
+	let result = "Could not load the data file.";
 	try{
-		let filename = "data/newslist.json";
+		let filename = "data/scholdata.json";
 		if(fs.existsSync(filename)){
-			self.data.news = JSON.parse(fs.readFileSync(filename, "utf8"));
-			result = "Found and loaded the news list.";
+			self.data = JSON.parse(fs.readFileSync(filename, "utf8"));
+			result = "Found and loaded the data file.";
 		}else{
-			self.data.news = [];
-			let newsFile = fs.openSync(filename,"w");
-			fs.writeSync(newsFile,JSON.stringify(self.data.news, null, "\t"));
-			fs.closeSync(newsFile);
-			result = "Could not find the news list file, made a new one.";
+			let dataFile = fs.openSync(filename,"w");
+			fs.writeSync(dataFile,JSON.stringify(self.data, null, "\t"));
+			fs.closeSync(dataFile);
+			result = "Could not find the data file, made a new one.";
 		}
 	}catch(e){
 		error(e.message);
@@ -160,39 +228,6 @@ let loadNews = function(){
 	info(result);
 };
 
-let saveQotd = function(){
-	try{
-		let filename = "data/qotd.json";
-		let qotdFile = fs.openSync(filename,"w");
-		fs.writeSync(qotdFile,JSON.stringify(self.data.qotd, null, "\t"));
-		fs.closeSync(qotdFile);
-	}catch(e){
-		error(e.message);
-	}
-}
-
-let loadQotd = function(){
-	let result = "Could not load the question info.";
-	try{
-		let filename = "data/qotd.json";
-		if(fs.existsSync(filename)){
-			self.data.qotd = JSON.parse(fs.readFileSync(filename, "utf8"));
-			result = "Found and loaded the question info.";
-		}else{
-			self.data.qotd = {
-				question: "",
-				submissions: []
-			};
-			let qotdFile = fs.openSync(filename,"w");
-			fs.writeSync(qotdFile,JSON.stringify(self.data.qotd, null, "\t"));
-			fs.closeSync(qotdFile);
-			result = "Could not find the question info file, made a new one.";
-		}
-	}catch(e){
-		error(e.message);
-	}
-	info(result);
-};
 
 let defaultConfigs = {
 };
