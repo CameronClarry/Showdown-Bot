@@ -97,6 +97,11 @@ Command|Usage|Required Rank
 `~removefact [fact]`|Removes the given fact.|+
 `~factlist`|This will PM you a pastebin of all facts in the database.|+
 `~fact`|Displays a random fact.|None
+`~pladd [user1], {user2}, ...`|Adds player(s) to the player list.|+
+`~plremove [user1], {user2}, ...`|Removes player(s) to the player list.|+
+`~plclear`|Clears the player list.|+
+`~pllist`|Displays the current player list.|+
+`~plshuffle`|Displays the current player list, in random order.|+
 `~help`|Gives the list of commands.|None
 `~rules`|Links to the rules doc.|None
 `~legacyrules`|Links to the old rules PDF.|None
