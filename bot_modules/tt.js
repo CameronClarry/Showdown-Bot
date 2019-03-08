@@ -1212,8 +1212,58 @@ let commands = {
 	},
 	shuffle: function(message, args, rank){
 		chat.js.reply(message, shuffle(args).join(", "))
+	},
+	pladd: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "+")){
+			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+		}else{
+			let response = addPlayers(args);
+			chat.js.reply(message, response);
+		}
+	},
+	plremove: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "+")){
+			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+		}else{
+			let response = removePlayers(args);
+			chat.js.reply(message, response);
+		}
+	},
+	plclear: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "+")){
+			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+		}else{
+			self.data.plist = [];
+			chat.js.reply(message, "Cleared the player list.");
+		}
+	},
+	pllist: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "+")){
+			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+		}else{
+			let plist = self.data.plist;
+			if(!plist || plist.length==0){
+				chat.js.reply(message, "There are no players.");
+			}else{
+				chat.js.reply(message, "The current player list is: " + prettyList(plist.map(item=>{return item.displayName})));
+			}
+		}
+	},
+	plshuffle: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "+")){
+			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+		}else{
+			let plist = self.data.plist;
+			if(!plist || plist.length==0){
+				chat.js.reply(message, "There are no players.");
+			}else{
+				chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return item.displayName})));
+			}
+		}
 	}
 };
+
+
 
 let ttCommands = {
 	newgame: function(message, args, rank){
@@ -1949,6 +1999,37 @@ let millisToTime = function(millis){
 	}
 	return response;
 };
+
+let addPlayers = function(names){
+	if(names.length==0) return "Player list not updated. You must give at least one player.";
+	if(!self.data.plist) self.data.plist = [];
+	let plist = self.data.plist;
+	for(let i=0;i<names.length;i++){
+		let id = toId(names[i]);
+		if(id==="") break;
+		for(let j=0;j<plist.length+1;j++){
+			if(j == plist.length){
+				plist.push({id: id, displayName: names[i]});
+				break;
+			}else if(id == plist[j].id){
+				break;
+			}
+		}
+	}
+	let n = plist.length;
+	return "Player list updated. There " + (n==1?"is":"are") + " now " + n + " player" + (n==1?"":"s") + "."
+}
+
+let removePlayers = function(names){
+	if(names.length==0) return "Player list not updated. You must give at least one player.";
+	if(!self.data.plist) self.data.plist = [];
+	for(let i=0;i<names.length;i++){
+		let id = toId(names[i]);
+		self.data.plist = self.data.plist.filter(item=>{return item.id !== id});
+	}
+	let n = self.data.plist.length;
+	return "Player list updated. There " + (n==1?"is":"are") + " now " + n + " player" + (n==1?"":"s") + "."
+}
 
 let saveLeaderboard = function(){
 	let path = "data/leaderboard.json";
