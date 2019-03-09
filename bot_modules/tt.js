@@ -939,7 +939,7 @@ let commands = {
 	},
 	//~timer [minutes], [seconds], {message}, {warning}, {room}
 	timer: function(message, args){
-		let room = toRoomId(args[4]) || message.room;
+		let room = (toId(args[0]) === "end" ? toRoomId(args[1]) : toRoomId(args[4])) || message.room;
 		let rank = auth.js.getEffectiveRoomRank(message, room);
 		let announcement = args[2] ? "/wall " + args[2] : "/wall Timer's up!";
 		let duration=0, minutes=0, seconds=0, min, max;
