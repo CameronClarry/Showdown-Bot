@@ -137,6 +137,7 @@ let commands = {
 		}
 		chat.js.reply(message, response);
 	},
+	discq: function(message, args, rank){
 		//Scholastic voices use this to dispense a random question
 		if(auth.js.rankgeq(rank, "+")){
 			if(self.data.philqs.length === 0){
@@ -148,6 +149,7 @@ let commands = {
 			chat.js.reply(message, "Your rank is not high enough to display questions.")
 		}
 	},
+	discqlist: function(message, args, rank){
 		//If the required rank is met, upload the current question set to hastebin and give a link
 		if(auth.js.rankgeq(rank, "@")){
 			let qlist = self.data.philqs;
@@ -155,14 +157,17 @@ let commands = {
 				chat.js.reply(message, "There are currently no questions.");
 			}else{
 				let text = qlist.join("\n");
-				request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-					chat.js.pm(message.user, "hastebin.com/" + JSON.parse(body).key);
+				uploadText(text, (link)=>{
+					chat.js.pm(message.user, link);
+				}, (err)=>{
+					chat.js.pm(message.user, "There was an error: " + err);
 				});
 			}
 		}else{
 			chat.js.reply(message, "Your rank is not high enough to see the question list.");
 		}
 	},
+	discqset: function(message, args, rank){
 		//If the required rank is met, update question set to given hastbin link
 		let response = "oops";
 		let success = false;

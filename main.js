@@ -464,6 +464,24 @@ global.shuffle = function(arr){
 	return newarr;
 };
 
+
+//onSuccess takes one argument (the hastebin link), and onError takes on argument (the string failure reason)
+global.uploadText = function(text, onSuccess, onError){
+	request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
+		if(err){
+			error(JSON.stringify(err));
+			onError(JSON.stringify(err));
+		}else{
+			onSuccess("hastebin.com/" + JSON.parse(body).key);
+		}
+	});
+};
+
+//onSuccess takes on argument (the text), and onError takes on argument (the failure reason)
+global.parseText = function(link, onSuccess, onError){
+
+};
+
 global.cwd = process.cwd();
 
 //Create necessary folders
