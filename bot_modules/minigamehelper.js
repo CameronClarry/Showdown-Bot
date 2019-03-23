@@ -183,7 +183,7 @@ let commands = {
 			if(!plist || plist.length==0){
 				chat.js.reply(message, "There are no players.");
 			}else{
-				chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return item.displayName})));
+				chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return "__"+item.displayName+"__"})));
 			}
 		}
 	},

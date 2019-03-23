@@ -20,13 +20,13 @@ The following commands are for the Trivia Tracker leaderboard.
 Command|Usage|Required Rank
 -|-|:-:
 `~ttl check, {user}, {leaderboard}`|This command checks your score on the leaderboard, or the score of {user} if specified. The leaderboard defaults to the main one, but may be specified.|None
-`ttl list, {number}, {leaderboard}`|This lists the top five users on the leaderboard. The number of users to list and leaderboard to list from can be specified.|None
+`~ttl list, {number}, {leaderboard}`|This lists the top five users on the leaderboard. The number of users to list and leaderboard to list from can be specified.|None
 `~ttl summary, {leaderboard}`|Gets a variety of statistics on your ranking in the main leaderboard, or any other leaderboard that is specified|None
 `~ttl stats, {leaderboard}`|Gets a variety of statistics the main leaderboard, or any other leaderboard that is specified|None
 `~ttl set, [user], [points], {leaderboard}`|Sets the given user's score to the given number (must be positive). Defaults to acting on the main leaderboard, but can be specified.|@
 `~ttl add, [user], [points], {leaderboard}`|This adds (or subtracts) the given number of points to (or from) the given user's scores. This affects all leaderboards, unless `{leaderboard}` is specified in which case only that leaderboard is affected.|@
 `~ttl addto, [user], [points], [leaderboard]`|This adds (or subtracts) the given number of points to (or from) the given user's score. This only affects the given leaderboard, and works even if it is disabled.|@
-`ttl remove, [user]`|Removes the specified user from all leaderboards.|@
+`~ttl remove, [user]`|Removes the specified user from all leaderboards.|@
 `~ttl reset`|This resets the main leaderboard. Use with caution.|#
 
 These commands are used to manage the temporary leaderboards (events). Note: all these commands can be accessed with either `~event` or `~minigame`.
