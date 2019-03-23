@@ -1212,54 +1212,6 @@ let commands = {
 	},
 	shuffle: function(message, args, rank){
 		chat.js.reply(message, shuffle(args).join(", "))
-	},
-	pladd: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "+")){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
-		}else{
-			let response = addPlayers(args);
-			chat.js.reply(message, response);
-		}
-	},
-	plremove: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "+")){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
-		}else{
-			let response = removePlayers(args);
-			chat.js.reply(message, response);
-		}
-	},
-	plclear: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "+")){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
-		}else{
-			self.data.plist = [];
-			chat.js.reply(message, "Cleared the player list.");
-		}
-	},
-	pllist: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "+")){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
-		}else{
-			let plist = self.data.plist;
-			if(!plist || plist.length==0){
-				chat.js.reply(message, "There are no players.");
-			}else{
-				chat.js.reply(message, "The current player list is: " + prettyList(plist.map(item=>{return item.displayName})));
-			}
-		}
-	},
-	plshuffle: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "+")){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
-		}else{
-			let plist = self.data.plist;
-			if(!plist || plist.length==0){
-				chat.js.reply(message, "There are no players.");
-			}else{
-				chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return item.displayName})));
-			}
-		}
 	}
 };
 
@@ -1918,7 +1870,7 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 
 			response = "**It is now " + displayName + "'s turn to ask a question.**";
 			if(shouldUndo){
-				response = response + " __" + lastHist.active + "__ lost any points they gained last round because they opened BP."
+				response = response + " __" + lastHist.active + "__ lost any points they gained last turn because BP was opened."
 			}
 		}
 	}
