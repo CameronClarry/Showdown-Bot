@@ -187,6 +187,18 @@ let commands = {
 			}
 		}
 	},
+	plpick: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, self.config.rosterRank)){
+			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+		}else{
+			let plist = self.data.plist;
+			if(!plist || plist.length==0){
+				chat.js.reply(message, "There are no players.");
+			}else{
+				chat.js.reply(message, "I randomly picked: __" + plist[Math.floor(Math.random()*plist.length)].displayName + "__");
+			}
+		}
+	},
   tl: "titanlist",
   titanlist: function(message, args, rank){
 		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
@@ -213,6 +225,7 @@ let commands = {
     }
 	},
   //dc: "duelclear",
+	clearpl: "plclear",
   plclear: function(message, args, rank){
 		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
       self.data.plist = [];
