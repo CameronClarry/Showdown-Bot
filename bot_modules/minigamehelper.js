@@ -162,29 +162,27 @@ let commands = {
 	},
   pl: "pllist",
   pllist: function(message, args, rank){
-		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
-      let parray = self.data.plist.map(e=>{return e.displayName});
-      if(toId(args[0]) === "html" && message.room === "trivia"){
-        let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
-        message = message + "<tr><td><center>" + parray.join(", ") + "</center></td></tr>";
-      	message = message + "</table>"
+    let parray = self.data.plist.map(e=>{return e.displayName});
+    if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank) && toId(args[0]) === "html" && message.room === "trivia"){
+      let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
+      message = message + "<tr><td><center>" + parray.join(", ") + "</center></td></tr>";
+    	message = message + "</table>"
 
-      	chat.js.say("trivia", message);
-      }else{
-        chat.js.reply(message, "The players in the game are " + prettyList(parray.map((p)=>{return "__"+p+"__"})) + ".")
-      }
+    	chat.js.say("trivia", message);
+    }else if(args.length > 0 && toId(args[0]) === "nohl"){
+      chat.js.reply(message, "The players in the game are " + prettyList(parray.map((p)=>{return "__"+p+"__"})) + ".")
+    }else{
+      chat.js.reply(message, "The players in the game are " + prettyList(parray.map((p)=>{return p})) + ".")
     }
 	},
 	plshuffle: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, self.config.rosterRank)){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+		let plist = self.data.plist;
+		if(!plist || plist.length==0){
+			chat.js.reply(message, "There are no players.");
+		}else if(args.length > 0 && toId(args[0]) === "nohl"){
+			chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return "__"+item.displayName+"__"})));
 		}else{
-			let plist = self.data.plist;
-			if(!plist || plist.length==0){
-				chat.js.reply(message, "There are no players.");
-			}else{
-				chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return "__"+item.displayName+"__"})));
-			}
+			chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return item.displayName})));
 		}
 	},
 	plpick: function(message, args, rank){
@@ -194,8 +192,10 @@ let commands = {
 			let plist = self.data.plist;
 			if(!plist || plist.length==0){
 				chat.js.reply(message, "There are no players.");
-			}else{
+			}else if(args.length > 0 && toId(args[0]) === "nohl"){
 				chat.js.reply(message, "I randomly picked: __" + plist[Math.floor(Math.random()*plist.length)].displayName + "__");
+			}else{
+				chat.js.reply(message, "I randomly picked: " + plist[Math.floor(Math.random()*plist.length)].displayName);
 			}
 		}
 	},

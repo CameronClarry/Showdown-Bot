@@ -12,9 +12,9 @@ Command|Usage|Default Required Rank
 `~plremove [user1], {user2, {user 3, ...}}` | This command will remove all of the given users from the player list. | +
 `~plclear` | Removes all players from the player list. | +
 `~plmax [N/off]` | If a number N larger than 0 is given, turns on autojoin and lets up to N players join the game by typing '/me in'. If 0 or anything else is given, turns off autojoin. Remember to always turn off autojoin once the game has started. | +
-`~pllist {html}` | Gives the current player list. The names are italicized to prevent highlighting. If the 'html' option is given, displays the player list as an html table. | +
-`~plshuffle` | Gives the current player list, in a random order. | +
-`~plpick` | Selects a random player from the current player list. | +
+`~pllist {html/nohl}` | Gives the current player list. If the `nohl` option is given, the names are italicized to prevent highlighting. If the `html` option is given, displays the player list as an html table. |
+`~plshuffle {nohl}` | Gives the current player list, in a random order. If the `nohl` option is given, the names are italicized to prevent highlighting. |
+`~plpick {nohl}` | Selects a random player from the current player list. If the `nohl` option is given, the name will be italicized. |
 
 ## Titanomachy commands
 
