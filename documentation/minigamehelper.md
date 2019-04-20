@@ -16,7 +16,8 @@ Command|Usage|Default Required Rank
 `~plshuffle {nohl}` | Gives the current player list, in a random order. If the `nohl` option is given, the names are italicized to prevent highlighting. |
 `~plpick {nohl}` | Selects a random player from the current player list. If the `nohl` option is given, the name will be italicized. |
 `~addpoints [user], [amount]` | Adds points to a temporary, barebones leaderboard. Not for long term score storing. | +
-`~showpoints` {user} | Shows a user's points on the temporary leaderboard. If no user is given, lists all entries on the temporary leaderboard. | +
+`~showpoints {user}` | Shows a user's points on the temporary leaderboard. If no user is given, lists all entries on the temporary leaderboard. | +
+`~clearpoints` | Removes all current scores. | +
 `~modchat [on/off]` | Using `~modchat on` on will voice all users in the player list that are not already voice or higher, and turn on modchat +. Using `~modchat off` will devoice everyone previously voiced, and turn off modchat. | %
 
 ## Titanomachy commands

@@ -262,7 +262,7 @@ let commands = {
 	addpoints: function(message, args, rank){
 		let player = toId(args[0])
 		let points = parseInt(args[1], 10);
-		if(!auth.js.rankgeq(rank, "+") && !self.data.voices[toId(message.user)]){
+		if(!auth.js.rankgeq(rank, "+") || self.data.voices[toId(message.user)]){
 			chat.js.reply(message, "Your rank is not high enough to add points.");
 		}else if(!player || !points){
 			chat.js.reply(message, "You must give a valid player and number of points.");
@@ -296,6 +296,12 @@ let commands = {
 				chat.js.reply(message, "The current scores are: " + scores.map(e=>{return "__" + e.name + "__ (" + e.score + ")"}).join(", "));
 			}
 		}
+	},
+  clearpoints: function(message, args, rank){
+		if(auth.js.rankgeq(rank, self.config.rosterRank) && !self.data.voices[toId(message.user)]){
+      self.data.scores = {};
+      chat.js.reply(message, "Cleared the current scores.");
+    }
 	},
 	modchat: function(message, args, rank){
 		let arg = toId(args[0]);
@@ -366,6 +372,7 @@ let removePlayers = function(names){
 				chat.js.say("trivia", "/roomdeauth " + id);
 			}
 		}
+		if(self.data.scores[id]) delete self.data.scores[id]
 		self.data.plist = self.data.plist.filter(item=>{return item.id !== id});
 	}
 	let n = self.data.plist.length;
