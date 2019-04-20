@@ -2,12 +2,12 @@
 	"name": "Showdown-Bot",
 	"version": "0.0.1",
 	"dependencies": {
-		"sugar": "1.4.1",
-		"websocket": "1.0.18",
-		"colors": "1.0.3",
 		"babel": "5.2.6",
+		"colors": "1.0.3",
+		"pg": "6.1.0",
 		"request": "2.x",
-		"pg": "6.1.0"
+		"sugar": "1.4.1",
+		"websocket": "^1.0.28"
 	},
 	"engines": {
 		"node": "> 0.10.1"

@@ -31,7 +31,7 @@ exports.onLoad = function(module, loadData){
 					}
 				}
 			}
-		},
+		}
 	};
 	self.messagehooks = {
 		roomActionHook: function(room, args){

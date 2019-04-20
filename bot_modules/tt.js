@@ -458,7 +458,7 @@ let commands = {
 	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
 	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", ja: "yes",
-	correctomundo: "yes", indeed: "yes",
+	correctomundo: "yes", indeed: "yes", damnright: "yes",
 	yes: function(message, args, rank){
 		let shouldUndo = false;
 		let room = message.room;
@@ -1394,7 +1394,7 @@ let ttleaderboardCommands = {
 									}else{
 										if(entries[0].points === score){
 											let nextPlayer = idsMatch(entries[0].display_name, res.display_name) ? entries[1] : entries[0];
-											chat.js.reply(message, "You are first on the leaderboard, second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
+											chat.js.reply(message, "You are first on the leaderboard with " + points + " points. Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
 										}else{
 											let higherEntries = entries.filter(item=>{return item.points > score});
 											let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
