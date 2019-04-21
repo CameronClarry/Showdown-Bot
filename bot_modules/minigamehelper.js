@@ -173,7 +173,7 @@ let commands = {
   pl: "pllist",
   pllist: function(message, args, rank){
     let parray = self.data.plist.map(e=>{return e.displayName});
-		if(!plist || plist.length==0){
+		if(!parray || parray.length==0){
 			chat.js.reply(message, "There are no players.");
 		}else if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank) && toId(args[0]) === "html" && message.room === "trivia"){
       let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
