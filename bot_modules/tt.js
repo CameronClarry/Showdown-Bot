@@ -496,7 +496,7 @@ let commands = {
 					}else{
 						if(nextPlayer && getBlacklistEntry(toId(nextPlayer))){
 							if(!game.bpOpen){
-								response = "**" + nextPlayer.slice(1) + " is on the blacklist, so BP is now open.**"
+								response = "**" + nextPlayer.trim() + " is on the blacklist, so BP is now open.**"
 							}else{
 								response = result.response;
 							}
@@ -1053,7 +1053,7 @@ let commands = {
 			let text = self.data.facts.map(f=>{return f.text}).join("\n\n");
 			request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
 				try{
-					chat.js.reply(message, "Here is a list of all the facts: hastebin.com/" + JSON.parse(body).key);
+					chat.js.pm(message.user, "Here is a list of all the facts: hastebin.com/" + JSON.parse(body).key);
 				}catch(e){
 					error(e.message);
 					chat.js.reply(message, "Something was wrong with the response from hastebin.");
@@ -1394,7 +1394,7 @@ let ttleaderboardCommands = {
 									}else{
 										if(entries[0].points === score){
 											let nextPlayer = idsMatch(entries[0].display_name, res.display_name) ? entries[1] : entries[0];
-											chat.js.reply(message, "You are first on the leaderboard with " + points + " points. Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
+											chat.js.reply(message, "You are first on the leaderboard with " + entries[0].points + " points. Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.");
 										}else{
 											let higherEntries = entries.filter(item=>{return item.points > score});
 											let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
@@ -1878,7 +1878,7 @@ let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTi
 };
 
 let sayScores = function(scores, lb, room){
-	let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black\" border=1><tr style=\"background-color: #209331\"><th colspan=\"2\">" + lb + "</th></tr><tr style=\"background-color: #209331\"><th style=\"width: 150px\">User</th><th>Score</th></tr>";
+	let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black\" border=1><tr style=\"background-color: #209331\"><th colspan=\"2\">" + lb + "</th></tr><tr style=\"background-color: #209331\"><th style=\"width: 150px\">User</th><th>Score</th></tr>";
 	for(let i=0;i<scores.length;i++){
 		message = message + "<tr><td>" + (scores[i].display_name || scores[i].id1) + "</td><td>" + scores[i].points + "</td></tr>";
 	}

@@ -176,7 +176,7 @@ let commands = {
 		if(!parray || parray.length==0){
 			chat.js.reply(message, "There are no players.");
 		}else if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank) && toId(args[0]) === "html" && message.room === "trivia"){
-      let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
+      let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
       message = message + "<tr><td><center>" + parray.join(", ") + "</center></td></tr>";
     	message = message + "</table>"
 
@@ -223,7 +223,7 @@ let commands = {
         aarray.push(titanAuth[id]);
       }
       if(toId(args[0]) === "html" && message.room === "trivia"){
-        let message = "!htmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Regs</th><th>Auth</th></tr>";
+        let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Regs</th><th>Auth</th></tr>";
       	for(let i=0;i<Math.max(rarray.length, aarray.length);i++){
       		message = message + "<tr><td>" + (rarray[i] || "") + "</td><td>" + (aarray[i] || "") + "</td></tr>";
       	}
