@@ -368,6 +368,19 @@ let commands = {
 	},
 };
 
+let millisToTime = function(millis){
+	let seconds = millis/1000;
+	let hours = Math.floor(seconds/3600);
+	let minutes = Math.floor((seconds-hours*3600)/60);
+	let response;
+	if(hours>0){
+		response = hours + " hour" + (hours === 1 ? "" : "s") + " and " + minutes + " minute" + (minutes === 1 ? "" : "s");
+	}else{
+		response = minutes + " minute" + (minutes === 1 ? "" : "s");
+	}
+	return response;
+};
+
 let addPlayers = function(names){
 	if(names.length==0) return "Player list not updated. You must give at least one player.";
 	if(!self.data.plist) self.data.plist = [];
