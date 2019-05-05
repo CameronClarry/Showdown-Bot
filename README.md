@@ -56,7 +56,7 @@ Blacklist commands:
 
 Command|Usage|Required Rank
 -|-|:-:
-`~blacklist add, [user], {reason}, {duration}`|Adds the given user to the blacklist. The reason can be specified, as can the duration (in minutes). If no duration is given, it is permanent. This will also make a modnote recording it.|@
+`~blacklist add, [user], {duration}, {reason}`|Adds the given user to the blacklist. The reason can be specified, as can the duration (in minutes). If no duration is given, it is permanent. This will also make a modnote recording it.|@
 `~blacklist remove, [user]`|Removes the given user from the blacklist.|@
 `~blacklist check [user]`|Checks if the given user is on the blacklist.|@
 
@@ -86,7 +86,6 @@ Misc commands:
 
 Command|Usage|Required Rank
 -|-|:-:
-`~next`|Displays when the next official will be.|None
 `~alts {user}`|Displays your alts, or the alts of `{user}` if you have the required rank.|%
 `~alt [user]`|Links your account with `[user]`. This command must be used from both accounts to complete the link.|None
 `~removealt [user]`|Removes the specified account from your linked accounts. It cannot be your main account.|None
@@ -97,11 +96,6 @@ Command|Usage|Required Rank
 `~removefact [fact]`|Removes the given fact.|+
 `~factlist`|This will PM you a pastebin of all facts in the database.|+
 `~fact`|Displays a random fact.|None
-`~pladd [user1], {user2}, ...`|Adds player(s) to the player list.|+
-`~plremove [user1], {user2}, ...`|Removes player(s) to the player list.|+
-`~plclear`|Clears the player list.|+
-`~pllist`|Displays the current player list.|+
-`~plshuffle`|Displays the current player list, in random order.|+
 `~help`|Gives the list of commands.|None
 `~rules`|Links to the rules doc.|None
 `~legacyrules`|Links to the old rules PDF.|None

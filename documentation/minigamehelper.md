@@ -31,3 +31,13 @@ Command|Usage|Default Required Rank
 `~tr [user1], {user2, {user 3, ...}}` | This command will remove all of the given users from both the reg player list and the auth player list. | +
 `~titanclear` | Removes all players from both the reg player list and the auth player list. | +
 `~titanlist {html}` | Sends two chat messages, one listing the reg players and one listing the auth players. The names are italicized to prevent highlighting. If the 'html' option is given, displays the player lists as an html table. | +
+
+## Official-related commands
+
+These commands are for helping with offivial games.
+
+Command|Usage|Default Required Rank
+-|-|:-:
+`~triviasignups` | This command will start the signup phase of an official game. It also highlights players, and pulls up the `official` rfaq. This can be used through PMs. | +
+`~triviastart` | This will begin the official game that is currently in the signups phase. It also highlights players, and reminds them to use `/ta` to answer quetsions. This can be used through PMs. | +
+`~next` | Displays when the next official will be. |

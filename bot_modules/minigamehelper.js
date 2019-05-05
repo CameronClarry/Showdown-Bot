@@ -79,6 +79,19 @@ let messageListener = function(m){
 					chat.js.say("trivia", "There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
 				}, 5000);
 			}
+		}else if(text === "meout"){
+			let nplayers = self.data.plist.length;
+			removePlayers([m.user]);
+			if(nplayers !== self.data.plist.length){
+				if(self.data.joinTimer){
+					clearTimeout(self.data.joinTimer);
+				}
+				self.data.joinTimer = setTimeout(()=>{
+					self.data.joinTimer = null;
+					let numPlayers = self.data.plist.length;
+					chat.js.say("trivia", "There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
+				}, 5000);
+			}
 		}
 	}
 };
@@ -330,7 +343,29 @@ let commands = {
 				}
 			}
 		}
-	}
+	},
+	triviasignups: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "+")){
+			chat.js.reply(message, "Your rank is not high enough to start an official game.");
+		}else{
+			chat.js.say("trivia", "/trivia new timer, all, long");
+			chat.js.say("trivia", "**Triviasignups! Type ``/trivia join`` if you want to participate!**");
+			chat.js.say("trivia", "!rfaq official");
+		}
+	},
+	triviastart: function(message, args, rank){
+		if(!auth.js.rankgeq(rank, "+")){
+			chat.js.reply(message, "Your rank is not high enough to start an official game.");
+		}else{
+			chat.js.say("trivia", "/trivia start");
+			chat.js.say("trivia", "**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
+		}
+	},
+	next: function(message, args, rank){
+		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
+		let response = "The next official is (theoretically) in " + millisToTime(timeDiff) + ".";
+		chat.js.strictReply(message, response);
+	},
 };
 
 let addPlayers = function(names){

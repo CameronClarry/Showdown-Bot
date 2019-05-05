@@ -719,8 +719,8 @@ let commands = {
 					if(entry && args.length < 3){
 						response = "The user " + entry.displayName + " is already on the blacklist.";
 					}else{
-						let reason = args[2] || "No reason given";
-						let duration = args[3];
+						let reason = args[3] || "No reason given";
+						let duration = args[2];
 						if(duration && duration !== "0" && typeof duration == "string" && /^\d+$/.test(duration)){
 							duration = parseInt(duration);
 							leaderboard.blacklist[username] = {displayName: args[1], reason: reason, duration: duration*60000, time: Date.now()};
@@ -756,11 +756,6 @@ let commands = {
 			saveLeaderboard();
 		}
 		chat.js.reply(message, response);
-	},
-	next: function(message, args, rank){
-		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
-		let response = "The next official is (theoretically) in " + millisToTime(timeDiff) + ".";
-		chat.js.strictReply(message, response);
 	},
 	alts: function(message, args, rank){
 		let target = toId(args[0]) ? args[0] : message.user;
