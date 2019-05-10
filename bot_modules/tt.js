@@ -1369,7 +1369,7 @@ let ttleaderboardCommands = {
 	//Number of people, your place, your score, points to next place
 	summary: function(message, args, rank){
 		let lb = toId(args[1]) || "main";
-		let id = toId(message.user);
+		let id = (auth.js.rankgeq(rank, "%") && toId(args[2])) || toId(message.user);
 		let lbExists = false;
 		let lbname = "";
 		pgclient.js.runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
