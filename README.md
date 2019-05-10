@@ -56,9 +56,12 @@ Blacklist commands:
 
 Command|Usage|Required Rank
 -|-|:-:
-`~blacklist add, [user], {duration}, {reason}`|Adds the given user to the blacklist. The reason can be specified, as can the duration (in minutes). If no duration is given, it is permanent. This will also make a modnote recording it.|@
-`~blacklist remove, [user]`|Removes the given user from the blacklist.|@
-`~blacklist check [user]`|Checks if the given user is on the blacklist.|@
+`~ttblacklist add, [user], {duration}, {reason}` | Adds the given user to the TT blacklist. The reason can be specified, as can the duration (in minutes). If no duration is given, it is permanent. This will also make a modnote recording it. | @
+`~ttblacklist remove, [user]` | Removes the given user from the TT blacklist. | @
+`~ttblacklist check [user]` | Checks if the given user is on the TT blacklist. | @
+`~ttmute` [user], {reason} | Adds the given user to the TT blacklist for 7 minutes. | %
+`~tthourmute` [user], {reason} | Adds the given user to the TT blacklist for 60 minutes. | %
+`~ttunmute` [user] | Removes the given user from the TT blacklist if their duration is at most 60 minutes. | %
 
 Achievement commands:
 

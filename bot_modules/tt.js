@@ -704,58 +704,73 @@ let commands = {
 			chat.js.reply(message, response);
 		}
 	},
-	bl: "blacklist",
-	blacklist: function(message, args, rank){
+	//~ttblacklist add/remove/check, [user], {duration}, {reason}
+	ttbl: "ttblacklist",
+	ttblacklist: function(message, args, rank){
 		let response = "Your rank is not high enough to use the blacklist command.";
 		let leaderboard = self.data.leaderboard;
-		if(auth.js.rankgeq(rank, self.config.manageBlRank)){
-			if(args.length<2){
-				response = "Not enough arguments were given for the blacklist command.";
+		if(!auth.js.rankgeq(rank,self.config.manageBlRank)){
+			chat.js.reply(message, "Your rank is not high enough to use the blacklist command.");
+		}else if(args.length < 2){
+			chat.js.reply(message, "Not enough arguments were given for the blacklist command.");
+		}else{
+			let command = toId(args[0]);
+			let id = toId(args[1]);
+			let duration = /^\d+$/.test(args[2]) ? parseInt(args[2]) : 0;
+			let reason = args[3] || "No reason given";
+			if(!id){
+				chat.js.reply(message, "You must specify a user.");
+			}else if(!blacklistCommands[command]){
+				chat.js.reply(message, command + " is not a recognized command.");
 			}else{
-				let command = toId(args[0])
-				let username = toId(args[1]);
-				let entry = getBlacklistEntry(username);
-				if(command === "add"){
-					if(entry && args.length < 3){
-						response = "The user " + entry.displayName + " is already on the blacklist.";
-					}else{
-						let reason = args[3] || "No reason given";
-						let duration = args[2];
-						if(duration && duration !== "0" && typeof duration == "string" && /^\d+$/.test(duration)){
-							duration = parseInt(duration);
-							leaderboard.blacklist[username] = {displayName: args[1], reason: reason, duration: duration*60000, time: Date.now()};
-							response = "Added " + args[1] + " to the blacklist for " + millisToTime(duration*60000) + ".";
-							chat.js.say("trivia", "/modnote " + args[1] + " was added to the Trivia Tracker blacklist by " + message.user + " for " + millisToTime(duration*60000) + ". (" + reason + ")");
-						}else{
-							leaderboard.blacklist[username] = {displayName: args[1], reason: reason};
-							response = "Added " + args[1] + " to the blacklist.";
-							chat.js.say("trivia", "/modnote " + args[1] + " was added to the Trivia Tracker blacklist by " + message.user + ". (" + reason + ")");
-						}
-					}
-				}else if(command === "remove"){
-					if(!entry){
-						response = "The user " + args[1] + " is not on the blacklist.";
-					}else{
-						delete leaderboard.blacklist[username];
-						response = "Removed " + entry.displayName + " from the blacklist.";
-						chat.js.say("trivia","/modnote " + entry.displayName + " was removed from the Trivia Tracker blacklist by " + message.user);
-					}
-				}else if(command === "check"){
-					if(entry){
-						response = "The user " + entry.displayName + " is on the blacklist. Reason: " + (entry.reason ? entry.reason : "No reason given") + ".";
-						if(entry.duration){
-							response += " Time remaining: " + millisToTime(entry.duration - Date.now() + entry.time) + "."
-						}
-					}else{
-						response = "The user " + args[1] + " is not on the blacklist.";
-					}
-				}else{
-					response = "The blacklist command you gave was not recognized.";
-				}
+				blacklistCommands[command](message, args[1], id, duration, reason);
 			}
-			saveLeaderboard();
 		}
-		chat.js.reply(message, response);
+	},
+	ttmute: function(message, args, rank){
+		let leaderboard = self.data.leaderboard;
+		if(!auth.js.rankgeq(rank,'%')){
+			chat.js.reply(message, "Your rank is not high enough to use the mute commands.");
+		}else{
+			let id = toId(args[0]);
+			let duration = 7
+			let reason = args[1] || "No reason given";
+			if(!id){
+				chat.js.reply(message, "You must specify a user.");
+			}else{
+				blacklistCommands['add'](message, args[0], id, duration, reason);
+			}
+		}
+	},
+	tthourmute: function(message, args, rank){
+		let leaderboard = self.data.leaderboard;
+		if(!auth.js.rankgeq(rank,'%')){
+			chat.js.reply(message, "Your rank is not high enough to use the mute commands.");
+		}else{
+			let id = toId(args[0]);
+			let duration = 60
+			let reason = args[1] || "No reason given";
+			if(!id){
+				chat.js.reply(message, "You must specify a user.");
+			}else{
+				blacklistCommands['add'](message, args[0], id, duration, reason);
+			}
+		}
+	},
+	ttunmute: function(message, args, rank){
+		let leaderboard = self.data.leaderboard;
+		if(!auth.js.rankgeq(rank,'%')){
+			chat.js.reply(message, "Your rank is not high enough to use the mute commands.");
+		}else{
+			let id = toId(args[0]);
+			let duration;
+			let reason;
+			if(!id){
+				chat.js.reply(message, "You must specify a user.");
+			}else{
+				blacklistCommands['unmute'](message, args[0], id, duration, reason);
+			}
+		}
 	},
 	alts: function(message, args, rank){
 		let target = toId(args[0]) ? args[0] : message.user;
@@ -1186,7 +1201,7 @@ let commands = {
 	commands: "help",
 	help: function(message, args){
 		if(chat&&chat.js){
-			chat.js.reply(message, "This pdf contains all the commands you need to know: https://drive.google.com/file/d/0B8KyGlawfHaKRUZxZGlqQ3RkVlk/view?usp=sharing");
+			chat.js.reply(message, "This page contains all the commands you need to know: https://github.com/CameronClarry/Showdown-Bot/blob/master/README.md");
 		}
 	},
 	rules: function(message, args){
@@ -1209,8 +1224,6 @@ let commands = {
 		chat.js.reply(message, shuffle(args).join(", "))
 	}
 };
-
-
 
 let ttCommands = {
 	newgame: function(message, args, rank){
@@ -1818,6 +1831,58 @@ let ttleaderboardEventCommands = {
 	}
 };
 
+let blacklistCommands = {
+	add: function(message, username, id, duration, reason){
+		let entry = getBlacklistEntry(id);
+		if(entry){
+			chat.js.reply(message, "The user " + entry.displayName + " is already on the blacklist.");
+		}else if(duration){
+			self.data.leaderboard.blacklist[id] = {displayName: username, reason: reason, duration: duration*60000, time: Date.now()};
+			chat.js.reply(message, "Added " + username + " to the blacklist for " + millisToTime(duration*60000) + ".");
+			chat.js.say("trivia", "/modnote " + username + " was added to the Trivia Tracker blacklist by " + message.user + " for " + millisToTime(duration*60000) + ". (" + reason + ")");
+		}else{
+			self.data.leaderboard.blacklist[id] = {displayName: username, reason: reason, duration: duration*60000, time: Date.now()};
+			chat.js.reply(message, "Added " + username + " to the blacklist permanently.");
+			chat.js.say("trivia", "/modnote " + username + " was added to the Trivia Tracker blacklist permanently by " + message.user + ". (" + reason + ")");
+		}
+		saveLeaderboard();
+	},
+	remove: function(message, username, id, duration, reason){
+		let entry = getBlacklistEntry(id);
+		if(!entry){
+			chat.js.reply(message, "The user " + username + " is not on the blacklist.");
+		}else{
+			delete self.data.leaderboard.blacklist[id];
+			chat.js.reply(message, "Removed " + entry.displayName + " from the blacklist.");
+			chat.js.say("trivia","/modnote " + entry.displayName + " was removed from the Trivia Tracker blacklist by " + message.user);
+			saveLeaderboard();
+		}
+	},
+	check: function(message, username, id, duration, reason){
+		let entry = getBlacklistEntry(id);
+		if(entry && !entry.duration){
+			chat.js.reply(message, "The user " + entry.displayName + " is permantently on the blacklist. Reason: " + entry.reason + ".");
+		}else if(entry){
+			chat.js.reply(message, "The user " + entry.displayName + " is on the blacklist for " + millisToTime(entry.duration - Date.now() + entry.time) + ". Reason: " + entry.reason + ".");
+		}else{
+			chat.js.reply(message, "The user " + username + " is not on the blacklist.");
+		}
+	},
+	unmute:function(message, username, id, duration, reason){
+		let entry = getBlacklistEntry(id);
+		if(!entry){
+			chat.js.reply(message, "The user " + username + " is not on the blacklist.");
+		}else if(!entry.duration || entry.duration > 60*60000){
+			chat.js.reply(message, "That user is blacklisted for longer than a mute.");
+		}else{
+			delete self.data.leaderboard.blacklist[id];
+			chat.js.reply(message, "Removed " + entry.displayName + " from the blacklist.");
+			chat.js.say("trivia","/modnote " + entry.displayName + " was removed from the Trivia Tracker blacklist by " + message.user);
+			saveLeaderboard();
+		}
+	}
+};
+
 let tryBatonPass = function(room, nextPlayer, historyToAdd, shouldUndo, remindTime, wasClaimed){
 	remindTime = remindTime || self.config.remindTime;
 	let game = self.data.games[room];
@@ -1928,6 +1993,7 @@ let getBlacklistEntry = function(username){
 	if(entry && entry.duration){
 		if(Date.now() - entry.time > entry.duration){
 			delete leaderboard.blacklist[username];
+			saveLeaderboard();
 			return;
 		}
 	}
