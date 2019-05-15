@@ -1049,7 +1049,9 @@ let commands = {
 	randfact: "fact",
 	randomfact: "fact",
 	fact: function(message, args, rank){
-		if(self.data.facts.length){
+		if(!auth.js.rankgeq(rank, self.config.factRank)){
+			chat.js.reply(message, "Your rank is not high enough to check facts.")
+		}else if(self.data.facts.length){
 			chat.js.strictReply(message, "__" + self.data.facts[Math.floor(Math.random()*self.data.facts.length)].text + "__");
 		}else{
 			chat.js.strictReply(message, "There are no facts :<");

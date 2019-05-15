@@ -98,7 +98,7 @@ Command|Usage|Required Rank
 `~addfact [fact]`|Adds the given fact to the database.|+
 `~removefact [fact]`|Removes the given fact.|+
 `~factlist`|This will PM you a pastebin of all facts in the database.|+
-`~fact`|Displays a random fact.|None
+`~fact`|Displays a random fact.|+
 `~help`|Gives the list of commands.|None
 `~rules`|Links to the rules doc.|None
 `~legacyrules`|Links to the old rules PDF.|None
