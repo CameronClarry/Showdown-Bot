@@ -196,7 +196,7 @@ let request = require("request");
 let WebSocketClient = require('websocket').client;
 let Connection = null;
 
-var connect = function (retry) {
+var connect = function (retry, delay) {
 	if (retry) {
 		info('Retrying...');
 	}
@@ -206,30 +206,36 @@ var connect = function (retry) {
 	ws.on('connectFailed', function (err) {
 		error('Could not connect');
 		error(err)
-		info('Retrying in thirty seconds');
+		info('Retrying in ' + (delay/1000) + ' seconds');
 
-		setTimeout(function () {
-			connect(true);
-		}, 30000);
+		setTimeout(()=>{
+			connect(true, delay*2);
+		}, delay);
 	});
 
 	ws.on('connect', function (con) {
 		Connection = con;
 		ok('Connected to server');
 
+		// If we successfully connect, reset the delay
+		let delay = 30000;
+
 
 		con.on('error', function (err) {
 			error('Connection error: ' + err.stack);
+			con.drop();
 		});
 
 		con.on('close', function (code, reason) {
-			// Is this always error or can this be intended...?
-			error('Connection closed: ' + reason + ' (' + code + ')');
-			info('Retrying in thirty seconds.');
+			// Set Connection to null so everything knows we lost connection
+			Connection = null;
 
-			setTimeout(function () {
-				connect(true);
-			}, 30000);
+			error('Connection closed: ' + reason + ' (' + code + ')');
+			info('Retrying in ' + (delay/1000) + ' seconds.');
+
+			setTimeout(()=>{
+				connect(true, delay*2);
+			}, delay);
 		});
 
 		con.on('message', function (response) {
@@ -247,9 +253,9 @@ var connect = function (retry) {
 				error(e.message);
 			}
 		});
-				if(messageQueue.length && !messageTimeout){
-					messageTimeout = setTimeout(trySendMessage, MESSAGE_THROTTLE);
-				}
+		if(messageQueue.length && !messageTimeout){
+			messageTimeout = setTimeout(trySendMessage, MESSAGE_THROTTLE);
+		}
 	});
 
 	// The connection itself
@@ -275,7 +281,7 @@ let trySendMessage = function(){
 			error(e.message);
 		}
 	}
-	if(messageQueue.length){
+	if(messageQueue.length && Connection){
 		messageTimeout = setTimeout(()=>{
 			trySendMessage();
 		}, MESSAGE_THROTTLE + 5);
@@ -502,7 +508,7 @@ global.mainConfig = {}
 loadConfig("main");
 loadModule("modulemanager", true);
 ok("Bot has started, ready to connect");
-connect();
+connect(false, 30000);
 
 let ping = function(){
 	//info("PINGING");
@@ -517,4 +523,4 @@ let ping = function(){
 	setTimeout(ping, 30000);
 };
 
-ping();
+//ping();
