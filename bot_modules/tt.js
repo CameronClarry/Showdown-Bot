@@ -456,9 +456,9 @@ let commands = {
 	},
 	yea: "yes", yup: "yes", sure: "yes", yee: "yes", yep: "yes", yeah: "yes",
 	hellyeah: "yes", ofcourse: "yes", butofcourse: "yes", go: "yes",
-	gottem: "yes", youknowit: "yes", oui: "yes", si: "yes", right: "yes",
+	oui: "yes", si: "yes", right: "yes",
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", ja: "yes",
-	correctomundo: "yes", indeed: "yes", damnright: "yes",
+	indeed: "yes", damnright: "yes",
 	yes: function(message, args, rank){
 		let shouldUndo = false;
 		let room = message.room;
@@ -496,7 +496,7 @@ let commands = {
 					}else{
 						if(nextPlayer && getBlacklistEntry(toId(nextPlayer))){
 							if(!game.bpOpen){
-								response = "**" + nextPlayer.trim() + " is on the blacklist, so BP is now open.**"
+								response = "**" + removeRank(nextPlayer) + " is on the blacklist, so BP is now open.**"
 							}else{
 								response = result.response;
 							}
