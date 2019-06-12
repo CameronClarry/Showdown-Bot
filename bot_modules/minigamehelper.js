@@ -17,7 +17,8 @@ exports.onLoad = function(module, loadData){
 			maxplayers:0,
 			voices:{},
 			scores:{},
-			shouldVoice: false
+			shouldVoice: false,
+			hosts: {}
 		};
 	}
 
@@ -52,6 +53,9 @@ exports.onUnload = function(){
 			chat.js.say("trivia", "/roomdeauth " + id);
 		}
 		chat.js.say("trivia", "/modchat ac");
+	}
+	for(let id in self.data.hosts){
+		chat.js.say("trivia", "/roomdeauth " + id);
 	}
 };
 exports.refreshDependencies = function(){
@@ -127,7 +131,7 @@ let commands = {
 	},
   //drp: "duelremoveplayers",
   //duelremoveplayer: "duelremoveplayers",
-  plremove: function(message, args, rank){
+	plremove: function(message, args, rank){
 		if(!auth.js.rankgeq(rank, self.config.rosterRank) || self.data.voices[toId(message.user)]){
 			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
 		}else{
@@ -135,8 +139,8 @@ let commands = {
 			chat.js.reply(message, response);
 		}
 	},
-  tar: "titanaddregs",
-  titanaddreg: "titanaddregs",
+	tar: "titanaddregs",
+	titanaddreg: "titanaddregs",
 	titanaddregs: function(message, args, rank){
 		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
       let added = 0;
@@ -150,8 +154,8 @@ let commands = {
       chat.js.reply(message, "Added " + added + " player(s) to the titanomachy regs.");
 		}
 	},
-  taa: "titanaddauth",
-  titanaddauth: "titanaddauth",
+	taa: "titanaddauth",
+	titanaddauth: "titanaddauth",
 	titanaddauth: function(message, args, rank){
 		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
       let added = 0;
@@ -165,8 +169,8 @@ let commands = {
       chat.js.reply(message, "Added " + added + " player(s) to the titanomachy auth.");
 		}
 	},
-  tr: "titanremove",
-  titanremove: function(message, args, rank){
+	tr: "titanremove",
+	titanremove: function(message, args, rank){
 		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
       let removed = 0;
       for(let i=0;i<args.length;i++){
@@ -183,8 +187,8 @@ let commands = {
       chat.js.reply(message, "Removed " + removed + " player(s) from the titanomachy roster.");
 		}
 	},
-  pl: "pllist",
-  pllist: function(message, args, rank){
+	pl: "pllist",
+	pllist: function(message, args, rank){
     let parray = self.data.plist.map(e=>{return e.displayName});
 		if(!parray || parray.length==0){
 			chat.js.reply(message, "There are no players.");
@@ -224,8 +228,8 @@ let commands = {
 			}
 		}
 	},
-  tl: "titanlist",
-  titanlist: function(message, args, rank){
+	tl: "titanlist",
+	titanlist: function(message, args, rank){
 		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
       let rarray = [];
       let aarray = [];
@@ -251,7 +255,7 @@ let commands = {
 	},
   //dc: "duelclear",
 	clearpl: "plclear",
-  plclear: function(message, args, rank){
+	plclear: function(message, args, rank){
 		if(auth.js.rankgeq(rank, self.config.rosterRank) && !self.data.voices[toId(message.user)]){
       self.data.plist = [];
 			self.data.scores = {};
@@ -264,7 +268,7 @@ let commands = {
       chat.js.reply(message, "Cleared the player list.");
     }
 	},
-  titanclear: function(message, args, rank){
+	titanclear: function(message, args, rank){
 		if(auth.js.rankgeq(rank, self.config.rosterRank)){
       titanAuth = {};
       titanRegs = {};
@@ -310,11 +314,36 @@ let commands = {
 			}
 		}
 	},
-  clearpoints: function(message, args, rank){
+	clearpoints: function(message, args, rank){
 		if(auth.js.rankgeq(rank, self.config.rosterRank) && !self.data.voices[toId(message.user)]){
-      self.data.scores = {};
-      chat.js.reply(message, "Cleared the current scores.");
-    }
+			self.data.scores = {};
+			chat.js.reply(message, "Cleared the current scores.");
+    	}
+	},
+	reghost: function(message, args, rank){
+		let host = toId(args[0]);
+		if(!auth.js.rankgeq(rank, "%")){
+			chat.js.reply(message, "Your rank is not high enough to appoint a reghost.");
+		}else if(!host){
+			chat.js.reply(message, "You must give a user to appoint as a reghost.");
+		}else if(auth.js.getTrueRoomRank(host, "trivia") !== " "){
+			chat.js.reply(message, "That user already has a rank.");
+		}else if(self.data.hosts[host]){
+			chat.js.reply(message, "That user is already a reghost.");
+		}else if(Object.keys(self.data.hosts).length > 1){
+			chat.js.reply(message, "There cannot be more than two reghosts.");
+		}else{
+			self.data.hosts[host] = true;
+			chat.js.say("trivia", "/roomvoice " + host);
+			chat.js.reply(message, "Successfully added the host.");
+		}
+	},
+	endhost: function(message, args, rank){
+		for(let host in self.data.hosts){
+			chat.js.say("trivia", "/roomdeauth " + host);
+		}
+		self.data.hosts = {};
+		chat.js.reply(message, "Successfully removed the hosts.");
 	},
 	modchat: function(message, args, rank){
 		let arg = toId(args[0]);

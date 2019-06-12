@@ -19,6 +19,8 @@ Command|Usage|Default Required Rank
 `~showpoints {user}` | Shows a user's points on the temporary leaderboard. If no user is given, lists all entries on the temporary leaderboard. | +
 `~clearpoints` | Removes all current scores. | +
 `~modchat [on/off]` | Using `~modchat on` on will voice all users in the player list that are not already voice or higher, and turn on modchat +. Using `~modchat off` will devoice everyone previously voiced, and turn off modchat. | %
+`~reghost [user]` | This will temporarily promote the given user to voice. There can be a maximum of two such temporary voices. | %
+`~endhost` | Devoices all temporary voices. | %
 
 ## Titanomachy commands
 
