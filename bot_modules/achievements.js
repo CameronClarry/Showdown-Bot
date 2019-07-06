@@ -131,11 +131,9 @@ let achievementCommands = {
 					});
 				}
 			}else{
-				error(err);
-				chat.js.reply(message, "Please specify a name, a description, and a points value.");
+				chat.js.reply(message, "Please specify the achievement name.");
 			}
 		}else{
-			error(err);
 			chat.js.reply(message, "Your rank is not high enough to manage achievements.");
 		}
 	},
@@ -145,13 +143,10 @@ let achievementCommands = {
 			//output+="Name: " + row.name + ", Points: " + row.value + ", Description: \n" + row.description + "\n\n"; //This can be used if points ever matter
 			output+="Name: " + row.name + ", Description: \n" + row.description + "\n\n";
 		}, (res)=>{
-			request.post({url:'https://hastebin.com/documents', body: output}, function(err,httpResponse,body){
-				try{
-					chat.js.reply(message, "Here are the achievements: hastebin.com/" + JSON.parse(body).key);
-				}catch(e){
-					error(e.message);
-					chat.js.reply(message, "Something was wrong with the response from hastebin.");
-				}
+			uploadText(output, (address)=>{
+				chat.js.reply(message, "Here are the achievements: " + address);
+			}, (error)=>{
+				chat.js.reply(message, "There was an error while saving the file.");
 			});
 		}, (err)=>{
 			chat.js.reply(message, "Something went wrong when getting the achievement list.")
@@ -218,13 +213,10 @@ let achievementCommands = {
 				pgclient.js.runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [user.id], (row)=>{
 					output += row.name + "\n";
 				},(res)=>{
-					request.post({url:'https://hastebin.com/documents', body: output}, function(err,httpResponse,body){
-						try{
-							chat.js.reply(message, "Here are " + user.display_name + "'s achievements: hastebin.com/" + JSON.parse(body).key);
-						}catch(e){
-							error(e.message);
-							chat.js.reply(message, "Something was wrong with the response from hastebin.");
-						}
+					uploadText(output, (address)=>{
+						chat.js.reply(message, "Here are " + user.display_name + "'s achievements: " + address);
+					}, (error)=>{
+						chat.js.reply(message, "There was an error while saving the file.");
 					});
 				},(err)=>{
 					error(err);

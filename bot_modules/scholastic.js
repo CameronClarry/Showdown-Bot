@@ -150,7 +150,7 @@ let commands = {
 		}
 	},
 	discqlist: function(message, args, rank){
-		//If the required rank is met, upload the current question set to hastebin and give a link
+		//If the required rank is met, upload the current question set and give a link
 		if(auth.js.rankgeq(rank, "@")){
 			let qlist = self.data.philqs;
 			if(qlist.length === 0){

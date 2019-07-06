@@ -319,8 +319,9 @@ exports.onLoad = function(module, loadData){
 						}
 					}else if(command === "n"){
 						if(idsMatch(lastHist.active, args[3])){
-							lastHist.active = removeFormatting(args[2].trim());
-							if(args[2][0] === "‽" || args[2][0] === "!"){ // Let's go ahead and open BP if the user is muted or locked
+							let rank = args[2][0];
+							lastHist.active = removeFormatting(args[2].substr(1).split("@")[0]);
+							if(rank === "‽" || rank === "!"){ // Let's go ahead and open BP if the user is muted or locked
 								if(!game.bpOpen){
 									chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
 								}
@@ -418,9 +419,9 @@ let messageListener = function(m){
 				timer: setTimeout(()=>{
 					delete self.data.timers[timerName];
 					chat.js.say(m.room, "/wall Timer's up!");
-				}, 60*1000)
+				}, self.data.flags["timer"]*1000)
 			};
-			chat.js.say(m.room, "Set the timer for one minute.");
+			chat.js.say(m.room, "Set the timer for " + self.data.flags["timer"] + " seconds.");
 		}
 	}
 };
@@ -643,7 +644,7 @@ let commands = {
 				response = "There is no game in " + room + ".";
 			}else{
 				let lastHist = game.history[game.history.length-1];
-				if(auth.js.rankgeq(rank, self.config.manageBpRank)){
+				if(auth.js.rankgeq(rank, self.config.manageBpRank) && !idsMatch(lastHist.active, message.user)){
 					if(!game.bpOpen){
 						chat.js.say(room, "**BP is now open (say 'me' or 'bp' to claim it).**");
 						game.bpOpen = "auth";
@@ -791,13 +792,10 @@ let commands = {
 						chat.js.reply(message, res[1].display_name + "'s alts: " + alts.join(", "));
 					}else{
 						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
-						request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-							try{
-								chat.js.reply(message, "There were more than 10 alts, so they were put in a hastebin: hastebin.com/" + JSON.parse(body).key);
-							}catch(e){
-								error(e.message);
-								chat.js.reply(message, "Something was wrong with the response from hastebin. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
-							}
+						uploadText(text, (address)=>{
+							chat.js.reply(message, "There were more than 10 alts, so they were put into a text file: " + address);
+						}, (error)=>{
+							chat.js.reply(message, "There was an error while saving the file. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
 						});
 					}
 				}, (err)=>{
@@ -1063,13 +1061,10 @@ let commands = {
 			chat.js.reply(message, "Your rank is not high enough to manage facts.");
 		}else if(self.data.facts.length){
 			let text = self.data.facts.map(f=>{return f.text}).join("\n\n");
-			request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-				try{
-					chat.js.pm(message.user, "Here is a list of all the facts: hastebin.com/" + JSON.parse(body).key);
-				}catch(e){
-					error(e.message);
-					chat.js.reply(message, "Something was wrong with the response from hastebin.");
-				}
+			uploadText(text, (link)=>{
+				chat.js.pm(message.user, "Here is a list of all the facts: " + link);
+			}, (err)=>{
+				chat.js.pm(message.user, "There was an error: " + err);
 			});
 		}else{
 			chat.js.reply(message, "There are no facts :<");
@@ -1080,13 +1075,10 @@ let commands = {
 			chat.js.reply(message, "Your rank is not high enough to manage query batches.");
 		}else if(true){
 			let text = JSON.stringify(self.data.batches, null, "\t");
-			request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-				try{
-					chat.js.reply(message, "Here is a list of all the batches: hastebin.com/" + JSON.parse(body).key);
-				}catch(e){
-					error(e.message);
-					chat.js.reply(message, "Something was wrong with the response from hastebin.");
-				}
+			uploadText(text, (link)=>{
+				chat.js.pm(message.user, "Here is a list of all the batches: " + link);
+			}, (err)=>{
+				chat.js.pm(message.user, "There was an error: " + err);
 			});
 		}else{
 			chat.js.reply(message, "There are no query batches :<");
@@ -1135,8 +1127,10 @@ let commands = {
 							let parts = queries.shift().substr(2).split(" ")
 							if(parts.length === 1){
 								delete self.data.flags[parts[0]]
+							}else if(/^\d+$/.test(parts[1])){
+								self.data.flags[parts[0]] = parseInt(parts[1]);
 							}else{
-								self.data.flags[parts[0]] = parts[1]
+								self.data.flags[parts[0]] = parts[1];
 							}
 							queryFunc(queries);
 						}else{
@@ -1311,14 +1305,11 @@ let ttleaderboardCommands = {
 				chat.js.strictReply(message, "There are no players on the " + lb + " leaderboard.");
 			}else{
 				let text = "Listed here all players with a score of at least 1 on the " + lb + " leaderboard.\n";
-				text = text + "\n" + rows.map((row)=>{return (row.display_name || row.id1) + ": " + row.points}).join("\n")
-				request.post({url:'https://hastebin.com/documents', body: text}, function(err,httpResponse,body){
-					try{
-						chat.js.strictReply(message, "Here is the full leaderboard: hastebin.com/" + JSON.parse(body).key);
-					}catch(e){
-						error(e.message);
-						chat.js.strictReply(message, "Something went wrong with the response from hastebin.");
-					}
+				text = text + "\n" + rows.map((row)=>{return (row.display_name || row.id1) + ": " + row.points}).join("\n");
+				uploadText(text, (link)=>{
+					chat.js.pm(message.user, "Here is the full leaderboard: " + link);
+				}, (err)=>{
+					chat.js.pm(message.user, "There was an error: " + err);
 				});
 			}
 		},(err)=>{

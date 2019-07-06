@@ -223,9 +223,9 @@ let getRoomRank = function(abnormaluser, room){
 		}
 	}
 	if(rooms && rooms.js){
-		let displayName = rooms.js.getDisplayName(user, room);
-		if(displayName && rankg(displayName[0], rank)){
-			rank = displayName[0];
+		let info = rooms.js.getInfo(user, room);
+		if(info && rankg(info.rank, rank)){
+			rank = info.rank;
 		}
 	}
 	return rank;
@@ -234,9 +234,9 @@ exports.getRoomRank = getRoomRank;
 
 let getTrueRoomRank = function(user, room){
 	if(rooms && rooms.js){
-		let displayName = rooms.js.getDisplayName(user, room);
-		if(displayName && rankg(displayName[0], ranks[0])){
-			return displayName[0];
+		let info = rooms.js.getInfo(user, room);
+		if(info && rankg(info.rank, ranks[0])){
+			return info.rank;
 		}
 	}
 	return " ";
@@ -260,9 +260,9 @@ let getEffectiveRoomRank = function(message, room){
 	let username = message.user;
 	let rank = getRank(username, room);
 	if(rooms && rooms.js){
-		let displayName = rooms.js.getDisplayName(username, room);
-		if(displayName && rankg(displayName[0], rank)){
-			rank = displayName[0];
+		let info = rooms.js.getInfo(username, room);
+		if(info && rankg(info.rank, rank)){
+			rank = info.rank;
 		}
 	}else if(message.source === "pm" || message.room === room){
 		if(rankg(username[0], rank)){

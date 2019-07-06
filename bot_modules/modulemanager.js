@@ -180,11 +180,10 @@ let configFuncs = {
 				for(let config in module.config){
 					configs.push(config + ": " + module.config[config]);
 				}
-				request.post({url:'https://hastebin.com/documents', body: configs.join("\n")}, function(err,httpResponse,body){
-					if(err){
-						chat.js.reply(message, "There was an errer in the response from hastebin.");
-					}
-					chat.js.pm(message.user, "hastebin.com/" + JSON.parse(body).key);
+				uploadText(configs.join("\n"), (address)=>{
+					chat.js.reply(message, address);
+				}, (error)=>{
+					chat.js.reply(message, "There was an error while saving the file.");
 				});
 			}else{
 				chat.js.reply(message, "That module does not exist.");

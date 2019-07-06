@@ -83,16 +83,19 @@ let roomActions = {
 	J: "join",
 	j: "join",
 	join: function(room, args){
-		let id = toId(args[2]);
+		let rank = args[2][0]
+		let parts = args[2].substr(1).split('@');
+		let id = toId(parts[0]);
 		let rooms = self.data.rooms;
 		if(rooms[room]){
-			rooms[room].users[id] = {displayName: removeFormatting(args[2].trim())};
+			rooms[room].users[id] = {displayName: removeFormatting(parts[0]), rank: rank, status: parts[1]};
 		}
 	},
 	L: "leave",
 	l: "leave",
 	leave: function(room, args){
-		let id = toId(args[2]);
+		let parts = args[2].substr(1).split('@');
+		let id = toId(parts[0]);
 		let rooms = self.data.rooms;
 		if(rooms[room]){
 			delete rooms[room].users[id];
@@ -101,12 +104,14 @@ let roomActions = {
 	N: "name",
 	n: "name",
 	name: function(room, args){
-		let newName = args[2];
-		let oldName = args[3];
+		let oldId = toId(args[3]);
+		let rank = args[2][0]
+		let parts = args[2].substr(1).split('@');
+		let newId = toId(parts[0]);
 		let rooms = self.data.rooms;
 		if(rooms[room]){
-			delete rooms[room].users[toId(oldName)];
-			rooms[room].users[toId(newName)] = {displayName: removeFormatting(newName.trim())};
+			delete rooms[room].users[oldId];
+			rooms[room].users[newId] = {displayName: removeFormatting(parts[0]), rank: rank, status: parts[1]};
 		}
 	},
 	deinit: function(room, args){
@@ -135,8 +140,8 @@ let roomActions = {
 	users: function(room, args){
 		if(self.data.rooms[room]){
 			let userlist = args[2].split(",");
-			for(var i=1;i<userlist.length;i++){
-				self.data.rooms[room].users[toId(userlist[i])] = {displayName: removeFormatting(userlist[i].trim())};
+			for(let i=1;i<userlist.length;i++){
+				roomActions.join(room,['','j',userlist[i]]);
 			}
 		}
 	}
@@ -205,6 +210,16 @@ let getDisplayName = function(user, room){
 	return null;
 }
 exports.getDisplayName = getDisplayName;
+
+let getInfo = function(user, room){
+	let id = toId(user);
+	let rooms = self.data.rooms;
+	if(rooms[room] && rooms[room].users[id]){
+		return rooms[room].users[id];
+	}
+	return null;
+}
+exports.getInfo = getInfo;
 
 let removeFormatting = function(text){
 	let reg = /([_~*`^])\1(.+)\1\1/g;
