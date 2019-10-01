@@ -1,18 +1,21 @@
 let fs = require("fs");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let auth = null;
-let chat = null;
-let rooms = null;
+let data = {};
+let config = defaultConfigs;
+
+const GOVERNING_ROOM = "trivia";
+exports.GOVERNING_ROOM = GOVERNING_ROOM;
 
 let titanRegs = {};
 let titanAuth = {};
 
-exports.onLoad = function(module, loadData){
+exports.onLoad = function(module, loadData, oldData){
 	self = module;
-	self.js.refreshDependencies();
+	refreshDependencies();
+	if(oldData) data = oldData;
 
 	if(loadData){
-		self.data = {
+		data = {
 			plist:[],
 			maxplayers:0,
 			voices:{},
@@ -23,379 +26,374 @@ exports.onLoad = function(module, loadData){
 	}
 
 	self.chathooks = {
-		chathook: function(m){
-			if(m && !m.isInit){
-				let text = m.message;
-				if(text[0]==="~"){
-					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
-					let chatArgs = text.substring(command.length+2, text.length).split(",");
-					for(let i = 0;i<chatArgs.length;i++){
-						chatArgs[i] = chatArgs[i].trim();
-					}
-					if(commands[command]&&auth&&auth.js){
-            let rank = auth.js.getEffectiveRoomRank(m, "trivia");
-            let commandToRun = commands[command];
-						if(typeof commandToRun === "string"){
-							commandToRun = commands[commandToRun];
+		chathook: function(room, user, message){
+			if(data.maxplayers && data.plist.length < data.maxplayers && room.id === "trivia"){
+				let text = toId(message);
+				if(text === "mein"){
+					let nplayers = data.plist.length;
+					addPlayers([user.id], room);
+					if(nplayers !== data.plist.length){
+						if(data.joinTimer){
+							clearTimeout(data.joinTimer);
 						}
-						commandToRun(m, chatArgs, rank);
+						data.joinTimer = setTimeout(()=>{
+							data.joinTimer = null;
+							let numPlayers = data.plist.length;
+							room.send("There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
+						}, 5000);
 					}
-				}else{
-					messageListener(m);
+				}else if(text === "meout"){
+					let nplayers = data.plist.length;
+					removePlayers([user.id], room);
+					if(nplayers !== data.plist.length){
+						if(data.joinTimer){
+							clearTimeout(data.joinTimer);
+						}
+						data.joinTimer = setTimeout(()=>{
+							data.joinTimer = null;
+							let numPlayers = data.plist.length;
+							room.send("There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
+						}, 5000);
+					}
 				}
 			}
 		},
 	};
 };
 exports.onUnload = function(){
-	if(self.data.shouldVoice){
-		for(let id in self.data.voices){
-			chat.js.say("trivia", "/roomdeauth " + id);
+	let triviaRoom = RoomManager.getRoom("trivia");
+	if(!triviaRoom) error("Minigamehelper unloaded, but wasn't in Trivia. Did any temporary voices get left behind?");
+	if(data.shouldVoice){
+		for(let id in data.voices){
+			triviaRoom.send("/roomdeauth " + id);
 		}
-		chat.js.say("trivia", "/modchat ac");
+		triviaRoom.send("/modchat ac");
 	}
-	for(let id in self.data.hosts){
-		chat.js.say("trivia", "/roomdeauth " + id);
+	for(let id in data.hosts){
+		triviaRoom.send("/roomdeauth " + id);
 	}
 };
-exports.refreshDependencies = function(){
-	auth = getModuleForDependency("auth", "minigamehelper");
-  chat = getModuleForDependency("chat", "minigamehelper");
-  rooms = getModuleForDependency("rooms", "minigamehelper");
+let refreshDependencies = function(){
 };
+exports.refreshDependencies = refreshDependencies;
 exports.onConnect = function(){
 
 };
-
-let messageListener = function(m){
-	if(self.data.maxplayers && self.data.plist.length < self.data.maxplayers && m.room === "trivia"){
-		let text = toId(m.message);
-		if(text === "mein"){
-			let nplayers = self.data.plist.length;
-			addPlayers([m.user]);
-			if(nplayers !== self.data.plist.length){
-				if(self.data.joinTimer){
-					clearTimeout(self.data.joinTimer);
-				}
-				self.data.joinTimer = setTimeout(()=>{
-					self.data.joinTimer = null;
-					let numPlayers = self.data.plist.length;
-					chat.js.say("trivia", "There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
-				}, 5000);
-			}
-		}else if(text === "meout"){
-			let nplayers = self.data.plist.length;
-			removePlayers([m.user]);
-			if(nplayers !== self.data.plist.length){
-				if(self.data.joinTimer){
-					clearTimeout(self.data.joinTimer);
-				}
-				self.data.joinTimer = setTimeout(()=>{
-					self.data.joinTimer = null;
-					let numPlayers = self.data.plist.length;
-					chat.js.say("trivia", "There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
-				}, 5000);
-			}
-		}
-	}
-};
+exports.getData = function(){
+	return data;
+}
+exports.getConfig = function(){
+	return config;
+}
+exports.setConfig = function(newConfig){
+	config = newConfig;
+}
 
 let commands = {
-	plmax: function(message, args, rank){
-		let room = message.room;
+	plmax: function(message, args, user, rank, room, commandRank, commandRoom){
 		let max = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0]) : 0;
 		if(!room){
-			chat.js.reply(message, "You cannot use this command through PM.");
-		}else if(!auth.js.rankgeq(rank, self.config.rosterRank) || self.data.voices[toId(message.user)]){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+			room.broadcast(user, "You cannot use this command through PM.", rank);
+		}else if(!AuthManager.rankgeq(commandRank, config.rosterRank) || data.voices[user.id]){
+			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
 		}else if(room !== "trivia"){
-			chat.js.reply(message, "This command can only be used in Trivia.");
+			room.broadcast(user, "This command can only be used in Trivia.", rank);
 		}else{
-			self.data.maxplayers = max;
+			data.maxplayers = max;
 			if(max === 0){
-				chat.js.say("trivia", "Autojoin has been turned off.");
+				room.send("Autojoin has been turned off.");
 			}else{
-				chat.js.say("trivia", "**Autojoin is now on! Type ``/me in`` to join!**");
+				room.send("**Autojoin is now on! Type ``/me in`` to join!**");
 			}
 		}
 	},
-  //dap: "dueladdplayers",
-  //dueladdplayer: "dueladdplayers",
-	pladd: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, self.config.rosterRank) || self.data.voices[toId(message.user)]){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+	pladd: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, config.rosterRank) || data.voices[user.id]){
+			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
 		}else{
-			let response = addPlayers(args);
-			chat.js.reply(message, response);
+			let response = addPlayers(args, commandRoom);
+			room.broadcast(user, response, rank);
 		}
 	},
-  //drp: "duelremoveplayers",
-  //duelremoveplayer: "duelremoveplayers",
-	plremove: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, self.config.rosterRank) || self.data.voices[toId(message.user)]){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+	plremove: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, config.rosterRank) || data.voices[user.id]){
+			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
 		}else{
 			let response = removePlayers(args);
-			chat.js.reply(message, response);
+			room.broadcast(user, response, rank);
 		}
 	},
 	tar: "titanaddregs",
 	titanaddreg: "titanaddregs",
-	titanaddregs: function(message, args, rank){
-		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
-      let added = 0;
-      for(let i=0;i<args.length;i++){
-        let id = toId(args[i]);
-        if(!(id in titanRegs) && !(id in titanAuth)){
-          titanRegs[id] = args[i];
-          added++;
-        }
-      }
-      chat.js.reply(message, "Added " + added + " player(s) to the titanomachy regs.");
+	titanaddregs: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(args.length>0 & AuthManager.rankgeq(commandRank, config.rosterRank)){
+			let added = 0;
+			for(let i=0;i<args.length;i++){
+				let id = toId(args[i]);
+				if(!(id in titanRegs) && !(id in titanAuth)){
+					titanRegs[id] = args[i];
+					added++;
+				}
+			}
+			room.broadcast(user, "Added " + added + " player(s) to the titanomachy regs.", rank);
 		}
 	},
 	taa: "titanaddauth",
 	titanaddauth: "titanaddauth",
-	titanaddauth: function(message, args, rank){
-		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
-      let added = 0;
-      for(let i=0;i<args.length;i++){
-        let id = toId(args[i]);
-        if(!(id in titanAuth) && !(id in titanRegs)){
-          titanAuth[id] = args[i];
-          added++;
-        }
-      }
-      chat.js.reply(message, "Added " + added + " player(s) to the titanomachy auth.");
+	titanaddauth: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(args.length>0 & AuthManager.rankgeq(commandRank, config.rosterRank)){
+			let added = 0;
+			for(let i=0;i<args.length;i++){
+				let id = toId(args[i]);
+				if(!(id in titanAuth) && !(id in titanRegs)){
+					titanAuth[id] = args[i];
+					added++;
+				}
+			}
+			room.broadcast(user, "Added " + added + " player(s) to the titanomachy auth.", rank);
 		}
 	},
 	tr: "titanremove",
-	titanremove: function(message, args, rank){
-		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
-      let removed = 0;
-      for(let i=0;i<args.length;i++){
-        let id = toId(args[i]);
-        if(id in titanRegs){
-          delete titanRegs[id];
-          removed++;
-        }
-        if(id in titanAuth){
-          delete titanAuth[id];
-          removed++;
-        }
-      }
-      chat.js.reply(message, "Removed " + removed + " player(s) from the titanomachy roster.");
+	titanremove: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(args.length>0 & AuthManager.rankgeq(commandRank, config.rosterRank)){
+			let removed = 0;
+			for(let i=0;i<args.length;i++){
+				let id = toId(args[i]);
+				if(id in titanRegs){
+					delete titanRegs[id];
+					removed++;
+				}
+				if(id in titanAuth){
+					delete titanAuth[id];
+					removed++;
+				}
+			}
+			room.broadcast(user, "Removed " + removed + " player(s) from the titanomachy roster.", rank);
 		}
 	},
 	pl: "pllist",
-	pllist: function(message, args, rank){
-    let parray = self.data.plist.map(e=>{return e.displayName});
+	pllist: function(message, args, user, rank, room, commandRank, commandRoom){
+    	let parray = data.plist.map(e=>{return e.displayName});
 		if(!parray || parray.length==0){
-			chat.js.reply(message, "There are no players.");
-		}else if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank) && toId(args[0]) === "html" && message.room === "trivia"){
-      let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
-      message = message + "<tr><td><center>" + parray.join(", ") + "</center></td></tr>";
-    	message = message + "</table>"
+			room.broadcast(user, "There are no players.", rank);
+		}else if(args.length>0 & AuthManager.rankgeq(commandRank, config.rosterRank) && toId(args[0]) === "html" && room.id === "trivia"){
+			let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
+			message = message + "<tr><td><center>" + parray.join(", ") + "</center></td></tr>";
+			message = message + "</table>"
 
-    	chat.js.say("trivia", message);
-    }else if(args.length > 0 && toId(args[0]) === "nohl"){
-      chat.js.reply(message, "The players in the game are " + prettyList(parray.map((p)=>{return "__"+p+"__"})) + ".")
-    }else{
-      chat.js.reply(message, "The players in the game are " + prettyList(parray.map((p)=>{return p})) + ".")
-    }
-	},
-	plshuffle: function(message, args, rank){
-		let plist = self.data.plist;
-		if(!plist || plist.length==0){
-			chat.js.reply(message, "There are no players.");
+			room.send(message);
 		}else if(args.length > 0 && toId(args[0]) === "nohl"){
-			chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return "__"+item.displayName+"__"})));
+			room.broadcast(user, "The players in the game are " + prettyList(parray.map((p)=>{return "__"+p+"__"})) + ".", rank);
 		}else{
-			chat.js.reply(message, prettyList(shuffle(plist).map(item=>{return item.displayName})));
+			room.broadcast(user, "The players in the game are " + prettyList(parray.map((p)=>{return p})) + ".", rank);
 		}
 	},
-	plpick: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, self.config.rosterRank)){
-			chat.js.reply(message, "Your rank is not high enough to use the player list commands.");
+	plshuffle: function(message, args, user, rank, room, commandRank, commandRoom){
+		let plist = data.plist;
+		if(!plist || plist.length==0){
+			room.broadcast(user, "There are no players.", rank);
+		}else if(args.length > 0 && toId(args[0]) === "nohl"){
+			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return "__"+item.displayName+"__"})), rank);
 		}else{
-			let plist = self.data.plist;
+			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return item.displayName})), rank);
+		}
+	},
+	plpick: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, config.rosterRank)){
+			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
+		}else{
+			let plist = data.plist;
 			if(!plist || plist.length==0){
-				chat.js.reply(message, "There are no players.");
+				room.broadcast(user, "There are no players.", rank);
 			}else if(args.length > 0 && toId(args[0]) === "nohl"){
-				chat.js.reply(message, "I randomly picked: __" + plist[Math.floor(Math.random()*plist.length)].displayName + "__");
+				room.broadcast(user, "I randomly picked: __" + plist[Math.floor(Math.random()*plist.length)].displayName + "__", rank);
 			}else{
-				chat.js.reply(message, "I randomly picked: " + plist[Math.floor(Math.random()*plist.length)].displayName);
+				room.broadcast(user, "I randomly picked: " + plist[Math.floor(Math.random()*plist.length)].displayName, rank);
 			}
 		}
 	},
 	tl: "titanlist",
-	titanlist: function(message, args, rank){
-		if(args.length>0 & auth.js.rankgeq(rank, self.config.rosterRank)){
-      let rarray = [];
-      let aarray = [];
-      for(let id in titanRegs){
-        rarray.push(titanRegs[id]);
-      }
-      for(let id in titanAuth){
-        aarray.push(titanAuth[id]);
-      }
-      if(toId(args[0]) === "html" && message.room === "trivia"){
-        let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Regs</th><th>Auth</th></tr>";
-      	for(let i=0;i<Math.max(rarray.length, aarray.length);i++){
-      		message = message + "<tr><td>" + (rarray[i] || "") + "</td><td>" + (aarray[i] || "") + "</td></tr>";
-      	}
-      	message = message + "</table>"
+	titanlist: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(args.length>0 & AuthManager.rankgeq(commandRank, config.rosterRank)){
+			let rarray = [];
+			let aarray = [];
+			for(let id in titanRegs){
+				rarray.push(titanRegs[id]);
+			}
+			for(let id in titanAuth){
+				aarray.push(titanAuth[id]);
+			}
+			if(toId(args[0]) === "html" && room.id === "trivia"){
+				let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Regs</th><th>Auth</th></tr>";
+				for(let i=0;i<Math.max(rarray.length, aarray.length);i++){
+					message = message + "<tr><td>" + (rarray[i] || "") + "</td><td>" + (aarray[i] || "") + "</td></tr>";
+				}
+				message = message + "</table>"
 
-      	chat.js.say("trivia", message);
-      }else{
-        chat.js.reply(message, "Regs: " + prettyList(rarray.map((p)=>{return "__"+p+"__"})) + ".")
-        chat.js.reply(message, "Auth: " + prettyList(aarray.map((p)=>{return "__"+p+"__"})) + ".")
-      }
-    }
+				room.send(message);
+			}else{
+				room.broadcast(user, "Regs: " + prettyList(rarray.map((p)=>{return "__"+p+"__"})) + ".", rank);
+				room.broadcast(user, "Auth: " + prettyList(aarray.map((p)=>{return "__"+p+"__"})) + ".", rank);
+			}
+		}
 	},
-  //dc: "duelclear",
 	clearpl: "plclear",
-	plclear: function(message, args, rank){
-		if(auth.js.rankgeq(rank, self.config.rosterRank) && !self.data.voices[toId(message.user)]){
-      self.data.plist = [];
-			self.data.scores = {};
-			if(self.data.shouldVoice){
-				for(let id in self.data.voices){
-					chat.js.say("trivia", "/roomdeauth " + id);
+	plclear: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(AuthManager.rankgeq(commandRank, config.rosterRank) && !data.voices[user.id]){
+			data.plist = [];
+			data.scores = {};
+			if(data.shouldVoice){
+				for(let id in data.voices){
+					commandRoom.send("/roomdeauth " + id);
 				}
 			}
-			self.data.voices = {};
-      chat.js.reply(message, "Cleared the player list.");
-    }
+			data.voices = {};
+			room.broadcast(user, "Cleared the player list.", rank);
+		}
 	},
-	titanclear: function(message, args, rank){
-		if(auth.js.rankgeq(rank, self.config.rosterRank)){
-      titanAuth = {};
-      titanRegs = {};
-      chat.js.reply(message, "Cleared the auth and reg lists.");
-    }
+	titanclear: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(AuthManager.rankgeq(commandRank, config.rosterRank)){
+			titanAuth = {};
+			titanRegs = {};
+			room.broadcast(user, "Cleared the auth and reg lists.", rank);
+		}
 	},
 	addpoint: "addpoints",
-	addpoints: function(message, args, rank){
-		let player = toId(args[0])
-		let points = parseInt(args[1], 10);
-		if(!auth.js.rankgeq(rank, "+") || self.data.voices[toId(message.user)]){
-			chat.js.reply(message, "Your rank is not high enough to add points.");
-		}else if(!player || !points){
-			chat.js.reply(message, "You must give a valid player and number of points.");
+	addpoints: function(message, args, user, rank, room, commandRank, commandRoom){
+		let id = toId(args[0]);
+		if(!AuthManager.rankgeq(commandRank, "+") || data.voices[user.id]){
+			room.broadcast(user, "Your rank is not high enough to add points.", rank);
+		}else if(!id || !args[1] || !/^\d+$/.test(args[1])){
+			room.broadcast(user, "You must give a valid player and number of points.", rank);
 		}else{
-			if(self.data.scores[player]){
-				self.data.scores[player].score = self.data.scores[player].score + points;
+			let points = parseInt(args[1], 10);
+			if(data.scores[id]){
+				data.scores[id].score = data.scores[id].score + points;
 			}else{
-				self.data.scores[player] = {name: args[0], score: points};
+				data.scores[id] = {name: args[0], score: points};
 			}
-      chat.js.reply(message, self.data.scores[player].name + "'s score is now " + self.data.scores[player].score + ".");
-    }
+			room.broadcast(user, data.scores[id].name + "'s score is now " + data.scores[id].score + ".", rank);
+		}
 	},
-	showpoints: function(message, args, rank){
-		let player = toId(args[0]);
-		if(player){
-			let entry = self.data.scores[player];
+	showpoints: function(message, args, user, rank, room, commandRank, commandRoom){
+		let id = toId(args[0]);
+		if(id){
+			let entry = data.scores[id];
 			if(entry){
-				chat.js.reply(message, entry.name + "'s score is " + entry.score + ".");
+				room.broadcast(user, entry.name + "'s score is " + entry.score + ".", rank);
 			}else{
-				chat.js.reply(message, entry.name + " does not have a score.");
+				room.broadcast(user, entry.name + " does not have a score.", rank);
 			}
 		}else{
 			let scores = [];
-			for(let p in self.data.scores){
-				scores.push(self.data.scores[p]);
+			for(let p in data.scores){
+				scores.push(data.scores[p]);
 			}
 			scores.sort((e1,e2)=>{return e1.score < e2.score});
 			if(scores.length == 0){
-				chat.js.reply(message, "No one has any points.");
+				room.broadcast(user, "No one has any points.", rank);
 			}else{
-				chat.js.reply(message, "The current scores are: " + scores.map(e=>{return "__" + e.name + "__ (" + e.score + ")"}).join(", "));
+				room.broadcast(user, "The current scores are: " + scores.map(e=>{return "__" + e.name + "__ (" + e.score + ")"}).join(", "), rank);
 			}
 		}
 	},
-	clearpoints: function(message, args, rank){
-		if(auth.js.rankgeq(rank, self.config.rosterRank) && !self.data.voices[toId(message.user)]){
-			self.data.scores = {};
-			chat.js.reply(message, "Cleared the current scores.");
+	clearpoints: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(AuthManager.rankgeq(commandRank, config.rosterRank) && !data.voices[user.id]){
+			data.scores = {};
+			room.broadcast(user, "Cleared the current scores.", rank);
     	}
 	},
-	reghost: function(message, args, rank){
-		let host = toId(args[0]);
-		if(!auth.js.rankgeq(rank, "%")){
-			chat.js.reply(message, "Your rank is not high enough to appoint a reghost.");
+	reghost: function(message, args, user, rank, room, commandRank, commandRoom){
+		let host = commandRoom.getUserData(toId(args[0]));
+		if(!AuthManager.rankgeq(commandRank, "%")){
+			room.broadcast(user, "Your rank is not high enough to appoint a reghost.", rank);
 		}else if(!host){
-			chat.js.reply(message, "You must give a user to appoint as a reghost.");
-		}else if(auth.js.getTrueRoomRank(host, "trivia") !== " "){
-			chat.js.reply(message, "That user already has a rank.");
-		}else if(self.data.hosts[host]){
-			chat.js.reply(message, "That user is already a reghost.");
-		}else if(Object.keys(self.data.hosts).length > 1){
-			chat.js.reply(message, "There cannot be more than two reghosts.");
+			room.broadcast(user, "You must give a user in Trivia to appoint as a reghost.", rank);
+		}else if(AuthManager.getTrueRoomRank(host, commandRoom) !== " "){
+			room.broadcast(user, "That user already has a rank.", rank);
+		}else if(data.hosts[host.id]){
+			room.broadcast(user, "That user is already a reghost.", rank);
+		}else if(Object.keys(data.hosts).length > 1){
+			room.broadcast(user, "There cannot be more than two reghosts.", rank);
+		}else if(!commandRoom){
+			room.broadcast(user, "I'm not in Trivia currently.", rank);
 		}else{
-			self.data.hosts[host] = true;
-			chat.js.say("trivia", "/roomvoice " + host);
-			chat.js.reply(message, "Successfully added the host.");
+			data.hosts[host.id] = host;
+			commandRoom.send("/roomvoice " + host.id);
+			room.broadcast(user, "Successfully added the host.", rank);
 		}
 	},
-	endhost: function(message, args, rank){
-		for(let host in self.data.hosts){
-			chat.js.say("trivia", "/roomdeauth " + host);
+	endhost: function(message, args, user, rank, room, commandRank, commandRoom){
+		for(let host in data.hosts){
+			commandRoom.send("/roomdeauth " + data.hosts[host].id);
+			data.hosts[host].rank = " ";
+			data.hosts[host].trueRank = " ";
 		}
-		self.data.hosts = {};
-		chat.js.reply(message, "Successfully removed the hosts.");
+		data.hosts = {};
+		room.broadcast(user, "Successfully removed the hosts.", rank);
 	},
-	modchat: function(message, args, rank){
+	modchat: function(message, args, user, rank, room, commandRank, commandRoom){
 		let arg = toId(args[0]);
-		if(!auth.js.rankgeq(rank, "%")){
-			chat.js.reply(message, "Your rank is not high enough to turn on modchat.");
+		if(!AuthManager.rankgeq(commandRank, "%")){
+			room.broadcast(user, "Your rank is not high enough to turn on modchat.", rank);
+		}else if(!commandRoom){
+			room.broadcast(user, "I'm not in Trivia currently.", rank);
 		}else{
 			if(arg === "on"){
-				if(self.data.shouldVoice){
-					chat.js.reply(message, "Modchat is already on.");
+				if(data.shouldVoice){
+					room.broadcast(user, "Modchat is already on.", rank);
 				}else{
-					self.data.shouldVoice = true;
-					for(let id in self.data.voices){
-						chat.js.say("trivia", "/roomvoice " + id);
+					data.shouldVoice = true;
+					for(let id in data.voices){
+						commandRoom.send("/roomvoice " + id);
 					}
-					chat.js.say("trivia", "/modchat +");
+					commandRoom.send("/modchat +");
 				}
 			}else if(arg === "off"){
-				if(!self.data.shouldVoice){
-					chat.js.reply(message, "Modchat is already off.")
+				if(!data.shouldVoice){
+					room.broadcast(user, "Modchat is already off.", rank);
 				}else{
-					self.data.shouldVoice = false;
-					for(let id in self.data.voices){
-						chat.js.say("trivia", "/roomdeauth " + id);
+					data.shouldVoice = false;
+					for(let id in data.voices){
+						commandRoom.send("/roomdeauth " + id);
+						data.voices[id].rank = " ";
+						data.voices[id].trueRank = " ";
 					}
-					chat.js.say("trivia", "/modchat ac");
+					commandRoom.send("/modchat ac");
 				}
 			}
 		}
 	},
-	triviasignups: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "+")){
-			chat.js.reply(message, "Your rank is not high enough to start an official game.");
+	triviasignups: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, "+")){
+			room.broadcast(user, "Your rank is not high enough to start an official game.", rank);
+		}else if(!commandRoom){
+			room.broadcast(user, "I'm not in Trivia currently.", rank);
 		}else{
-			chat.js.say("trivia", "/trivia new timer, all, long");
-			chat.js.say("trivia", "**Triviasignups! Type ``/trivia join`` if you want to participate!**");
-			chat.js.say("trivia", "!rfaq official");
+			commandRoom.send("/trivia new timer, all, long");
+			commandRoom.send("**Triviasignups! Type ``/trivia join`` if you want to participate!**");
+			commandRoom.send("!rfaq official");
 		}
 	},
-	triviastart: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "+")){
-			chat.js.reply(message, "Your rank is not high enough to start an official game.");
+	triviastart: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, "+")){
+			room.broadcast(user, "Your rank is not high enough to start an official game.", rank);
+		}else if(!commandRoom){
+			room.broadcast(user, "I'm not in Trivia currently.", rank);
 		}else{
-			chat.js.say("trivia", "/trivia start");
-			chat.js.say("trivia", "**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
+			commandRoom.send("/trivia start");
+			commandRoom.send("**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
 		}
 	},
-	next: function(message, args, rank){
+	next: function(message, args, user, rank, room, commandRank, commandRoom){
 		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
 		let response = "The next official is (theoretically) in " + millisToTime(timeDiff) + ".";
-		chat.js.strictReply(message, response);
+		room.broadcast(user, response, rank, true);
 	},
 };
+
+self.commands = commands;
+exports.commands = commands;
 
 let millisToTime = function(millis){
 	let seconds = millis/1000;
@@ -410,26 +408,26 @@ let millisToTime = function(millis){
 	return response;
 };
 
-let addPlayers = function(names){
+let addPlayers = function(names, room){
 	if(names.length==0) return "Player list not updated. You must give at least one player.";
-	if(!self.data.plist) self.data.plist = [];
-	let plist = self.data.plist;
+	if(!data.plist) data.plist = [];
+	let plist = data.plist;
 	for(let i=0;i<names.length;i++){
-		let id = toId(names[i]);
-		if(id==="") break;
-		if(!self.data.voices[id] && rooms.js.getDisplayName(id, "trivia") && auth.js.getTrueRoomRank(id, "trivia") === " "){
-			self.data.voices[id] = true;
+		let user = room.getUserData(toId(names[i]));
+		if(!user) continue;
+		if(!data.voices[user.id] && user.trueRank === " "){
+			data.voices[user.id] = user;
 			// The following lines would make things more convenient, but for security reasons they should not be included.
 			// Theoretically, voices would be able to voice people under certain circumstances if they were uncommented.
-			// if(self.data.shouldVoice){
+			// if(data.shouldVoice){
 			// 	chat.js.say("trivia", "/roomvoice " + id);
 			// }
 		}
 		for(let j=0;j<plist.length+1;j++){
 			if(j == plist.length){
-				plist.push({id: id, displayName: removeRank(names[i])});
+				plist.push({id: user.id, displayName: user.name});
 				break;
-			}else if(id == plist[j].id){
+			}else if(user.id == plist[j].id){
 				break;
 			}
 		}
@@ -440,19 +438,21 @@ let addPlayers = function(names){
 
 let removePlayers = function(names){
 	if(names.length==0) return "Player list not updated. You must give at least one player.";
-	if(!self.data.plist) self.data.plist = [];
+	if(!data.plist) data.plist = [];
+	let triviaRoom = RoomManager.getRoom("trivia");
 	for(let i=0;i<names.length;i++){
-		let id = toId(names[i]);
-		if(self.data.voices[id]){
-			delete self.data.voices[id];
-			if(self.data.shouldVoice){
-				chat.js.say("trivia", "/roomdeauth " + id);
+		let userId = toId(names[i]);
+		if(data.voices[userId]){
+			if(data.shouldVoice && triviaRoom){
+				triviaRoom.send("/roomdeauth " + userId);
+				data.voices[userId].rank = " ";
 			}
+			delete data.voices[userId];
 		}
-		if(self.data.scores[id]) delete self.data.scores[id]
-		self.data.plist = self.data.plist.filter(item=>{return item.id !== id});
+		if(data.scores[userId]) delete data.scores[userId]
+		data.plist = data.plist.filter(item=>{return item.id !== userId});
 	}
-	let n = self.data.plist.length;
+	let n = data.plist.length;
 	return "Player list updated. There " + (n==1?"is":"are") + " now " + n + " player" + (n==1?"":"s") + "."
 }
 

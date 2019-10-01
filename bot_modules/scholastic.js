@@ -1,204 +1,180 @@
 let fs = require("fs");
 let request = require("request");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let chat = null;
-let auth = null;
-exports.onLoad = function(module, shouldLoadData){
+let data = {};
+let config = defaultConfigs;
+
+const GOVERNING_ROOM = "scholastic";
+exports.GOVERNING_ROOM = GOVERNING_ROOM;
+
+exports.onLoad = function(module, shouldLoadData, oldData){
 	self = module;
-	self.js.refreshDependencies();
+	refreshDependencies();
+	if(oldData) data = oldData;
 	if(shouldLoadData){
-		self.data = {
+		data = {
 			qotd: {
 				question: "",
 				submissions: []},
 			news: [],
 			philqs: []
 		};
-		self.data.qotd = {
+		data.qotd = {
 			question: "",
 			submissions: []
 		};
 		loadData();
 	}
-	self.chathooks = {
-		chathook: function(m){
-			if(m && !m.isInit){
-				let text = m.message;
-				if(text[0]==="~"||text[0]==="."){
-					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
-					let argText = text.substring(command.length+2, text.length);
-					let chatArgs = argText === "" ? [] : argText.split(",");
-					for(let i = 0;i<chatArgs.length;i++){
-						chatArgs[i] = chatArgs[i].trim();
-					}
-					if(commands[command]&&auth&&auth.js&&chat&&chat.js){
-						let rank = auth.js.getEffectiveRoomRank(m, "scholastic");
-						let commandToRun = commands[command];
-						if(typeof commandToRun === "string"){
-							commandToRun = commands[commandToRun];
-						}
-						commandToRun(m, chatArgs, rank);
-					}
-				}
-			}
-		}
-	};
 };
 exports.onUnload = function(){
 
 };
-exports.refreshDependencies = function(){
-	chat = getModuleForDependency("chat", "scholastic");
-	auth = getModuleForDependency("auth", "scholastic");
+let refreshDependencies = function(){
 };
+exports.refreshDependencies = refreshDependencies;
 exports.onConnect = function(){
 
 };
+exports.getData = function(){
+	return data;
+}
+exports.getConfig = function(){
+	return config;
+}
+exports.setConfig = function(newConfig){
+	config = newConfig;
+}
 
 let commands = {
 	article: "news",
 	art: "news",
 	na: "news",
-	news: function(message, args, rank){
+	news: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(args.length>0){
-			if(auth.js.rankgeq(rank,"+")){
-				let url = args.join(",");
-				if(!self.data.news){
-					self.data.news = [];
+			if(!AuthManager.rankgeq(commandRank,"+")){
+				room.broadcast(user, "You don't have the required rank in Scholastic to update the news.", rank);
+			}else{
+				if(!data.news){
+					data.news = [];
 				}
-				self.data.news.unshift({
-					url: url,
-					from: message.user,
+				data.news.unshift({
+					url: args.join(", "),
+					from: user.name,
 					when: new Date().toUTCString()
 				});
 				saveData();
-				chat.js.reply(message, "Added this to the news list: " + url);
-			}else{
-				chat.js.reply(message, "You don't have the required rank in Scholastic to update the news.");
+				room.broadcast(user, "Added this to the news list: " + url, rank);
 			}
 		}else{
-			let response = "This is not the place for news.";
-			if(message.room === "scholastic" || message.room === "" || message.room === "joim"){
-				if(self.data.news.length>0){
-					response = self.data.news[Math.ceil(Math.pow(self.data.news.length+1, Math.random()))-2].url;
-				}else{
-						response = "There are no news articles.";
-					}
+			if(message.room !== "scholastic" && message.room !== ""){
+				room.broadcast(user, "This is not the place for news.", rank);
+			}else if(data.news.length == 0){
+				room.broadcast(user, "There are no news articles.", rank);
+			}else{
+				room.broadcast(user, data.news[Math.ceil(Math.pow(data.news.length+1, Math.random()))-2].url, rank);
 			}
-			chat.js.reply(message, response);
 		}
 	},
-	qotd: function(message, args, rank){
-		let response = "There is no question currently.";
+	qotw: "qotd",
+	qotd: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(args.length){
-			if(auth.js.rankgeq(rank,"@")){
-				self.data.qotd.question = args[0];
-				self.data.qotd.submissions = {};
-				response = "Set the current question to be " + args[0] + ".";
+			if(!AuthManager.rankgeq(commandRank,"@")){
+				room.broadcast(user, "There is no question currently.", rank);
+			}else{
+				data.qotd.question = args[0];
+				data.qotd.submissions = {};
+				room.broadcast(user, "Set the current question to be " + args[0] + ".", rank);
 				saveData();
-			}else{
-				response = "Your rank is not high enough to change the question.";
 			}
-		}else if(self.data.qotd.question){
-			response = "Here is the question: " + self.data.qotd.question + ". To submit your answer, PM me ~submit followed by your answer, either as text or a link to a picture/pastebin/etc.";
+		}else if(data.qotd.question){
+			room.broadcast(user, "Here is the question: " + data.qotd.question + ". To submit your answer, PM me ~submit followed by your answer, either as text or a link to a picture/pastebin/etc.", rank);
+		}else{
+			room.broadcast(user, "There is no question currently.", rank);
 		}
-		chat.js.reply(message, response);
 	},
-	submit: function(message, args, rank){
+	submit: function(message, args, user, rank, room, commandRank, commandRoom){
 		let response = "You need to include what you're submitting.";
-		if(args.length){
-			let user = toId(message.user);
-			if(self.data.qotd.submissions[user]){
-				response = "Your submission has been changed.";
+		if(args.length === 0){
+			room.broadcast(user, "You need to include what you're submitting.", rank);
+		}else{
+			if(data.qotd.submissions[user.id]){
+				room.broadcast(user, "Your submission has been changed.", rank);
 			}else{
-				response = "Your submission has been received.";
+				room.broadcast(user, "Your submission has been received.", rank);
 			}
-			self.data.qotd.submissions[user] = {
+			data.qotd.submissions[user.id] = {
 				answer: args.join(","),
-				user: message.user,
+				user: user.name,
 				date: new Date().toUTCString()
 			};
 			saveData();
 		}
-		chat.js.reply(message, response);
 	},
-	solution: function(message, args, rank){
+	solution: function(message, args, user, rank, room, commandRank, commandRoom){
 		let response = "There is no solution currently.";
-		if(args.length){
-			if(auth.js.rankgeq(rank,"@")){
-				self.data.qotd.solution = args[0];
-				response = "Set the current solution to be " + args[0] + ".";
+		if(args.length>0){
+			if(AuthManager.rankgeq(commandRank,"@")){
+				data.qotd.solution = args[0];
 				saveData();
+				room.broadcast(user, "Set the current solution to be " + args[0] + ".", rank);
 			}else{
-				response = "Your rank is not high enough to change the solution.";
+				room.broadcast(user, "Your rank is not high enough to change the solution.", rank);
 			}
-		}else if(self.data.qotd.question){
-			response = "Here is the solution to the previous question: " + self.data.qotd.solution + ". To submit your answer, PM me ~submit followed by your answer, either as text or a link to a picture/pastebin/etc.";
+		}else if(data.qotd.question){
+			room.broadcast(user, "Here is the solution to the previous question: " + data.qotd.solution + ".", rank);
 		}
-		chat.js.reply(message, response);
 	},
-	discq: function(message, args, rank){
+	discq: function(message, args, user, rank, room, commandRank, commandRoom){
 		//Scholastic voices use this to dispense a random question
-		if(auth.js.rankgeq(rank, "+")){
-			if(self.data.philqs.length === 0){
-				chat.js.reply(message, "There are no questions.");
-			}else{
-				chat.js.reply(message, self.data.philqs[Math.floor(Math.random()*self.data.philqs.length)]);
-			}
+		if(!AuthManager.rankgeq(commandRank, "+")){
+			room.broadcast(user, "Your rank is not high enough to display questions.", rank);
+		}else if(data.philqs.length === 0){
+			room.broadcast(user, "There are no questions.", rank);
 		}else{
-			chat.js.reply(message, "Your rank is not high enough to display questions.")
+			room.broadcast(user, data.philqs[Math.floor(Math.random()*data.philqs.length)], rank);
 		}
 	},
-	discqlist: function(message, args, rank){
+	discqlist: function(message, args, user, rank, room, commandRank, commandRoom){
 		//If the required rank is met, upload the current question set and give a link
-		if(auth.js.rankgeq(rank, "@")){
-			let qlist = self.data.philqs;
-			if(qlist.length === 0){
-				chat.js.reply(message, "There are currently no questions.");
-			}else{
-				let text = qlist.join("\n");
-				uploadText(text, (link)=>{
-					chat.js.pm(message.user, link);
-				}, (err)=>{
-					chat.js.pm(message.user, "There was an error: " + err);
-				});
-			}
+		if(!AuthManager.rankgeq(commandRank, "@")){
+			room.broadcast(user, "Your rank is not high enough to see the question list.", rank);
+		}else if(data.qlist.length === 0){
+			room.broadcast(user, "There are currently no questions.", rank);
 		}else{
-			chat.js.reply(message, "Your rank is not high enough to see the question list.");
+			let text = data.qlist.join("\n");
+			uploadText(text, (link)=>{
+				user.send(link);
+			}, (err)=>{
+				user.send("There was an error: " + err);
+			});
 		}
 	},
-	discqset: function(message, args, rank){
+	discqset: function(message, args, user, rank, room, commandRank, commandRoom){
 		//If the required rank is met, update question set to given hastbin link
 		let response = "oops";
 		let success = false;
-		if(!auth.js.rankgeq(rank, "#")){
-			response = "Your rank is not high enough to set the questions.";
+		if(!AuthManager.rankgeq(commandRank, "#")){
+			user.send("Your rank is not high enough to set the questions.");
 		}else if(args.length === 0){
-			response = "You must give a link to the questions.";
+			user.send("You must give a link to the questions.");
 		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[0])){
-			success = true;
-			let response = "oops again";
 			request.get(args[0],function(err, response, body){
 				if(err){
 						error(err);
-						chat.js.reply(message, err);
+						user.send(err);
 						return;
 				}
 				let questions = body.split("\n");
 				if(questions.length === 0){
-					response = "No questions were found.";
+					user.send("No questions were found.");
 				}else{
-					self.data.philqs = questions;
+					data.philqs = questions;
 					saveData();
-					response = "Set the question list, there are now " + questions.length + " questions.";
+					user.send("Set the question list, there are now " + questions.length + " questions.");
 				}
-				chat.js.pm(message.user, response);
 			});
 		}else{
-			response = "There was something wrong with your link, make sure it's only the raw paste.";
-		}
-		if(!success){
-			chat.js.pm(message.user, response);
+			user.send("There was something wrong with your link, make sure it's only the raw paste.");
 		}
 	}
 };
@@ -207,7 +183,7 @@ let saveData = function(){
 	try{
 		let filename = "data/scholdata.json";
 		let dataFile = fs.openSync(filename,"w");
-		fs.writeSync(dataFile,JSON.stringify(self.data, null, "\t"));
+		fs.writeSync(dataFile,JSON.stringify(data, null, "\t"));
 		fs.closeSync(dataFile);
 	}catch(e){
 		error(e.message);
@@ -219,11 +195,11 @@ let loadData = function(){
 	try{
 		let filename = "data/scholdata.json";
 		if(fs.existsSync(filename)){
-			self.data = JSON.parse(fs.readFileSync(filename, "utf8"));
+			data = JSON.parse(fs.readFileSync(filename, "utf8"));
 			result = "Found and loaded the data file.";
 		}else{
 			let dataFile = fs.openSync(filename,"w");
-			fs.writeSync(dataFile,JSON.stringify(self.data, null, "\t"));
+			fs.writeSync(dataFile,JSON.stringify(data, null, "\t"));
 			fs.closeSync(dataFile);
 			result = "Could not find the data file, made a new one.";
 		}

@@ -240,7 +240,7 @@ let getTrueRoomRank = function(user, room){
 		}
 	}
 	return " ";
-}
+};
 exports.getTrueRoomRank = getTrueRoomRank;
 
 let getGlobalRank = function(abnormaluser){

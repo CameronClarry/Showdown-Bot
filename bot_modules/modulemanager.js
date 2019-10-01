@@ -1,107 +1,91 @@
 let fs = require("fs");
 let request = require("request");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
+let data = {};
+let config = defaultConfigs;
 let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
-let chat = null;
-let auth = null;
-exports.onLoad = function(module, loadData){
+
+const GOVERNING_ROOM = "";
+exports.GOVERNING_ROOM = GOVERNING_ROOM;
+
+exports.onLoad = function(module, loadData, oldData){
 	self = module;
-	self.js.refreshDependencies();
+	refreshDependencies();
+	if(oldData) data = oldData;
 	if(loadData){
-		self.data = {modulesToLoad: []};
+		data = {modulesToLoad: []};
 		loadModuleList();
 		loadAllModules();
 	}
-	self.chathooks = {
-		chathook: function(m){
-			if(m && !m.isInit){
-				let text = m.message;
-				if(text[0] === "~"){
-					let words = text.split(" ");
-					let command = words.shift().trim().toLowerCase().substr(1);
-					let argText = words.join(" ");
-					let chatArgs = argText === "" ? [] : argText.split(",").map(function(item){
-						return item.trim();
-					});
-					if(commands[command] && auth && auth.js){
-						commands[command](m, chatArgs);
-					}else if(commands[command] && idsMatch(m.user,mainConfig.owner)){
-						let response = "Circumvented auth check. Result: ";
-						response += managerFuncs[command](chatArgs[0]);
-						if(chat && chat.js){
-							chat.js.reply(m, response);
-						}else{
-							info(response);
-						}
-					}
-				}
-			}
-		}
-	};
 
 };
 exports.onUnload = function(){
 
 };
-exports.refreshDependencies = function(){
-	chat = getModuleForDependency("chat", "modulemanager");
-	auth = getModuleForDependency("auth", "modulemanager");
-};
+
+
+let refreshDependencies = function(){
+}; 
+exports.refreshDependencies = refreshDependencies;
 exports.onConnect = function(){
 
 };
+exports.getData = function(){
+	return data;
+}
+exports.getConfig = function(){
+	return config;
+}
+exports.setConfig = function(newConfig){
+	config = newConfig;
+}
 
 let commands = {
-	load: function(message, args){
-		let response = "Your rank is not high enough to load modules.";
-		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
-			response = "You must specify the module to be loaded.";
-			if(args.length>0){
-				response = managerFuncs.load(args[0]);
-			}
-		}
-		if(chat&&chat.js){
-			chat.js.reply(message, response);
+	load: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank,"#")){
+			room.broadcast(user, "Your rank is not high enough to load modules.", rank);
+		}else if(!args.length){
+			room.broadcast(user, "You must specify the module to be loaded.", rank);
+		}else{
+			room.broadcast(user, managerFuncs.load(args[0]), rank);
 		}
 	},
-	reload: function(message, args){
-		let response = "Your rank is not high enough to load modules.";
-		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
-			response = "You must specify the module to be loaded.";
-			if(args.length>0){
-				response = managerFuncs.reload(args[0]);
-			}
-		}
-		if(chat&&chat.js){
-			chat.js.reply(message, response);
+	reload: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank,"#")){
+			room.broadcast(user, "Your rank is not high enough to load modules.", rank);
+		}else if(!args.length){
+			room.broadcast(user, "You must specify the module to reload.", rank);
+		}else{
+			room.broadcast(user, managerFuncs.reload(args[0]), rank);
 		}
 	},
-	unload: function(message, args){
-		let response = "Your rank is not high enough to unload a module.";
-		if(auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
-			response = "You must specify the module to unload.";
-			if(args.length>0){
-				response = managerFuncs.unload(args[0]);
-			}
-		}
-		if(chat&&chat.js){
-			chat.js.reply(message, response);
+	unload: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank,"#")){
+			room.broadcast(user, "Your rank is not high enough to unload modules.", rank);
+		}else if(!args.length){
+			room.broadcast(user, "You must specify the module to be unloaded.", rank);
+		}else{
+			room.broadcast(user, managerFuncs.unload(args[0]), rank);
 		}
 	},
-	config: function(message, args){
-		let response;
-		if(!auth.js.rankgeq(auth.js.getGlobalRank(message.user),"#")){
-			chat.js.reply(message, "Your rank is not high enough to manage configs.");
+	config: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank,"#")){
+			room.broadcast(user, "Your rank is not high enough to manage configs.", rank);
 		}else if(args.length < 2){
-			chat.js.reply(message, "You must give a config command and a module name.");
+			room.broadcast(user, "You must give a config command and a module name.", rank);
 		}else{
 			let command = args[0].toLowerCase();
 			if(configFuncs[command]){
-				configFuncs[command](message, args.slice(1));
+				configFuncs[command](message, args, user, rank, room, commandRank, commandRoom);
+			}else{
+				room.broadcast(user, "That config command was unrecognized.", rank);
 			}
 		}
 	}
 };
+
+self.commands = commands;
+exports.commands = commands;
 
 let managerFuncs = {
 	load: function(name){
@@ -109,8 +93,8 @@ let managerFuncs = {
 		let result = loadModule(moduleName,true);
 		let response = "Something is wrong if you see this.";
 		if(result && moduleName !== "modulemanager"){
-			if(self.data.modulesToLoad.indexOf(moduleName) === -1){
-				self.data.modulesToLoad.add(moduleName);
+			if(data.modulesToLoad.indexOf(moduleName) === -1){
+				data.modulesToLoad.add(moduleName);
 				saveModuleList();
 				response = "Successfully loaded the module " + name + ".";
 			}else{
@@ -126,7 +110,7 @@ let managerFuncs = {
 	reload: function(name){
 		let moduleName = toId(name);
 		let response = "Could not reload the module " + name + ".";
-		if(!modules[moduleName] || (self.data.modulesToLoad.indexOf(moduleName) === -1 && moduleName !== "modulemanager")){
+		if(!modules[moduleName] || (data.modulesToLoad.indexOf(moduleName) === -1 && moduleName !== "modulemanager")){
 			response = managerFuncs.load(moduleName);
 		}else{
 			let result = loadModule(moduleName,false);
@@ -144,9 +128,9 @@ let managerFuncs = {
 		let response = "Could not unload the module " + name + ".";
 		if(result){
 			response = "Successfully unloaded the module " + name + ".";
-			let index = self.data.modulesToLoad.indexOf(moduleName);
+			let index = data.modulesToLoad.indexOf(moduleName);
 			if(index !== -1){
-				self.data.modulesToLoad.splice(index,1);
+				data.modulesToLoad.splice(index,1);
 				saveModuleList();
 			}
 		}
@@ -163,84 +147,88 @@ let managerFuncs = {
 }
 
 let configFuncs = {
-	reload: function(message, args){
+	reload: function(message, args, user, rank, room, commandRank, commandRoom){
 		let name = toId(args[0]);
 		if(name){
-			chat.js.reply(message, managerFuncs.config(name));
+			room.broadcast(user, managerFuncs.config(name), rank);
 		}else{
-			chat.js.reply(message, "You need to give a proper module name.");
+			room.broadcast(user, "You need to give a proper module name.", rank);
 		}
 	},
-	list: function(message, args){
-		let name = toId(args[0]);
+	list: function(message, args, user, rank, room, commandRank, commandRoom){
+		let name = toId(args[1]);
 		if(name){
+			info(name);
 			let module = modules[name];
 			if(module){
 				let configs = [];
-				for(let config in module.config){
-					configs.push(config + ": " + module.config[config]);
+				let moduleConfigs = module.getConfig();
+				for(let config in moduleConfigs){
+					configs.push(config + ": " + moduleConfigs[config]);
 				}
 				uploadText(configs.join("\n"), (address)=>{
-					chat.js.reply(message, address);
+					room.broadcast(user, address, rank);
 				}, (error)=>{
-					chat.js.reply(message, "There was an error while saving the file.");
+					room.broadcast(user, "There was an error while saving the file.", rank);
 				});
 			}else{
-				chat.js.reply(message, "That module does not exist.");
+				room.broadcast(user, "That module does not exist.", rank);
 			}
 		}else{
-			chat.js.reply(message, "You need to give a proper module name.");
+			room.broadcast(user, "You need to give a proper module name.", rank);
 		}
 	},
-	set: function(message, args){
+	set: function(message, args, user, rank, room, commandRank, commandRoom){
 		let name = toId(args[0]);
 		if(args.length<3){
-			chat.js.reply(message, "You must give the module, the property, and the value.");
+			room.broadcast(user, "You must give the module, the property, and the value.", rank);
 		}else if(name && modules[name]){
 			let module = modules[name];
 			let property = args[1];
-			if(module.config[property]){
-				let value = getProperty(args[2], module.js.configTypes[property]);
+			let moduleConfigs = module.getConfig();
+			if(moduleConfigs[property]){
+				let value = getProperty(args[2], module.configTypes[property]);
 				if(value){
-					module.config[property] = value;
+					moduleConfigs[property] = value;
 					saveConfig(name);
-					chat.js.reply(message, "Successfully set the " + property + " property of " + name + " to " + value + ".");
+					room.broadcast(user, "Successfully set the " + property + " property of " + name + " to " + value + ".", rank);
 				}else{
-					chat.js.reply(message, "You must give a proper value for that property.");
+					room.broadcast(user, "You must give a proper value for that property.", rank);
 				}
 			}else{
-				chat.js.reply(message, "The property you gave does not exist.");
+				room.broadcast(user, "The property you gave does not exist.", rank);
 			}
 		}else{
-			chat.js.reply(message, "That module does not exist.");
+			room.broadcast(user, "That module does not exist.", rank);
 		}
 	},
-	update: function(message, args){
+	update: function(message, args, user, rank, room, commandRank, commandRoom){
 		let name = toId(args[0]);
 		if(args.length<2){
-			chat.js.reply(message, "You must give the module, and a link to a hastebin raw paste.");
+			room.broadcast(user, "You must give the module, and a link to a hastebin raw paste.", rank);
 		}else if(!name || !modules[name]){
-			chat.js.reply(message, "The module '" + name + "' does not exist.");
+			room.broadcast(user, "The module '" + name + "' does not exist.", rank);
 		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
 			let module = modules[name];
 			let response = "Finished updating the configs.";
 			request.get(args[1],function(err, response2, body){
 				if(err){
 						error(err);
-						chat.js.reply(message, err);
+						room.broadcast(user, err, rank);
 						return;
 				}
 				let configs = body.split("\n");
+				let moduleConfigs = module.getConfig();
 				for(let i=0;i<configs.length;i++){
 					let config = configs[i].split(":");
 					let property = config[0];
-					if(module.config[property]){
-						let value = getProperty(config[1].trim(), module.js.configTypes[property]);
+					if(moduleConfigs[property]){
+						let value = getProperty(config[1].trim(), module.configTypes[property]);
 						if(value){
-							module.config[property] = value;
+							moduleConfigs[property] = value;
 						}else{
 							response = "Invalid value given for " + property + ".";
-							info(module.js.configTypes[property])
+							info(module.configTypes[property])
 							info(config[1]);
 							info(value);
 							error(response);
@@ -251,10 +239,10 @@ let configFuncs = {
 					}
 				}
 				saveConfig(name);
-				chat.js.pm(message.user, response);
+				room.broadcast(user, response, rank);
 			});
 		}else{
-			chat.js.reply(message, "There was something wrong with your link, make sure it's only the raw paste.");
+			room.broadcast(user, "There was something wrong with your link, make sure it's only the raw paste.", rank);
 		}
 	}
 };
@@ -263,12 +251,12 @@ let loadModuleList = function(){
 		try{
 			let filename = "data/modules.json";
 			if(fs.existsSync(filename)){
-				self.data.modulesToLoad = JSON.parse(fs.readFileSync(filename, "utf8"));
+				data.modulesToLoad = JSON.parse(fs.readFileSync(filename, "utf8"));
 				ok("Successfully loaded the module list.");
 			}else{
-				self.data.modulesToLoad = [];
+				data.modulesToLoad = [];
 				let moduleFile = fs.openSync(filename,"w");
-				fs.writeSync(moduleFile,JSON.stringify(self.data.modulesToLoad, null, "\t"));
+				fs.writeSync(moduleFile,JSON.stringify(data.modulesToLoad, null, "\t"));
 				fs.closeSync(moduleFile);
 				error("No module list found, saved a new one.")
 			}
@@ -282,7 +270,7 @@ let saveModuleList = function(){
 	try{
 		let filename = "data/modules.json";
 		let moduleFile = fs.openSync(filename,"w");
-		fs.writeSync(moduleFile,JSON.stringify(self.data.modulesToLoad, null, "\t"));
+		fs.writeSync(moduleFile,JSON.stringify(data.modulesToLoad, null, "\t"));
 		fs.closeSync(moduleFile);
 		ok("Saved the module list.");
 	}catch(e){
@@ -292,11 +280,11 @@ let saveModuleList = function(){
 };
 
 let loadAllModules = function(){
-	for(let i=0;i<self.data.modulesToLoad.length;i++){
-		let moduleName = self.data.modulesToLoad[i];
+	for(let i=0;i<data.modulesToLoad.length;i++){
+		let moduleName = data.modulesToLoad[i];
 		let result = loadModule(moduleName, true);
 		if(!result){
-			self.data.modulesToLoad.splice(i,1);
+			data.modulesToLoad.splice(i,1);
 			i--;
 			error("Could not load the module '" + moduleName + "'.");
 			continue;

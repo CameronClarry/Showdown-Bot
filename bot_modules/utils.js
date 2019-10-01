@@ -1,66 +1,53 @@
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let chat;
-let auth;
-const ROOM = "";
+let data = {};
+let config = defaultConfigs;
+const GOVERNING_ROOM = "";
+exports.GOVERNING_ROOM = GOVERNING_ROOM;
 
-exports.onLoad = function(module, loadData){
+exports.onLoad = function(module, loadData, oldData){
 	self = module;
-	self.js.refreshDependencies();
+	refreshDependencies();
+	if(oldData) data = oldData;
 	if(loadData){
-		self.data = {
+		data = {
 			askToRestart: null
 		};
 	}
-	self.chathooks = {
-		chathook: function(m){
-			if(m && !m.isInit){
-				let text = m.message;
-				if(text[0]==="~"){
-					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
-					let argText = text.substring(command.length+2, text.length);
-					let chatArgs = argText === "" ? [] : argText.split(",");
-					for(let i = 0;i<chatArgs.length;i++){
-						chatArgs[i] = chatArgs[i].trim();
-					}
-					if(commands[command]&&auth&&auth.js&&chat&&chat.js){
-						let rank = auth.js.getEffectiveRoomRank(m, "ou");
-						let commandToRun = commands[command];
-						if(typeof commandToRun === "string"){
-							commandToRun = commands[commandToRun];
-						}
-						commandToRun(m, chatArgs, rank);
-					}
-				}
-			}
-		}
-	};
 };
 
 exports.onUnload = function(){
 
 };
 
-exports.refreshDependencies = function(){
-	chat = getModuleForDependency("chat", "utils");
-	auth = getModuleForDependency("auth", "utils");
+let refreshDependencies = function(){
 };
+exports.refreshDependencies = refreshDependencies;
 
 exports.onConnect = function(){
 
 };
+exports.getData = function(){
+	return data;
+}
+exports.getConfig = function(){
+	return config;
+}
+exports.setConfig = function(newConfig){
+	config = newConfig;
+}
 
 let commands = {
 	color: "colour",
-	colour: function(message, args, rank){
-		chat.js.reply(message, hashColour(toId(args[0])));
+	colour: function(message, args, user, rank, room, commandRank, commandRoom){
+		room.broadcast(user, hashColour(toId(args[0])), rank);
 	},
-	restart: function(message, args, rank){
-		if(idsMatch(message.user, mainConfig.owner) && mainConfig.owner){
-			if(!self.data.askToRestart){
-				chat.js.reply(message, "WARNING: All this really does is crash the bot and let the system restart the program if it is set up to do so. This should only be used when the main file must be reloaded, and there is a system in place to restart the bot. Use the command again to confirm.");
-				self.data.askToRestart = true;
+	restart: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(user.id === toId(mainConfig.owner)){
+			if(!data.askToRestart){
+				room.broadcast(user, "WARNING: All this really does is crash the bot and let the system restart the program if it is set up to do so. This should only be used when the main file must be reloaded, and there is a system in place to restart the bot. Use the command again to confirm.", rank);
+				data.askToRestart = true;
 			}else{
-				chat.js.reply(message, "Restarting (crashing)...");
+				room.broadcast(user, "Restarting (crashing)...", rank);
 				setTimeout(()=>{
 					callNonexistantFunction();
 				},100);
@@ -68,6 +55,9 @@ let commands = {
 		}
 	}
 };
+
+self.commands = commands;
+exports.commands = commands;
 
 // MD5 and hashColour taken from PS code
 

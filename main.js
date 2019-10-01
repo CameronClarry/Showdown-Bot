@@ -4,6 +4,7 @@ require('babel/register')({loose: 'all'});
 require('sugar');
 let fs = require("fs");
 
+
 //Various logging commands for output to the console
 let colors = require('colors');
 let messageQueue = [];
@@ -48,12 +49,12 @@ global.info = function (text) {
 
 global.recv = function (text) {
 	logToFile("[RECEIVE] " + text);
-	console.log('recv'.grey + '  ' + text);
+	console.log("recv".grey + "  " + text);
 };
 
 global.dsend = function (text) {
 	logToFile("[SEND] " + text);
-	console.log('send'.grey + '  ' + text);
+	console.log("send".grey + " " + text);
 };
 
 global.error = function (text) {
@@ -65,8 +66,6 @@ global.ok = function (text) {
 	logToFile("[OK] " + text);
 	console.log(text.green);
 };
-
-info("Just defined logging commands");
 
 global.loadConfig = function(name, defaults){
 	name = toId(name);
@@ -92,7 +91,7 @@ global.loadConfig = function(name, defaults){
 				process.exit(0);
 			}
 		}else{
-			modules[name].config = newConfig;
+			modules[name].setConfig(newConfig);
 			if(shouldSave) saveConfig(name);
 		}
 		return true;
@@ -107,7 +106,7 @@ global.saveConfig = function(name){
 	if((modules[name] && modules[name].config) || name === "main"){
 		try{
 			let configFile = fs.openSync(filename,"w");
-			let config = name === "main" ? mainConfig : modules[name].config;
+			let config = name === "main" ? mainConfig : modules[name].getConfig();
 			fs.writeSync(configFile,JSON.stringify(config, null, "\t"));
 			fs.closeSync(configFile);
 		}catch(e){
@@ -127,24 +126,25 @@ global.loadModule = function(name, loadData){
 		delete require.cache[require.resolve(path)];
 		let requiredBy = [];
 		let module = modules[name];
+		let data;
 		if(module){
 			requiredBy = module.requiredBy;
-			if(loadData && module.js && module.js.onUnload){
-				module.js.onUnload();
+			if(loadData && module.onUnload){
+				module.onUnload();
+			}else if(!loadData && module.getData){
+				data = module.getData();
 			}
-		}else{
-			module = {js:null,data:null,requiredBy:[],hooks:{},config:{}};
 		}
-		modules[name] = module;
-		module.hooks = {};
-		module.js = require(path);
-		loadConfig(name, module.js.defaultConfigs || {});
-		module.js.onLoad(module, loadData);
+		module = require(path);
+		modules[toId(name)] = module;
+		loadConfig(name, module.defaultConfigs || {});
+		module.onLoad(module, loadData, data);
+		module.requiredBy = requiredBy;
 
 		for(let i=0;i<requiredBy.length;i++){
 			let requiredByModule = modules[requiredBy[i]];
-			if(requiredByModule&&requiredByModule.js){
-				requiredByModule.js.refreshDependencies();
+			if(requiredByModule&&requiredByModule.refreshDependencies){
+				requiredByModule.refreshDependencies();
 			}
 		}
 		return true;
@@ -159,14 +159,14 @@ global.unloadModule = function(name){
 		let path = "./bot_modules/" + name;
 		delete require.cache[require.resolve(path)];
 		let requiredBy = modules[name].requiredBy;
-		if(modules[name].js.onUnload){
-			modules[name].js.onUnload();
+		if(modules[name].onUnload){
+			modules[name].onUnload();
 		}
 		delete modules[name];
 		for(let i=0;i<requiredBy.length;i++){
 			let module = modules[requiredBy[i]];
-			if(module && module.js){
-				module.js.refreshDependencies();
+			if(module && module.refreshDependencies){
+				module.refreshDependencies();
 			}
 		}
 		return true;
@@ -181,7 +181,7 @@ global.getModuleForDependency = function(name, from){
 			module.requiredBy.add(from);
 		}
 	}else{
-		modules[name] = {js:null,data:null,requiredBy:[from],hooks:null};
+		modules[name] = {requiredBy:[from]};
 	}
 	return modules[name];
 };
@@ -197,12 +197,12 @@ let request = require("request");
 let WebSocketClient = require('websocket').client;
 let Connection = null;
 
-var connect = function (retry, delay) {
+let connect = function (retry, delay) {
 	if (retry) {
 		info('Retrying...');
 	}
 
-	var ws = new WebSocketClient();
+	let ws = new WebSocketClient();
 
 	ws.on('connectFailed', function (err) {
 		error('Could not connect');
@@ -242,10 +242,10 @@ var connect = function (retry, delay) {
 		con.on('message', function (response) {
 			try{
 				if (response.type !== 'utf8'){
-					info(JSON.stringify(response));
+					//info(JSON.stringify(response));
 					return false;
 				}
-				var message = response.utf8Data;
+				let message = response.utf8Data;
 				if(mainConfig.log_receive){
 					recv(message);
 				}
@@ -305,13 +305,13 @@ global.send = function (data) {
 
 function handle(message){
 	let chunks = message.split("\n");
+	let roomName = "";
 	let room;
 	let isInit = false;
 	if(chunks[0][0]==">"){
-		room = chunks.splice(0,1)[0].substr(1);
-	}else{
-		room = "lobby";
+		roomName = chunks.splice(0,1)[0].substr(1);
 	}
+	room = RoomManager.getRoom(toRoomId(roomName))
 	for(let i=0;i<chunks.length;i++){
 		let args = chunks[i].split("|");
 		if(args[1]=="challstr"){
@@ -327,7 +327,7 @@ function handle(message){
 						challenge: args[3]
 					}
 				},
-				function (err, response, body) {
+				function(err, response, body){
 					let data;
 					if(!body||body.length < 1){
 						body = null;
@@ -335,12 +335,12 @@ function handle(message){
 						if(body[0]=="]"){
 							body = body.substr(1);
 						}
-						info(body);
+						//info(body);
 						data = JSON.parse(body);
 					}
-					if(data && data.curuser && data.curuser.loggedin) {
+					if(data && data.curuser && data.curuser.loggedin){
 						send("|/trn " + mainConfig.user + ",0," + data.assertion);
-					} else {
+					}else{
 						// We couldn't log in for some reason
 						error("Error logging in...");
 						process.exit(1);
@@ -350,38 +350,123 @@ function handle(message){
 			send("|/avatar 162");
 			for(let modulename in modules){
 				let module = modules[modulename];
-				if(module && module.js && module.js.onConnect){
-					module.js.onConnect();
+				if(module && module.onConnect){
+					module.onConnect();
 				}
 			}
 		}else{
 			if(args[1]==="init"){
 				isInit = true;
-				chunks = chunks.splice(0,4)
-			}
-			let chatInfo = getChatInfo(room, args, isInit);
-			for(let modulename in modules){
-				let module = modules[modulename];
-				if(module&&module.messagehooks){
-					for(let hookname in module.messagehooks){
+				chunks = chunks.splice(0,4);
+				if(!room) room = RoomManager.initRoom(roomName);
+			}else if(args[1]==="deinit"){
+				isInit = true;
+				chunks = chunks.splice(0,4);
+				RoomManager.deinitRoom(roomName);
+			}else if(args[1]==="users"){
+				room.processUsers(args[2].split(",").slice(1));
+			}else if(args[1]==="j"||args[1]==="join"){
+				let parts = args[2].slice(1).split("@");
+				let rank = args[2][0];
+				let name = parts[0];
+				let status = parts[1];
+				let user = room.userJoin(name, toId(name),status, rank);
+				for(let modulename in modules){
+					let module = modules[modulename];
+					try{
+						if(module.processJoin) module.processJoin(room, user);
+					}catch(e){
+						error(e.message);
+						info("Exception when sending join update to " + modulename);
+					}
+				}
+			}else if(args[1]==="l"||args[1]==="leave"){
+				let parts = args[2].slice(1).split("@");
+				let id = toId(parts[0]);
+				let user = room.userLeave(id);
+				for(let modulename in modules){
+					let module = modules[modulename];
+					try{
+						if(module.processLeave) module.processLeave(room, user);
+					}catch(e){
+						error(e.message);
+						info("Exception when sending leave update to " + modulename);
+					}
+				}
+			}else if(args[1]==="n"||args[1]==="name"||args[1]==="N"){
+				let parts = args[2].slice(1).split("@");
+				let rank = args[2][0];
+				let name = parts[0];
+				let status = parts[1];
+				let user = room.userNameChange(name, toId(name), status, rank, args[3]);
+				for(let modulename in modules){
+					let module = modules[modulename];
+					try{
+						if(module.processName) module.processName(room, user);
+					}catch(e){
+						error(e.message);
+						info("Exception when sending name update to " + modulename);
+					}
+				}
+			}else if(args[1]==="c"||args[1]==="chat"||args[1]==="c:"||args[1]==="pm"){
+				let id, message;
+				if(args[1]==="c:"){
+					id = toId(args[3]);
+					message = args.slice(4,args.length).join("|");
+				}else if(args[1]==="pm"){
+					id = toId(args[2]);
+					message = args.slice(4,args.length).join("|");
+				}else{
+					id = toId(args[2]);
+					message = args.slice(3,args.length).join("|");
+
+				}
+				let user = room.getUserData(id);
+				if(!user && !room.id){
+					user = room.userJoin(args[2].slice(1), toId(args[2]), "", args[2][0]);
+				}
+
+				if(message[0]==="~"){
+					let command = toId(message.split(" ")[0]);
+					let argText = message.substring(command.length+2, message.length);
+					let chatArgs = argText === "" ? [] : argText.split(",");
+					for(let i = 0;i<chatArgs.length;i++){
+						chatArgs[i] = chatArgs[i].trim();
+					}
+
+					//Pass to command listeners
+					//We have room object, user object, the command, and the list of arguments
+					for(let modulename in modules){
+						let module = modules[modulename];
 						try{
-							module.messagehooks[hookname](room, args, isInit);
+							if(module.commands[command]){
+								info("Running command from " + modulename);
+								let commandRoom = RoomManager.getRoom(module.GOVERNING_ROOM);
+								let commandRank = AuthManager.getRank(user, commandRoom);
+								let rank = AuthManager.getRank(user, room);
+								let commandFunc = typeof module.commands[command] == "string" ? module.commands[module.commands[command]] : module.commands[command];
+								commandFunc(message, chatArgs, user, rank, room, commandRank, commandRoom);
+							}
 						}catch(e){
 							error(e.message);
-							info("Exception while trying message hook from " + modulename + "(hook: " + hookname + ")");
+							info("Exception while trying command from " + modulename + "(command: " + command + ")");
+						}
+					}
+				}else{
+					//Pass to message listeners
+					for(let modulename in modules){
+						let module = modules[modulename];
+						for(let hookname in module.chathooks){
+							try{
+								module.chathooks[hookname](room, user, message);
+							}catch(e){
+								error(e.message);
+								info("Exception while trying chat hook from " + modulename + "(hook: " + hookname + ")");
+							}
 						}
 					}
 				}
-				if(module&&module.chathooks&&!isInit){
-					for(let hookname in module.chathooks){
-						try{
-							module.chathooks[hookname](chatInfo);
-						}catch(e){
-							error(e.message);
-							info("Exception while trying chat hook from " + modulename + "(hook: " + hookname + ")");
-						}
-					}
-				}
+				
 			}
 		}
 	}
@@ -487,7 +572,7 @@ global.uploadText = function(text, onSuccess, onError){
 	let filename = MD5(text.substr(0,10)+Date.now()) + ".txt";
 	try{
 		let textFile = fs.openSync(mainConfig.text_directory + filename,"w");
-		fs.writeSync(textFile,text);
+		fs.writeSync(textFile,text,null,'utf8');
 		fs.closeSync(textFile);
 		if(onSuccess) onSuccess(mainConfig.text_web_directory + filename);
 	}catch(e){
@@ -519,6 +604,16 @@ if (!fs.existsSync("./backups")){
 
 global.mainConfig = main_defaults;
 loadConfig("main",mainConfig);
+
+let rm = require('./roommanager');
+global.RoomManager = new rm.RoomManager();
+RoomManager.initRoom("");
+
+let am = require('./authmanager');
+global.AuthManager = new am.AuthManager();
+AuthManager.loadAuth("data/authlist.json");
+
+
 loadModule("modulemanager", true);
 ok("Bot has started, ready to connect");
 connect(false, 30000);
