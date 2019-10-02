@@ -369,6 +369,7 @@ exports.processJoin = processJoin;
 
 let processLeave = function(room, user){
 	let game = data.games[room.id];
+	// if(game) info(JSON.stringify(game.curUser));
 	if(game && user.id === game.curUser.id){
 		if(!game.bpOpen){
 			game.timeout = setTimeout(function(){
@@ -1405,9 +1406,9 @@ let ttleaderboardCommands = {
 		}else if(!/^-?[\d]+$/.test(args[2])){
 			room.broadcast(user, "Invalid number format for the number of points.", rank);
 		}else{
-			let user = args[1];
+			let target = args[1];
 			let points = parseInt(args[2], 10);
-			updateAllLeaderboardEntriesByUsername(user, (oldPoints)=>{
+			updateAllLeaderboardEntriesByUsername(target, (oldPoints)=>{
 				return Math.max(oldPoints + points, 0);
 			}, (name, affected, failed)=>{
 				let response = "Updated " + affected + " scores for " + name + ".";

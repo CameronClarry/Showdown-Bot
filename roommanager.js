@@ -37,10 +37,12 @@ class Room{
 	}
 	
 	userJoin(name, id, status, rank){
+        // info("JOIN: " + name + ", " + id + ", " + status + ", " + rank);
 		if(!this.users[id]){
 			this.numUsers++;
         }
         let oldUser = this.firstGarbage[id] || this.secondGarbage[id];
+        // info(JSON.stringify(oldUser));
         if(oldUser){
             this.users[id] = oldUser;
             delete this.firstGarbage[id];
@@ -48,6 +50,8 @@ class Room{
         }else{
             this.users[id] = new User(name, rank, status);
         }
+        // info(JSON.stringify(this.users[id]));
+        // info(this.id + ": " + this.numUsers);
         return this.users[id];
     }
     
@@ -69,24 +73,32 @@ class Room{
     }
 
 	userLeave(id){
+        // info("LEAVE: " + id);
+        let user;
 		if(this.users[id]){
+            user = this.users[id];
             this.firstGarbage[id] = this.users[id];
 			delete this.users[id];
-			this.numUsers--;
+            this.numUsers--;
+            // info(this.id + ": " + this.numUsers);
+        }else{
+            error("User left, but they were not known to be in the room");
         }
+        return user;
         if(Date.now()-this.lastCull > 60*60*1000) this.cull();
 	}
 
 	//Updates a user when they /nick
 	userNameChange(name, id, status, rank, prevId){
-        //info(JSON.stringify(this.getUserData(prevId)));
+        // info("NAME: " + name + ", " + id + ", " + status + ", " + rank + ", " + prevId);
+        // info(JSON.stringify(this.getUserData(prevId)));
         let user = this.getUserData(prevId);
         user.updateData(name, rank, status);
         if(id !== prevId){
             this.users[id] = user;
             delete this.users[prevId];
         }
-        //info(JSON.stringify(this.users[id]));
+        // info(JSON.stringify(this.getUserData(id)));
         return this.users[id];
 	}
 
@@ -133,8 +145,8 @@ class User{
     }
 
     updateData(name=this.name,rank=this.rank,status=this.status){
-        info("Updating user. Current rank: "+ this.rank+" new rank: "+rank);
-        info(AuthManager.getTopRank(rank, this.rank));
+        // info("Updating user. Current rank: "+ this.rank+" new rank: "+rank);
+        // info(AuthManager.getTopRank(rank, this.rank));
         this.name = name;
         this.id = toId(name);
         this.rank = AuthManager.getTopRank([rank, this.rank]);

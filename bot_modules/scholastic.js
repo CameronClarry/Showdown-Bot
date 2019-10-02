@@ -179,6 +179,9 @@ let commands = {
 	}
 };
 
+self.commands = commands;
+exports.commands = commands;
+
 let saveData = function(){
 	try{
 		let filename = "data/scholdata.json";

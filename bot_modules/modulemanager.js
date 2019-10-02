@@ -129,6 +129,9 @@ let managerFuncs = {
 		if(result){
 			response = "Successfully unloaded the module " + name + ".";
 			let index = data.modulesToLoad.indexOf(moduleName);
+			// info(data.modulesToLoad);
+			// info(moduleName);
+			// info(index);
 			if(index !== -1){
 				data.modulesToLoad.splice(index,1);
 				saveModuleList();
@@ -158,7 +161,7 @@ let configFuncs = {
 	list: function(message, args, user, rank, room, commandRank, commandRoom){
 		let name = toId(args[1]);
 		if(name){
-			info(name);
+			// info(name);
 			let module = modules[name];
 			if(module){
 				let configs = [];

@@ -152,6 +152,7 @@ global.loadModule = function(name, loadData){
 		error(e.message);
 		info("Could not load the module " + name);
 	}
+	delete modules[name];
 	return false;
 };
 global.unloadModule = function(name){
@@ -163,10 +164,12 @@ global.unloadModule = function(name){
 			modules[name].onUnload();
 		}
 		delete modules[name];
-		for(let i=0;i<requiredBy.length;i++){
-			let module = modules[requiredBy[i]];
-			if(module && module.refreshDependencies){
-				module.refreshDependencies();
+		if(requiredBy){
+			for(let i=0;i<requiredBy.length;i++){
+				let module = modules[requiredBy[i]];
+				if(module && module.refreshDependencies){
+					module.refreshDependencies();
+				}
 			}
 		}
 		return true;
@@ -365,7 +368,7 @@ function handle(message){
 				RoomManager.deinitRoom(roomName);
 			}else if(args[1]==="users"){
 				room.processUsers(args[2].split(",").slice(1));
-			}else if(args[1]==="j"||args[1]==="join"){
+			}else if(args[1]==="j"||args[1]==="join"||args[1]==="J"){
 				let parts = args[2].slice(1).split("@");
 				let rank = args[2][0];
 				let name = parts[0];
@@ -380,9 +383,8 @@ function handle(message){
 						info("Exception when sending join update to " + modulename);
 					}
 				}
-			}else if(args[1]==="l"||args[1]==="leave"){
-				let parts = args[2].slice(1).split("@");
-				let id = toId(parts[0]);
+			}else if(args[1]==="l"||args[1]==="leave"||args[1]==="L"){
+				let id = toId(args[2]);
 				let user = room.userLeave(id);
 				for(let modulename in modules){
 					let module = modules[modulename];
@@ -440,7 +442,7 @@ function handle(message){
 						let module = modules[modulename];
 						try{
 							if(module.commands[command]){
-								info("Running command from " + modulename);
+								// info("Running command from " + modulename);
 								let commandRoom = RoomManager.getRoom(module.GOVERNING_ROOM);
 								let commandRank = AuthManager.getRank(user, commandRoom);
 								let rank = AuthManager.getRank(user, room);
