@@ -93,7 +93,7 @@ Command|Usage|Required Rank
 `~alt [user]`|Links your account with `[user]`. This command must be used from both accounts to complete the link.|None
 `~removealt [user]`|Removes the specified account from your linked accounts. It cannot be your main account.|None
 `~main [name]`|Changes your main account. The name given must match one of your alts in alphanumeric characters (eg. StRuChNi! is acceptable for Struchni). This is the name that you will be referred to as in all leaderboard listings.|None
-`~timer [minutes], [seconds], {message}, {warning}, {room}`|This will set a timer to go off in {minutes} minutes and {seconds} seconds. A range of minutes or seconds can be randomly selected from if they are given in the form `min:max` (eg `timer 0,30:60` sets a timer for between 30 and 60 seconds). The message can be specified, otherwise a default will be used. Note that the message will always use `/wall`. The room can also be specified, defaulting to the room the message is used in. If `{warning}` is given, then a message will be displayed letting users know when that many seconds are left on the timer.|+
+`~timer [seconds], {message}, {room}`|This will set a timer to go off in [seconds] seconds. The message can be specified, otherwise a default will be used. Note that the message will always use `/wall`. The room can also be specified, defaulting to the room the message is used in.|+
 `~timer end, {room}`|This will clear the timer in the given room. If no room is given, it defaults to the room that the command is used in.|+
 `~addfact [fact]`|Adds the given fact to the database.|+
 `~removefact [fact]`|Removes the given fact.|+

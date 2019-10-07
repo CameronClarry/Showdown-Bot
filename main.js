@@ -429,7 +429,7 @@ function handle(message){
 				}
 
 				if(message[0]==="~"){
-					let command = toId(message.split(" ")[0]);
+					let command = message.split(" ")[0].toLowerCase();
 					let argText = message.substring(command.length+2, message.length);
 					let chatArgs = argText === "" ? [] : argText.split(",");
 					for(let i = 0;i<chatArgs.length;i++){

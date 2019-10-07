@@ -192,23 +192,23 @@ let achievementCommands = {
 		}
 	},
 	check: function(message, args, user, rank, room, commandRank, commandRoom){
-		let username = args[0] || message.user;
-		pgclient.getId(username, false, (user)=>{
-			if(!user){
+		let username = args[0] || user.name;
+		pgclient.getId(username, false, (res)=>{
+			if(!res){
 				room.broadcast(user, "The user " + username + " doesn't exist.", rank);
 			}else{
-				let output = user.display_name + "'s achievements:\n";
-				pgclient.runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [user.id], (row)=>{
+				let output = res.display_name + "'s achievements:\n";
+				pgclient.runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [res.id], (row)=>{
 					output += row.name + "\n";
-				},(res)=>{
+				},(res2)=>{
 					uploadText(output, (address)=>{
-						room.broadcast(user, "Here are " + user.display_name + "'s achievements: " + address, rank);
+						room.broadcast(user, "Here are " + res.display_name + "'s achievements: " + address, rank);
 					}, (error)=>{
 						room.broadcast(user, "There was an error while saving the file.", rank);
 					});
 				},(err)=>{
 					error(err);
-					room.broadcast(user, "There was a problem getting " + user.display_name + "'s achievements.", rank);
+					room.broadcast(user, "There was a problem getting " + res.display_name + "'s achievements.", rank);
 				});
 			}
 		}, (err)=>{

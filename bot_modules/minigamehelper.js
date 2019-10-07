@@ -96,7 +96,7 @@ let commands = {
 			room.broadcast(user, "You cannot use this command through PM.", rank);
 		}else if(!AuthManager.rankgeq(commandRank, config.rosterRank) || data.voices[user.id]){
 			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
-		}else if(room !== "trivia"){
+		}else if(room.id !== "trivia"){
 			room.broadcast(user, "This command can only be used in Trivia.", rank);
 		}else{
 			data.maxplayers = max;
