@@ -885,7 +885,8 @@ let commands = {
 				room: roomId,
 				timer: setTimeout(()=>{
 					delete data.timers[timerName];
-					room.send(endMessage);
+					room = RoomManager.getRoom(roomId);
+					if(room) room.send(endMessage);
 				}, duration*1000)
 			};
 			room.broadcast(user, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
@@ -913,7 +914,8 @@ let commands = {
 				room: roomId,
 				timer: setTimeout(()=>{
 					delete data.timers[timerName];
-					room.send(endMessage);
+					room = RoomManager.getRoom(roomId);
+					if(room) room.send(endMessage);
 				}, duration*1000)
 			};
 			user.send("Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
