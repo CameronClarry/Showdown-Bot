@@ -94,6 +94,7 @@ Command|Usage|Required Rank
 `~removealt [user]`|Removes the specified account from your linked accounts. It cannot be your main account.|None
 `~main [name]`|Changes your main account. The name given must match one of your alts in alphanumeric characters (eg. StRuChNi! is acceptable for Struchni). This is the name that you will be referred to as in all leaderboard listings.|None
 `~timer [seconds], {message}, {room}`|This will set a timer to go off in [seconds] seconds. The message can be specified, otherwise a default will be used. Note that the message will always use `/wall`. The room can also be specified, defaulting to the room the message is used in.|+
+`~ttbtimer [min seconds], [max seconds], {message}, {room}`|This will set a timer to go off in between [min seconds] and [max seconds] seconds. The message can be specified, otherwise a default will be used. Note that the message will always use `/wall`. The room can also be specified, defaulting to the room the message is used in.|+
 `~timer end, {room}`|This will clear the timer in the given room. If no room is given, it defaults to the room that the command is used in.|+
 `~addfact [fact]`|Adds the given fact to the database.|+
 `~removefact [fact]`|Removes the given fact.|+

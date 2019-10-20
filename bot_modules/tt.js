@@ -455,7 +455,7 @@ let commands = {
 		if(!game){
 			room.broadcast(user, "There is no trivia game in " + roomId + ".");
 		}else if(!toId(args[0])){
-			room.broadcast(user, "you must specify a player.");
+			room.broadcast(user, "You must specify a player.");
 		}else if(!hasRank && game.curUser.id !== user.id){
 			room.broadcast(user, "You either are not the active user or do not have a high enough rank to use this command.");
 		}else if(!hasRank && game.bpOpen){
@@ -561,7 +561,7 @@ let commands = {
 				if(!nextUser){
 					room.broadcast(user, "That user is not in the room.");
 				}else{
-					let result = tryBatonPass(game, user, nextUser, {active: nextUser.name}, false, false, null, true);
+					let result = tryBatonPass(game, user, nextUser, {active: nextUser}, false, false, null, true);
 				}
 
 			}
@@ -891,6 +891,34 @@ let commands = {
 			room.broadcast(user, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
 		}else{
 			user.send("The first argument must be either 'end' or an integer.");
+		}
+	},
+	//~ttbtimer [min seconds], [max seconds], {message}, {room}
+	ttbtimer: function(message, args, user, rank, room, commandRank, commandRoom){
+		let arg0 = toId(args[0]);
+		let arg1 = toId(args[1]);
+		let roomId = toRoomId(args[3]) || room.id;
+		if(!AuthManager.rankgeq(rank,config.timerRank)){
+			user.send("Your rank is not high enough to manage timers.");
+		}else if(!roomId){
+			user.send("You must specify a room.");
+		}else if(/^\d+$/.test(arg0) && /^\d+$/.test(arg1)){
+			let timerName = "room:" + roomId;
+			let minTime = parseInt(arg0);
+			let maxTime = parseInt(arg1);
+			let duration = Math.max(Math.round(Math.random()*(maxTime-minTime)+minTime),1);
+			let endMessage = args[2] ? "/wall " + args[2] : "/wall Timer's up!";
+			if(data.timers[timerName]) clearTimeout(data.timers[timerName].timer);
+			data.timers[timerName] = {
+				room: roomId,
+				timer: setTimeout(()=>{
+					delete data.timers[timerName];
+					room.send(endMessage);
+				}, duration*1000)
+			};
+			user.send("Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
+		}else{
+			user.send("You must give a minimum and a maximum time.");
 		}
 	},
 	addfact: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1486,7 +1514,7 @@ let ttleaderboardCommands = {
 		if(!AuthManager.rankgeq(commandRank, config.resetLeaderboardRank)){
 			room.broadcast(user, "Your rank is not high enough to reset the leaderboard.", rank);
 		}else{
-			if(idsMatch(message.user, data.askToReset)){
+			if(idsMatch(user.id, data.askToReset)){
 				try{
 					let child = spawn("pg_dump", [mainConfig.dbname]);
 					let parts = [];
@@ -1503,7 +1531,7 @@ let ttleaderboardCommands = {
 						fs.writeFile(filename, text, (err)=>{
 							// Now that the database has been written, it's okay to reset
 							getAllLeaderboardEntries("main", (arr)=>{
-								pgclient.getId(message.user, true, (user)=>{
+								pgclient.getId(user.id, true, (user)=>{
 									pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
 										pgclient.runSql(RESET_MAIN_LB_SQL, [user.id], null, ()=>{
 											room.broadcast(user, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.", rank);
@@ -1529,7 +1557,7 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "There was an error creating the subprocess responsible for creating the database dump.", rank);
 				}
 			}else{
-				data.askToReset = message.user;
+				data.askToReset = user.id;
 				room.broadcast(user, "Are you sure you want to reset the leaderboard? (Enter the reset command again to confirm)", rank);
 			}
 		}
