@@ -388,7 +388,7 @@ exports.processLeave = processLeave;
 let processName = function(room, user){
 	let game = data.games[room.id];
 	if(game && user.id === game.curUser.id){
-		if(user.rank === "‽" || user.rank === "!"){ // Let's go ahead and open BP if the user is muted or locked
+		if(user.trueRank === "‽" || user.trueRank === "!"){ // Let's go ahead and open BP if the user is muted or locked
 			if(!game.bpOpen){
 				room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
 			}
@@ -861,35 +861,43 @@ let commands = {
 	//~timer end, {room}
 	timer: function(message, args, user, rank, room, commandRank, commandRoom){
 		let arg = toId(args[0]);
-		if(!AuthManager.rankgeq(rank,config.timerRank)){
-			user.send("Your rank is not high enough to manage timers.");
-		}else if(arg === "end"){
+		if(arg === "end"){
 			let roomId = toRoomId(args[1]) || room.id;
-			let timerName = "room:" + roomId;
-			if(!roomId){
-				user.send("You must specify a room.");
-			}else if(!data.timers[timerName]){
-				user.send("There isn't a timer for " + roomId + ".");
+			rank = AuthManager.getRank(user, RoomManager.getRoom(roomId));
+			if(!AuthManager.rankgeq(rank, config.timerRank)){
+				user.send("Your rank is not high enough to manage timers.");
 			}else{
-				clearTimeout(data.timers[timerName].timer);
-				delete data.timers[timerName];
-				room.broadcast(user, "Successfully cleared the timer for " + roomId + ".");
+				let timerName = "room:" + roomId;
+				if(!roomId){
+					user.send("You must specify a room.");
+				}else if(!data.timers[timerName]){
+					user.send("There isn't a timer for " + roomId + ".");
+				}else{
+					clearTimeout(data.timers[timerName].timer);
+					delete data.timers[timerName];
+					room.broadcast(user, "Successfully cleared the timer for " + roomId + ".");
+				}
 			}
 		}else if(/^\d+$/.test(arg)){
 			let roomId = toRoomId(args[2]) || room.id;
-			let timerName = "room:" + roomId;
-			let duration = Math.max(parseInt(arg, 10),1);
-			let endMessage = args[1] ? "/wall " + args[1] : "/wall Timer's up!";
-			if(data.timers[timerName]) clearTimeout(data.timers[timerName].timer);
-			data.timers[timerName] = {
-				room: roomId,
-				timer: setTimeout(()=>{
-					delete data.timers[timerName];
-					room = RoomManager.getRoom(roomId);
-					if(room) room.send(endMessage);
-				}, duration*1000)
-			};
-			room.broadcast(user, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
+			rank = AuthManager.getRank(user, RoomManager.getRoom(roomId));
+			if(!AuthManager.rankgeq(rank, config.timerRank)){
+				user.send("Your rank is not high enough to manage timers.");
+			}else{
+				let timerName = "room:" + roomId;
+				let duration = Math.max(parseInt(arg, 10),1);
+				let endMessage = args[1] ? "/wall " + args[1] : "/wall Timer's up!";
+				if(data.timers[timerName]) clearTimeout(data.timers[timerName].timer);
+				data.timers[timerName] = {
+					room: roomId,
+					timer: setTimeout(()=>{
+						delete data.timers[timerName];
+						room = RoomManager.getRoom(roomId);
+						if(room) room.send(endMessage);
+					}, duration*1000)
+				};
+				room.broadcast(user, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
+			}
 		}else{
 			user.send("The first argument must be either 'end' or an integer.");
 		}
@@ -899,10 +907,12 @@ let commands = {
 		let arg0 = toId(args[0]);
 		let arg1 = toId(args[1]);
 		let roomId = toRoomId(args[3]) || room.id;
-		if(!AuthManager.rankgeq(rank,config.timerRank)){
+		let targetRoom = RoomManager.getRoom(roomId);
+		rank = AuthManager.getRank(user, targetRoom);
+		if(!roomId || !targetRoom){
+			user.send("You must specify a room that I am in.");
+		}if(!AuthManager.rankgeq(rank, config.timerRank)){
 			user.send("Your rank is not high enough to manage timers.");
-		}else if(!roomId){
-			user.send("You must specify a room.");
 		}else if(/^\d+$/.test(arg0) && /^\d+$/.test(arg1)){
 			let timerName = "room:" + roomId;
 			let minTime = parseInt(arg0);
@@ -914,8 +924,7 @@ let commands = {
 				room: roomId,
 				timer: setTimeout(()=>{
 					delete data.timers[timerName];
-					room = RoomManager.getRoom(roomId);
-					if(room) room.send(endMessage);
+					targetRoom.send(endMessage);
 				}, duration*1000)
 			};
 			user.send("Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");

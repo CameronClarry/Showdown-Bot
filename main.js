@@ -103,7 +103,7 @@ global.loadConfig = function(name, defaults){
 
 global.saveConfig = function(name){
 	let filename = "config/" + name + "_config.json";
-	if((modules[name] && modules[name].config) || name === "main"){
+	if((modules[name] && modules[name].getConfig) || name === "main"){
 		try{
 			let configFile = fs.openSync(filename,"w");
 			let config = name === "main" ? mainConfig : modules[name].getConfig();
@@ -429,7 +429,7 @@ function handle(message){
 				}
 
 				if(message[0]==="~"){
-					let command = message.split(" ")[0].toLowerCase();
+					let command = message.split(" ")[0].slice(1).toLowerCase();
 					let argText = message.substring(command.length+2, message.length);
 					let chatArgs = argText === "" ? [] : argText.split(",");
 					for(let i = 0;i<chatArgs.length;i++){
