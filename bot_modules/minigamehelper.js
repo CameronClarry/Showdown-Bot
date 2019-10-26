@@ -25,6 +25,15 @@ exports.onLoad = function(module, loadData, oldData){
 		};
 	}
 
+	if(!data.remindTimer && config.officialReminders){
+		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
+		data.remindTimer = setTimeout(()=>{
+			data.remindTimer = null;
+			officialReminder();
+		}, timeDiff);
+		info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+	}
+
 	self.chathooks = {
 		chathook: function(room, user, message){
 			if(data.maxplayers && data.plist.length < data.maxplayers && room.id === "trivia"){
@@ -71,6 +80,10 @@ exports.onUnload = function(){
 	}
 	for(let id in data.hosts){
 		triviaRoom.send("/roomdeauth " + id);
+	}
+	if(data.remindTimer){
+		clearTimeout(data.remindTimer);
+		data.remindTimer = null;
 	}
 };
 let refreshDependencies = function(){
@@ -456,14 +469,28 @@ let removePlayers = function(names){
 	return "Player list updated. There " + (n==1?"is":"are") + " now " + n + " player" + (n==1?"":"s") + "."
 }
 
+let officialReminder = function(){
+	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
+	if(triviaRoom) triviaRoom.send("Time for the next official!");
+	let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
+	if(timeDiff < 1000*60) timeDiff = 14400000;
+	if(config.officialReminders) data.remindTimer = setTimeout(()=>{
+		data.remindTimer = null;
+		officialReminder();
+	}, timeDiff);
+	info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+}
+
 let defaultConfigs = {
-	rosterRank: "+"
+	rosterRank: "+",
+	officialReminders: 1
 };
 
 exports.defaultConfigs = defaultConfigs;
 
 let configTypes = {
-	rosterRank: "rank"
+	rosterRank: "rank",
+	officialReminders: "int"
 };
 
 exports.configTypes = configTypes;
