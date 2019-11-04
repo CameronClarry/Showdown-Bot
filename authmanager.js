@@ -1,5 +1,5 @@
 let fs = require('fs');
-let ranks = [" ", "★", "+", "%", "@", "*", "&", "#", "~"];
+let ranks = ["‽", "!", " ", "★", "+", "%", "@", "*", "&", "#", "~"];
 
 
 exports.AuthManager = class{

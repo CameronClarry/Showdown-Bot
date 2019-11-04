@@ -1795,8 +1795,10 @@ let tryBatonPass = function(game, user, nextPlayer, historyToAdd, shouldUndoAske
 	if(game.curUser.id === nextPlayer.id){
 		game.room.broadcast(user, "It is already " + nextPlayer.name + "'s turn to ask a question.");
 	}else if(blEntry && !bypassBl){
-		game.room.broadcast(user, nextPlayer.name + " is on the blacklist.");
-	}else if(nextPlayer.rank === "‽" || nextPlayer.rank === "!"){
+		game.room.send(user, nextPlayer.name + " is on the blacklist. BP is now open.");
+		game.bpOpen = "auth";
+		clearTimers(game);
+	}else if(nextPlayer.trueRank === "‽" || nextPlayer.trueRank === "!"){
 		game.room.broadcast(user, nextPlayer.name + " is either muted or locked.");
 	}else{
 		if(shouldUndoAsker && game.curHist.undoAsker){

@@ -81,9 +81,6 @@ Command|Usage|Required Rank
 `~minigamelist`|Provides a list of all available minigame commands.|#
 `~minigameupdate [URL]`|Overwrites the list of minigame commands. See the `~minigamelist` output for formatting.|#
 `~minigame [minigame name]`|Executes the given minigame. The effects and required rank will depend on which one is being executed.|Varies
-`~voice [user1], {user2}, {user3}, ...`|Attempts to voice the given users and start modchat.|@
-`~devoice [user1], {user2}, {user3}, ...`|Devoices the given users if they were previously voiced by the bot, and ends modchat if all users have been devoiced.|@
-`~devoiceall`|Devoices all users that were voiced with the `~voice` command, and ends modchat.|@
 
 Misc commands:
 

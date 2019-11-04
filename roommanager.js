@@ -145,11 +145,15 @@ class User{
     }
 
     updateData(name=this.name,rank=this.rank,status=this.status){
-        // info("Updating user. Current rank: "+ this.rank+" new rank: "+rank);
-        // info(AuthManager.getTopRank(rank, this.rank));
+        // If someone's true rank changes but their id doesn't, update the rank
+        // If someone's name is changed to locked or muted, we should always update the rank
+        if(this.trueRank !== rank && this.id === toId(name)){
+            this.rank = rank;
+        }else{
+            this.rank = rank === "!" || rank === "‽" ? rank : AuthManager.getTopRank([rank, this.rank]);
+        }
         this.name = name;
         this.id = toId(name);
-        this.rank = AuthManager.getTopRank([rank, this.rank]);
         this.trueRank = rank;
         this.status = status;
         this.isAway = status && status[0] === "!";
