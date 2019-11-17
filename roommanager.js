@@ -45,6 +45,8 @@ class Room{
         // info(JSON.stringify(oldUser));
         if(oldUser){
             this.users[id] = oldUser;
+            //This will detect rank changes from when the user was not in the room
+            this.users[id].updateData(name, rank, status);
             delete this.firstGarbage[id];
             delete this.secondGarbage[id];
         }else{

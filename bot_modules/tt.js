@@ -614,7 +614,7 @@ let commands = {
 					game.bpOpen = null;
 					gameRoom.send("**BP is now closed.**");
 				}else{
-					room.respond(user, "BP is not open.");
+					room.broadcast(user, "BP is not open. Timers have been cleared.");
 				}
 				clearTimers(game);
 			}else{
