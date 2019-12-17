@@ -197,6 +197,13 @@ let removeAllLeaderboardEntries = function(id, onEnd, onError){
 	pgclient.runSql(DELETE_USER_ENTRIES_SQL, [id], null, onEnd, onError);
 }
 
+// 1) Get all achievements of fromId and toId
+// 2) For each achievement, if it doesn't exist on toId change the id to toId. If it does exist, update the date on toId to be the earlier date
+// 3) Remove all 
+let transferAllAchievements = function(fromId, toId, onEnd, onError){
+	let success = true;
+}
+
 let transferAllPoints = function(fromId, toId, onEnd, onError, onAllFinished){
 	let success = true;
 	let fromEntries = {};
@@ -1789,13 +1796,13 @@ let blacklistCommands = {
 		}
 	}
 };
-let tryBatonPass = function(game, user, nextPlayer, historyToAdd, shouldUndoAsker, shouldUndoAnswerer, remindTime, bypassBl){
+let tryBatonPass = function(game, user, nextPlayer, historyToAdd, shouldUndoAsker,  , remindTime, bypassBl){
 	remindTime = remindTime || config.remindTime;
 	let blEntry = getBlacklistEntry(nextPlayer.id);
 	if(game.curUser.id === nextPlayer.id){
 		game.room.broadcast(user, "It is already " + nextPlayer.name + "'s turn to ask a question.");
 	}else if(blEntry && !bypassBl){
-		game.room.send(user, nextPlayer.name + " is on the blacklist. BP is now open.");
+		game.room.send(nextPlayer.name + " is on the blacklist. BP is now open.");
 		game.bpOpen = "auth";
 		clearTimers(game);
 	}else if(nextPlayer.trueRank === "‽" || nextPlayer.trueRank === "!"){
