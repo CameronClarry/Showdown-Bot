@@ -1796,7 +1796,8 @@ let blacklistCommands = {
 		}
 	}
 };
-let tryBatonPass = function(game, user, nextPlayer, historyToAdd, shouldUndoAsker,  , remindTime, bypassBl){
+
+let tryBatonPass = function(game, user, nextPlayer, historyToAdd, shouldUndoAsker, shouldUndoAnswerer, remindTime, bypassBl){
 	remindTime = remindTime || config.remindTime;
 	let blEntry = getBlacklistEntry(nextPlayer.id);
 	if(game.curUser.id === nextPlayer.id){
