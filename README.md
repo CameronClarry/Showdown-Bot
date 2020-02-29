@@ -51,6 +51,8 @@ Command|Usage|Required Rank
 `~bp [user]`|This gives the specified user BP, but does not change any points.|+
 `~bpopen`|Opens BP, allowing it to be claimed. Can only be used by the person with BP, or someone with the required rank. If an auth opens it, only an auth can close it.|+
 `~bpclose`|Closes BP. Can only be used by the user that opened it, or someone with the required rank.|+
+`~bplock`|Locks BP, preventing it from being opened and preventing users from being ~yessed. Can only be used by someone with the required rank.|+
+`~bpunlock`|Unlock BP, allowing BP to used as normal again. Can only be used by someone with the required rank.|+
 
 Blacklist commands:
 
