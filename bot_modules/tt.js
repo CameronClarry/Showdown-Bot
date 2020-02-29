@@ -560,7 +560,7 @@ let commands = {
 			let id = toId(args[0]);
 			if(!id || !AuthManager.rankgeq(commandRank, config.manageBpRank)){
 				let lastActive = game.curUser.name;
-				room.broadcast(user, lastActive + " currently has BP" + (game.bpOpen ? " (BP is open)." : "."))
+				room.broadcast(user, lastActive + " currently has BP" + (game.bpLocked ? " (BP is locked)" : "") + (game.bpOpen ? " (BP is open)." : "."))
 			}else{
 				let nextUser = game.room.getUserData(id);
 				if(!nextUser){
@@ -1897,7 +1897,7 @@ let sayScores = function(scores, lb, room){
 
 let onRemind = function(game){
 	if(game.curUser){
-		if(!game.bpOpen){
+		if(!game.bpOpen && !game.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
 			game.curUser.send("You have " + (config.openTime) + " seconds to ask a question.");
 		}
 		let rank = AuthManager.getRank(game.curUser, game.room);
