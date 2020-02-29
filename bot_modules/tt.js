@@ -1910,12 +1910,10 @@ let onRemind = function(game){
 };
 
 let onTimeUp = function(game){
-	if(!game.bpLocked){
-		return // do nothing if BP is locked
-	}if(!game.bpOpen){
+	if(!game.bpOpen && !game.bpLocked){
 		game.room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
 		game.bpOpen = "timer";
-	}else if(game.bpOpen == "leave" || game.bpOpen == "user"){
+	}else if( (game.bpOpen == "leave" || game.bpOpen == "user") && !game.bpLocked ){
 		game.bpOpen = "timer";
 	}
 	clearTimers(game);
