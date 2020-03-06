@@ -292,11 +292,11 @@ exports.onLoad = function(module, loadData, oldData){
 		chathook: function(room, user, message){
 			let game = data.games[room.id];
 			if(!game) return;
-			
+
 			if(game.bpOpen){
 				let text = toId(message);
 				if(text === "bp" || text === "me" || text === "bpme"){
-					tryBatonPass(game, user, user, {active:user}, false, true, config.remindTime/2);
+					tryBatonPass(game, user, user, {active:user}, false, false, config.remindTime/2);
 				}
 			}
 			let triviaRank = AuthManager.getRank(user, RoomManager.getRoom("trivia"));
@@ -380,7 +380,7 @@ let processLeave = function(room, user){
 	if(game && user.id === game.curUser.id){
 		if(!game.bpOpen){
 			game.timeout = setTimeout(function(){
-				if(!game.bpOpen){
+				if(!game.bpOpen && !game.bpLocked){ // if bp is locked dont change it
 					game.bpOpen = "leave";
 					game.timeout = null;
 					room.send("**" + game.curUser.name + " has left, so BP is now open (say 'me' or 'bp' to claim it).**");
@@ -395,7 +395,8 @@ exports.processLeave = processLeave;
 let processName = function(room, user){
 	let game = data.games[room.id];
 	if(game && user.id === game.curUser.id){
-		if(user.trueRank === "‽" || user.trueRank === "!"){ // Let's go ahead and open BP if the user is muted or locked
+		if( (user.trueRank === "‽" || user.trueRank === "!") && !game.bpLocked){ // Let's go ahead and open BP if the user is muted or locked
+			// but we can't open BP if it's locked!
 			if(!game.bpOpen){
 				room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
 			}
@@ -408,7 +409,7 @@ exports.processName = processName;
 
 let processHide = function(room, user){
 	let game = data.games[room.id];
-	if(game && user.id === game.curUser.id){
+	if(game && user.id === game.curUser.id && !game.bpLocked){ // can't open BP if it's locked
 		// The user must've done something very bad so opening BP is probably a good idea
 		if(!game.bpOpen){
 			room.send("**BP is now open (say 'me' or 'bp' to claim it).**")
@@ -465,8 +466,10 @@ let commands = {
 			room.broadcast(user, "You must specify a player.");
 		}else if(!hasRank && game.curUser.id !== user.id){
 			room.broadcast(user, "You either are not the active user or do not have a high enough rank to use this command.");
+		}else if(!hasRank && game.bpLocked){
+			room.broadcast(user, "You cannot ask questions or use ~yes while BP is locked.");
 		}else if(!hasRank && game.bpOpen){
-			room.broadcast(user, "You cannot ~yes while bp is open.");
+			room.broadcast(user, "You cannot ~yes while BP is open.");
 		}else if(!hasRank && !game.history[game.history.length-1].hasAsked){
 			room.broadcast(user, "You must ask a question in bold before you use ~yes. If your question was veto'd, please ask a new one or discuss it with a staff member.");
 		}else{
@@ -518,6 +521,8 @@ let commands = {
 				let response = "**Undid " + i + " action(s)";
 				clearTimers(game);
 				game.bpOpen = null;
+				// if we're undoing actions, we probably want BP to be unlocked.
+				game.bpLocked = null;
 				if(game.history.length>0){
 					game.curHist = game.history[game.history.length-1];
 					let newUser = game.curHist.active;
@@ -562,7 +567,7 @@ let commands = {
 			let id = toId(args[0]);
 			if(!id || !AuthManager.rankgeq(commandRank, config.manageBpRank)){
 				let lastActive = game.curUser.name;
-				room.broadcast(user, lastActive + " currently has BP" + (game.bpOpen ? " (BP is open)." : "."))
+				room.broadcast(user, lastActive + " currently has BP" + (game.bpLocked ? " (BP is locked)" : "") + (game.bpOpen ? " (BP is open)." : "."))
 			}else{
 				let nextUser = game.room.getUserData(id);
 				if(!nextUser){
@@ -574,6 +579,58 @@ let commands = {
 			}
 		}
 	},
+	lockbp: "bplock",
+	bplock: function(message, args, user, rank, room, commandRank, commandRoom){
+		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		if(!roomId){
+			user.send("You must specify a room.");
+		}else if(!data.games[roomId]){
+			room.broadcast(user, "There is no game in " + roomId + ".");
+		}else{
+			let game = data.games[roomId];
+			let gameRoom = game.room;
+			let lastActive = game.curUser;
+			// I'm making it so that only auth can lock BP - since it's only for
+			// hosting minigames/fish, no regs should have need of it.
+			if(AuthManager.rankgeq(commandRank, config.manageBpRank)){
+				if(game.bpOpen){
+					// BP shouldn't be open and locked at the same time—that doesn't make sense
+					gameRoom.send("BP is open — please claim it or close BP before locking BP.");
+				}else if(!game.bpLocked){
+					game.bpLocked = true;
+					gameRoom.send("**BP is now locked; no one can ask questions.**");
+				}else{
+					room.broadcast(user,"BP is already locked.");
+				}
+			}else{
+				room.broadcast(user, "You are not ranked high enough to lock BP.")
+			}
+		}
+	},
+	unlockbp: "bpunlock",
+	bpunlock: function(message, args, user, rank, room, commandRank, commandRoom){
+		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		if(!roomId){
+			user.send("You must specify a room.");
+		}else if(!data.games[roomId]){
+			room.broadcast(user, "There is no game in " + roomId + ".");
+		}else{
+			let game = data.games[roomId];
+			let gameRoom = game.room;
+			if(AuthManager.rankgeq(commandRank, config.manageBpRank)){
+				if(game.bpLocked){
+					game.bpLocked = null;
+					gameRoom.send("**BP is now unlocked; questions may be asked now.**");
+				}else{
+					room.respond(user, "BP is not locked.");
+				}
+				clearTimers(game);
+			}else{
+				room.broadcast(user, "Either BP is not locked or you do not have permission to unlock it.");
+			}
+		}
+	},
+
 	openbp: "bpopen",
 	bpopen: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
@@ -585,7 +642,9 @@ let commands = {
 			let game = data.games[roomId];
 			let gameRoom = game.room;
 			let lastActive = game.curUser;
-			if(lastActive.id === user.id){
+			if(game.bpLocked){ // Opening BP while it's locked makes no sense.
+				gameRoom.send("You cannot open BP while BP is locked.");
+			}else if(lastActive.id === user.id){
 				if(!game.bpOpen){
 					game.bpOpen = "user";
 					gameRoom.send("**BP is now open (say 'me' or 'bp' to claim it).**");
@@ -1848,7 +1907,7 @@ let sayScores = function(scores, lb, room){
 
 let onRemind = function(game){
 	if(game.curUser){
-		if(!game.bpOpen){
+		if(!game.bpOpen && !game.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
 			game.curUser.send("You have " + (config.openTime) + " seconds to ask a question.");
 		}
 		let rank = AuthManager.getRank(game.curUser, game.room);
@@ -1861,10 +1920,10 @@ let onRemind = function(game){
 };
 
 let onTimeUp = function(game){
-	if(!game.bpOpen){
+	if(!game.bpOpen && !game.bpLocked){
 		game.room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
 		game.bpOpen = "timer";
-	}else if(game.bpOpen == "leave" || game.bpOpen == "user"){
+	}else if( (game.bpOpen == "leave" || game.bpOpen == "user") && !game.bpLocked ){
 		game.bpOpen = "timer";
 	}
 	clearTimers(game);
