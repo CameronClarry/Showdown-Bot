@@ -570,7 +570,7 @@ let commands = {
 				// if BP is open or locked, there's no need to HL the user who last had it.
 				room.broadcast(user,
 					(game.bpOpen || game.bpLocked ? "__" + lastActive + "__" : lastActive)
-				  + " has BP" + (game.bpOpen ? " (BP is open)" : "")
+					+ " has BP" + (game.bpOpen ? " (BP is open)" : "")
 					+ (game.bpLocked ? " (BP is locked)." : "."));
 			}else{
 				let nextUser = game.room.getUserData(id);
