@@ -199,7 +199,7 @@ let removeAllLeaderboardEntries = function(id, onEnd, onError){
 
 // 1) Get all achievements of fromId and toId
 // 2) For each achievement, if it doesn't exist on toId change the id to toId. If it does exist, update the date on toId to be the earlier date
-// 3) Remove all 
+// 3) Remove all
 let transferAllAchievements = function(fromId, toId, onEnd, onError){
 	let success = true;
 }
@@ -567,7 +567,11 @@ let commands = {
 			let id = toId(args[0]);
 			if(!id || !AuthManager.rankgeq(commandRank, config.manageBpRank)){
 				let lastActive = game.curUser.name;
-				room.broadcast(user, lastActive + " currently has BP" + (game.bpLocked ? " (BP is locked)" : "") + (game.bpOpen ? " (BP is open)." : "."))
+				// if BP is open or locked, there's no need to HL the user who last had it.
+				room.broadcast(user,
+					(game.bpOpen || game.bpLocked ? "__" + lastActive + "__" : lastActive)
+				  + " has BP" + (game.bpOpen ? " (BP is open)" : "")
+					+ (game.bpLocked ? " (BP is locked)." : "."));
 			}else{
 				let nextUser = game.room.getUserData(id);
 				if(!nextUser){
