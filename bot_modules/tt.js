@@ -1019,6 +1019,7 @@ let commands = {
 			}
 		}
 	},
+	deletefact: "removefact",
 	removefact: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank,config.factRank)){
 			room.broadcast(user, "Your rank is not high enough to edit facts.");
