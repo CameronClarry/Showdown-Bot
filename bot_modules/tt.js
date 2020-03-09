@@ -624,11 +624,22 @@ let commands = {
 			if(AuthManager.rankgeq(commandRank, config.manageBpRank)){
 				if(game.bpLocked){
 					game.bpLocked = null;
-					gameRoom.send("**BP is now unlocked; questions may be asked now.**");
+					game.bpOpen = null;
+					let lastActive = game.curUser.name;
+					if(game.room.getUserData(toId(lastActive))){ // if the user's in the room
+						game.timeout = null;
+						game.remindTimer = setTimeout(()=>{
+							onRemind(game);
+						}, config.remindTime*1000);
+						gameRoom.send("**BP is now unlocked; " + lastActive + " has BP.**");
+					}else{ // not in the room, so open BP due to leaving
+						game.bpOpen = "leave";
+						game.timeout = null;
+						gameRoom.send("**BP is now unlocked; " + lastActive + " has left, so BP is now open (say 'me' or 'bp' to claim it).**");
+					}
 				}else{
-					room.respond(user, "BP is not locked.");
+					room.broadcast(user, "BP is not locked.");
 				}
-				clearTimers(game);
 			}else{
 				room.broadcast(user, "Either BP is not locked or you do not have permission to unlock it.");
 			}
