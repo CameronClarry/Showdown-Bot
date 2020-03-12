@@ -1922,15 +1922,19 @@ let sayScores = function(scores, lb, room){
 
 let onRemind = function(game){
 	if(game.curUser){
-		if(!game.bpOpen && !game.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
-			game.curUser.send("You have " + (config.openTime) + " seconds to ask a question.");
-		}
 		let rank = AuthManager.getRank(game.curUser, game.room);
-		if(!AuthManager.rankgeq(rank, config.manageBpRank)){
-			game.openTimer = setTimeout(()=>{
-				onTimeUp(game);
-			},config.openTime*1000);
+		let hasManageRank = AuthManager.rankgeq(rank, config.manageBpRank);
+		if(!game.bpOpen && !game.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
+			if(hasManageRank){
+				game.curUser.send("You have " + (config.openTime) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
+			}else{
+				game.curUser.send("You have " + (config.openTime) + " seconds to ask a question.");
+			}
+
 		}
+		game.openTimer = setTimeout(()=>{
+			onTimeUp(game);
+		},config.openTime*1000);
 	}
 };
 
