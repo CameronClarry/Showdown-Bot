@@ -292,15 +292,14 @@ exports.onLoad = function(module, loadData, oldData){
 		chathook: function(room, user, message){
 			let game = data.games[room.id];
 			if(!game) return;
+			let triviaRank = AuthManager.getRank(user, RoomManager.getRoom("trivia"));
 
 			if(game.bpOpen){
 				let text = toId(message);
 				if(text === "bp" || text === "me" || text === "bpme"){
 					tryBatonPass(game, user, user, {active:user}, false, false, config.remindTime/2);
 				}
-			}
-			let triviaRank = AuthManager.getRank(user, RoomManager.getRoom("trivia"));
-			if((AuthManager.rankgeq(triviaRank, config.manageBpRank) || user.id === game.curUser.id) && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(message) || /^\/announce .*veto.*/i.test(message)) && user.id !== toId(mainConfig.user)){
+			}else if((AuthManager.rankgeq(triviaRank, config.manageBpRank) || user.id === game.curUser.id) && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(message) || /^\/announce .*veto.*/i.test(message)) && user.id !== toId(mainConfig.user)){
 				if(game.curHist.hasAsked){
 					game.curHist.hasAsked = false;
 					clearTimers(game);
