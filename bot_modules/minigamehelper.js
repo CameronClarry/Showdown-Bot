@@ -276,7 +276,7 @@ let commands = {
 		let id = toId(args[0]);
 		if(!AuthManager.rankgeq(commandRank, "+") || data.voices[user.id]){
 			room.broadcast(user, "Your rank is not high enough to add points.", rank);
-		}else if(!id || !args[1] || !/^\d+$/.test(args[1])){
+		}else if(!id || !args[1] || !/^-?\d+$/.test(args[1])){
 			room.broadcast(user, "You must give a valid player and number of points.", rank);
 		}else{
 			let points = parseInt(args[1], 10);

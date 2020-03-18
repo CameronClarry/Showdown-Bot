@@ -1406,7 +1406,7 @@ let ttleaderboardCommands = {
 										if(entries[0].points === score){
 											let nextPlayer = idsMatch(entries[0].display_name, res.display_name) ? entries[1] : entries[0];
 											let response = "You are first on the leaderboard with " + score + " points."
-											response += "Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.";
+											response += " Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.";
 											room.broadcast(user, response, rank);
 										}else{
 											let higherEntries = entries.filter(item=>{return item.points > score});
