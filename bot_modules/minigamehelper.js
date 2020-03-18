@@ -3,6 +3,8 @@ let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let data = {};
 let config = defaultConfigs;
 
+let tt = null;
+
 const GOVERNING_ROOM = "trivia";
 exports.GOVERNING_ROOM = GOVERNING_ROOM;
 
@@ -87,6 +89,7 @@ exports.onUnload = function(){
 	}
 };
 let refreshDependencies = function(){
+	tt = getModuleForDependency("tt", "minigamehelper");
 };
 exports.refreshDependencies = refreshDependencies;
 exports.onConnect = function(){
@@ -384,8 +387,16 @@ let commands = {
 			room.broadcast(user, "I'm not in Trivia currently.", rank);
 		}else{
 			commandRoom.send("/trivia new timer, all, long");
-			commandRoom.send("**Triviasignups! Type ``/trivia join`` if you want to participate!**");
+			commandRoom.send("**Triviasignups! Type ``/trivia join`` if you want to participate!** BP is now locked.");
 			commandRoom.send("!rfaq official");
+			if(tt && tt.getData().games[commandRoom.id]){
+				let game = tt.getData().games[commandRoom.id];
+				if(game.bpOpen){
+					game.bpOpen = null;
+					clearTimers(game);
+				}
+				game.bpLocked = true;
+			}
 		}
 	},
 	triviastart: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -479,6 +490,26 @@ let officialReminder = function(){
 		officialReminder();
 	}, timeDiff);
 	info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+}
+
+// When TT games are rewritten to be objects, this no longer be needed
+let clearTimers = function(game, clearAll){
+	if(game.timeout){
+		clearTimeout(game.timeout);
+		game.timeout = null;
+	}
+	if(game.remindTimer){
+		clearTimeout(game.remindTimer);
+		game.remindTimer = null;
+	}
+	if(game.openTimer){
+		clearTimeout(game.openTimer);
+		game.openTimer = null;
+	}
+	if(game.blitzTimer && clearAll){
+		clearTimeout(game.blitzTimer);
+		game.blitzTimer = null;
+	}
 }
 
 let defaultConfigs = {

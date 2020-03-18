@@ -1833,6 +1833,12 @@ let blacklistCommands = {
 			room.broadcast(user, "Added " + username + " to the blacklist permanently.");
 			triviaRoom.send("/modnote " + username + " was added to the Trivia Tracker blacklist permanently by " + user.name + ". (" + reason + ")");
 		}
+		let game = data.games[triviaRoom.id];
+		if(game.curUser.id === id){
+			clearTimers(game);
+			game.bpOpen = "auth";
+			triviaRoom.send("**BP is now open (say 'me' or 'bp' to claim it).**");
+		}
 		saveLeaderboard();
 	},
 	remove: function(username, id, duration, reason, user, room, triviaRoom){
