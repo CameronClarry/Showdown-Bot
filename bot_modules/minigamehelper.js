@@ -340,13 +340,17 @@ let commands = {
 		}
 	},
 	endhost: function(message, args, user, rank, room, commandRank, commandRoom){
-		for(let host in data.hosts){
-			commandRoom.send("/roomdeauth " + data.hosts[host].id);
-			data.hosts[host].rank = " ";
-			data.hosts[host].trueRank = " ";
+		if(!AuthManager.rankgeq(commandRank, "%")){
+			room.broadcast(user, "Your rank is not high enough to end a reghost.", rank);
+		}else{
+			for(let host in data.hosts){
+				commandRoom.send("/roomdeauth " + data.hosts[host].id);
+				data.hosts[host].rank = " ";
+				data.hosts[host].trueRank = " ";
+			}
+			data.hosts = {};
+			room.broadcast(user, "Successfully removed the hosts.", rank);
 		}
-		data.hosts = {};
-		room.broadcast(user, "Successfully removed the hosts.", rank);
 	},
 	modchat: function(message, args, user, rank, room, commandRank, commandRoom){
 		let arg = toId(args[0]);
