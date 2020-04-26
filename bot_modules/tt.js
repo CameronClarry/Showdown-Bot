@@ -375,9 +375,8 @@ exports.processJoin = processJoin;
 
 let processLeave = function(room, user){
 	let game = data.games[room.id];
-	// if(game) info(JSON.stringify(game.curUser));
 	if(game && user.id === game.curUser.id){
-		if(!game.bpOpen){
+		if(!game.bpOpen && !game.bpLocked){
 			game.timeout = setTimeout(function(){
 				if(!game.bpOpen && !game.bpLocked){ // if bp is locked dont change it
 					game.bpOpen = "leave";
@@ -626,7 +625,7 @@ let commands = {
 					game.bpOpen = null;
 					let lastActive = game.curUser.name;
 					if(game.room.getUserData(toId(lastActive))){ // if the user's in the room
-						game.timeout = null;
+						clearTimers(game);
 						game.remindTimer = setTimeout(()=>{
 							onRemind(game);
 						}, config.remindTime*1000);
@@ -695,8 +694,8 @@ let commands = {
 					gameRoom.send("**BP is now closed.**");
 				}else{
 					room.broadcast(user, "BP is not open. Timers have been cleared.");
+					clearTimers(game);
 				}
-				clearTimers(game);
 			}else{
 				room.broadcast(user, "Either BP is not open or you do not have permission to close it.");
 			}
@@ -784,6 +783,7 @@ let commands = {
 						room.broadcast(user, res[1].display_name + "'s alts: " + alts.join(", "));
 					}else{
 						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
+						// TODO: make this only reply through PM.
 						uploadText(text, (address)=>{
 							room.broadcast(user, "There were more than 10 alts, so they were put into a text file: " + address);
 						}, (error)=>{
