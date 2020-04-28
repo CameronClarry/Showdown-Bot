@@ -280,7 +280,6 @@ exports.onLoad = function(module, loadData, oldData){
 			pendingAlts: {},
 			askToReset: "",
 			timers: {},
-			tempVoices: {},
 			flags: {},
 			pendingUpdates: []
 		};
@@ -315,6 +314,9 @@ exports.onLoad = function(module, loadData, oldData){
 			}else if(user.id === game.curUser.id && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(message)){
 				clearTimers(game);
 				game.curHist.hasAsked = true;
+				if(message.length > 10){
+					game.curHist.question = message;
+				}
 			}
 			if(game && data.flags["timer"] && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(message)){
 				if(game.blitzTimer){
@@ -1185,46 +1187,66 @@ let commands = {
 		// 	room.broadcast(user, "There's no query batch with that name.");
 		// }
 	},
-	// voice: function(message, args, user, rank, room, commandRank, commandRoom){
-	// 	let botRank = AuthManager.getTrueRoomRank(room.getUserData(toId(mainConfig.user)),room);
-	// 	if(AuthManager.rankgeq(commandRank, config.voicechatRank) && AuthManager.rankgeq(botRank, "@")){
-	// 		if(!data.tempVoices[room.id]) data.tempVoices[room.id] = {};
-	// 		for(let i=0;i<args.length;i++){
-	// 			let id = toId(args[i]);
-	// 			if(!data.tempVoices[room.id][id] && room.getUserData(id) && room.getUserData(id) === " "){
-	// 				data.tempVoices[room.id][id] = true;
-	// 				room.send("/roomvoice " + id);
-	// 			}
-	// 		}
-	// 		room.send("/modchat +");
-	// 	}
-	// },
-	// devoice: "dv",
-	// dv: function(message, args, user, rank, room, commandRank, commandRoom){
-	// 	let botRank = AuthManager.getTrueRoomRank(room.getUserData(toId(mainConfig.user)),room);
-	// 	if(AuthManager.rankgeq(commandRank, config.voicechatRank) && AuthManager.rankgeq(botRank, "@")){
-	// 		for(let i=0;i<args.length;i++){
-	// 			let id = toId(args[i]);
-	// 			if(data.tempVoices[room.id][id]){
-	// 				delete data.tempVoices[room.id][id];
-	// 				room.send("/roomdeauth " + id);
-	// 			}
-	// 		}
-	// 	}
-	// },
-	// devoiceall: "dvall",
-	// dvall: function(message, args, user, rank, room, commandRank, commandRoom){
-	// 	let botRank = AuthManager.getTrueRoomRank(room.getUserData(toId(mainConfig.user)),room);
-	// 	if(AuthManager.rankgeq(commandRank, config.voicechatRank) && AuthManager.rankgeq(botRank, "@")){
-	// 		if(data.tempVoices){
-	// 			for(let id in data.tempVoices[room.id]){
-	// 				delete data.tempVoices[room.id][id];
-	// 				room.send("/roomdeauth " + id);
-	// 			}
-	// 		}
-	// 		room.send("/modchat ac");
-	// 	}
-	// },
+	nominate: function(message, args, user, rank, room, commandRank, commandRoom){
+		let nominee = toId(args[0]);
+		let entry = data.leaderboard.nominations[user.id];
+		let game = data.games['trivia'];
+		let question;
+		if(!game){
+			user.send("There isn't a Trivia Tracker game running currently.");
+		}else if(!nominee){
+			user.send("You must specify a user.");
+		}else if(nominee === user.id){
+			user.send("You can't nominate yourself.");
+		}else{
+			let history = game.history;
+			for(let i=history.length-1;i--;i>=0){
+				if(history[i].active.id == nominee){
+					question = history[i].question;
+					break;
+				}
+			}
+			if(!question){
+				user.send("That user hasn't asked a question recently.");
+			}else if(entry){
+				entry.nominee = nominee;
+				entry.question = question;
+				entry.timestamp = new Date().toUTCString();
+				user.send("You have changed your nomination.");
+				saveLeaderboard();
+			}else{
+				data.leaderboard.nominations[user.id] = {
+					nominator: user.id,
+					nominee: nominee,
+					question: question,
+					timestamp: new Date().toUTCString()
+				};
+				user.send("You have nominated " + args[0] + ".");
+				saveLeaderboard();
+			}
+		}
+	},
+	nominations: function(message, args, user, rank, room, commandRank, commandRoom){
+		// For ROs only. Pastes all the nominations as a list
+		if(!AuthManager.rankgeq(commandRank,'#')) return;
+
+		let text = JSON.stringify(data.leaderboard.nominations, null, '\t');
+
+		uploadText(text, (link)=>{
+			user.send("Here is a list of all the nominations: " + link);
+		}, (err)=>{
+			user.send("There was an error: " + err);
+		});
+	},
+	clearnominations: function(message, args, user, rank, room, commandRank, commandRoom){
+		// For ROs only. Deletes all nominations and saves the leaderboard.
+		if(!AuthManager.rankgeq(commandRank,'#')) return;
+
+		data.leaderboard.nominations = {};
+		saveLeaderboard();
+
+		user.send("Successfully cleared all nominations.");
+	},
 	info: "help",
 	commands: "help",
 	help: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -2014,10 +2036,13 @@ let loadLeaderboard = function(){
 		if(!leaderboard.blacklist){
 			leaderboard.blacklist = {};
 		}
+		if(!leaderboard.nominations){
+			leaderboard.nominations = {};
+		}
 		data.leaderboard = leaderboard;
 		saveLeaderboard();
 	}else{
-		data.leaderboard = {blacklist:{}};
+		data.leaderboard = {blacklist:{},nominations:{}};
 		saveLeaderboard();
 	}
 };
