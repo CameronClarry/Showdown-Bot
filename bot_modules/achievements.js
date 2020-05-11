@@ -252,8 +252,39 @@ let awardAchievement = function(username, achievement, onSuccess, onFailure){
 		error(err);
 		onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong getting the user.");
 	});
-}
+};
 exports.awardAchievement = awardAchievement;
+
+let achievementsOnScoreUpdate = function(username, leaderboard, oldScore, newScore){
+	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
+	info("CHECKING FOR SCORE UPDATE ACHIEVEMENT");
+	info(leaderboard);
+	info(oldScore);
+	info(newScore);
+	if(leaderboard === "main"){
+		if(oldScore<250 && newScore >= 250){
+			awardAchievement(username, "Super", (p,a)=>{
+				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
+			});
+		}
+		if(oldScore<500 && newScore >= 500){
+			awardAchievement(username, "Mega", (p,a)=>{
+				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
+			});
+		}
+		if(oldScore<750 && newScore >= 750){
+			awardAchievement(username, "Ultra", (p,a)=>{
+				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
+			});
+		}
+		if(oldScore<1000 && newScore >= 1000){
+			awardAchievement(username, "Hyper", (p,a)=>{
+				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
+			});
+		}
+	}
+};
+exports.achievementsOnScoreUpdate = achievementsOnScoreUpdate; 
 
 let defaultConfigs = {
 	achievementManageRank: "@"

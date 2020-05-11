@@ -4,7 +4,7 @@
 	"dependencies": {
 		"babel": "5.2.6",
 		"colors": "1.0.3",
-		"pg": "7.12.1",
+		"pg": "^7.12.1",
 		"request": "2.x",
 		"sugar": "1.4.1",
 		"websocket": "^1.0.28"

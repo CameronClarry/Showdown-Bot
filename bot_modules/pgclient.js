@@ -9,6 +9,7 @@ exports.GOVERNING_ROOM = GOVERNING_ROOM
 const GET_USER_SQL = "SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;";
 const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
 const INSERT_ALT_SQL = "INSERT INTO alts (username, main_id) VALUES ($1, (SELECT id FROM users WHERE username = $2 FETCH FIRST 1 ROWS ONLY));";
+const GET_POINTS_SQL = "SELECT tt_points.points, tt_leaderboards.id FROM tt_points FULL OUTER JOIN tt_leaderboards ON tt_points.leaderboard = tt_leaderboards.id WHERE tt_points.id = $1 AND tt_leaderboards.id = ANY($2);";
 
 
 const conInfo = {
@@ -76,7 +77,44 @@ let runSql = function(statement, args, onRow, onEnd, onError){
 		error(err);
 	}
 };
-exports.runSql = runSql
+exports.runSql = runSql;
+
+let runSql2 = function(statement, args, callback){
+	if(!data.connected){
+		callback("The bot is not connected to the database.");
+	}
+	try{
+		let query = data.client.query(statement,args);
+		if(callback) query.on("end", (res)=>{callback(null, res)});
+		query.on("error", (err)=>{callback(err)});
+	}catch(err){
+		error(err);
+	}
+};
+exports.runSql2 = runSql2;
+
+let runSqlConfig = function(queryConfig, callback){
+	let onError = (err)=>{
+		error(err);
+		callback(err);
+	};
+	if(!data.connected){
+		onError("The bot is not connected to the database.");
+		return;
+	}
+	try{
+		let query = data.client.query(queryConfig);
+		query.on('end', (res)=>{
+			callback(null, res);
+		});
+		query.on("error", onError);
+	}catch(err){
+		error(err);
+		callback(err);
+	}
+};
+exports.runSqlConfig = runSqlConfig;
+
 
 //Takes a username, returns their ID in the database if it exists. Can also add missing users to the database.
 let getId = function(username, createNewEntry, onEnd, onError){
@@ -86,7 +124,9 @@ let getId = function(username, createNewEntry, onEnd, onError){
 	}, ()=>{
 		if(!res && createNewEntry){
 			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], null, ()=>{
-				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, ()=>{
+				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, (res)=>{
+					info(JSON.stringify(res));
+					// TODO can this be done without the extra call? using rows as array?
 					getId(username, createNewEntry, onEnd, onError);
 				}, onError);
 			}, onError);
@@ -109,6 +149,16 @@ let getMains = function(username1, username2, createNewEntry, onEnd, onError){
 	}, onError);
 }
 exports.getMains = getMains
+
+let getPoints = function(id, leaderboards, callback){
+	let queryConfig = {
+		text: GET_POINTS_SQL,
+		values: [id, leaderboards],
+		rowMode: 'array'
+	};
+	runSqlConfig(queryConfig, callback);
+};
+exports.getPoints = getPoints;
 
 exports.onLoad = function(module, loadData, oldData){
 	self = module;
@@ -165,11 +215,24 @@ let refreshDependencies = function(){
 exports.refreshDependencies = refreshDependencies;
 
 let commands = {
-  reconnect: function(message, args, user, rank, room, commandRank, commandRoom){
-    if(AuthManager.rankgeq(commandRank,"@")){
-      pgReconnect(room, user, rank);
-    }
-  }
+	reconnect: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(AuthManager.rankgeq(commandRank,"@")){
+			pgReconnect(room, user, rank);
+		}
+	},
+	test: function(message, args, user, rank, room, commandRank, commandRoom){
+		const queryConfig = {
+			text: "SELECT * FROM tt_leaderboards",
+			rowMode: "array"
+		}
+		runSqlConfig(queryConfig,(row)=>{
+			info("ON ROW:");
+			info(JSON.stringify(row, null, "\t"));
+		}, (res)=>{
+			info("ON END:");
+			info(JSON.stringify(res, null, "\t"));
+		});
+	}
 };
 
 self.commands = commands;

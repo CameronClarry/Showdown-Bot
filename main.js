@@ -62,6 +62,10 @@ global.error = function (text) {
 	console.log("Error: ".red + text);
 };
 
+global.ifError = function (err) {
+	if(err) error(err);
+}
+
 global.ok = function (text) {
 	logToFile("[OK] " + text);
 	console.log(text.green);

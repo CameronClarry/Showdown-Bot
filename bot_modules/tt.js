@@ -1,4 +1,7 @@
 let fs = require("fs");
+let path = "./minigames";
+delete require.cache[require.resolve(path)];
+let minigames = require("./minigames");
 let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
 let data = {};
 let config = defaultConfigs;
@@ -86,7 +89,7 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 			let newScore = updateFunc(0);
 			pgclient.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
 				if(onEnd){
-					achievementsOnScoreUpdate(args[2], args[1], 0, newScore);
+					achievements.achievementsOnScoreUpdate(args[2], args[1], 0, newScore);
 					onEnd(res, newScore);
 				}
 			}, onError);
@@ -94,7 +97,7 @@ let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
 			let newScore = updateFunc(res.points);
 			pgclient.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
 				if(onEnd){
-					achievementsOnScoreUpdate(args[2], args[1], res.points, newScore);
+					achievements.achievementsOnScoreUpdate(args[2], args[1], res.points, newScore);
 					onEnd(res, newScore);
 				}
 			}, onError);
@@ -154,10 +157,10 @@ let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, 
 			for(let i=0;i<events.length;i++){
 				if(entries[events[i]]){
 					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [id, events[i], updateFunc(entries[events[i]].points)], null, newEnd(events[i]), newError(events[i]));
-					achievementsOnScoreUpdate(username, events[i], entries[events[i]].points, updateFunc(entries[events[i]].points));
+					achievements.achievementsOnScoreUpdate(username, events[i], entries[events[i]].points, updateFunc(entries[events[i]].points));
 				}else{
 					pgclient.runSql(INSERT_LB_ENTRY_SQL, [id, events[i], updateFunc(0)], null, newEnd(events[i]), newError(events[i]));
-					achievementsOnScoreUpdate(username, events[i], 0, updateFunc(0));
+					achievements.achievementsOnScoreUpdate(username, events[i], 0, updateFunc(0));
 				}
 			}
 			if(events.length === 0) onEnd(id, 0, 0);
@@ -287,7 +290,7 @@ exports.onLoad = function(module, loadData, oldData){
 		loadBatches();
 		loadLeaderboard();
 	}
-	self.chathooks = {
+	self.chathooks2 = {
 		chathook: function(room, user, message){
 			let game = data.games[room.id];
 			if(!game) return;
@@ -339,11 +342,9 @@ exports.onUnload = function(){
 	}
 };
 let refreshDependencies = function(){
-	//chat = getModuleForDependency("chat", "tt");
-	//auth = getModuleForDependency("auth", "tt");
-	//rooms = getModuleForDependency("rooms", "tt");
 	pgclient = getModuleForDependency("pgclient", "tt");
 	achievements = getModuleForDependency("achievements", "tt");
+	minigames.refreshDependencies();
 };
 exports.refreshDependencies = refreshDependencies;
 exports.onConnect = function(){
@@ -464,44 +465,20 @@ let commands = {
 			room.broadcast(user, "There is no trivia game in " + roomId + ".");
 		}else if(!toId(args[0])){
 			room.broadcast(user, "You must specify a player.");
-		}else if(!hasRank && game.curUser.id !== user.id){
-			room.broadcast(user, "You either are not the active user or do not have a high enough rank to use this command.");
-		}else if(!hasRank && game.bpLocked){
-			room.broadcast(user, "You cannot ask questions or use ~yes while BP is locked.");
-		}else if(!hasRank && game.bpOpen){
-			room.broadcast(user, "You cannot ~yes while BP is open.");
-		}else if(!hasRank && !game.history[game.history.length-1].hasAsked){
-			room.broadcast(user, "You must ask a question in bold before you use ~yes. If your question was veto'd, please ask a new one or discuss it with a staff member.");
 		}else{
 			let nextPlayer = game.room.getUserData(toId(args[0]));
-			if(!nextPlayer){
-				room.broadcast(user, "That user is not in the room.");
-			}else{
-				let asker = game.curUser.id;
-				let answerer = nextPlayer.id;
-				let success = tryBatonPass(game, user, nextPlayer, {active:nextPlayer, undoAsker:function(){
-					updateAllLeaderboardEntriesByUsername(asker, (oldPoints)=>{
-						return Math.max(oldPoints - config.askPoints, 0);
-					});
-				}, undoAnswerer: function(){
-					updateAllLeaderboardEntriesByUsername(answerer, (oldPoints)=>{
-						return Math.max(oldPoints - config.answerPoints, 0);
-					});
-				}}, false, shouldUndo);
-				if(success){
-					updateAllLeaderboardEntriesByUsername(asker, (oldPoints)=>{
-						return oldPoints + config.askPoints;
-					});
-					updateAllLeaderboardEntriesByUsername(answerer, (oldPoints)=>{
-						return oldPoints + config.answerPoints;
-					});
-				}
+			let reason = game.cantYes(user, rank, toId(args[0]));
+			if(reason){
+				game.room.broadcast(user, reason);
+				return;
 			}
+			game.doYes(user, nextPlayer);
 		}
 	},
 	nah: "no",
 	nope: "no",
 	no: function(message, args, user, rank, room, commandRank, commandRoom){
+		// TODO rewrite this
 		let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
 		let number = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0],10) : 1;
 		let game = data.games[roomId];
@@ -1278,19 +1255,11 @@ let ttCommands = {
 		if(!targetRoom || !targetRoom.id){
 			room.broadcast(user, "You either specified an invalid room, or I am not in that room.");
 		}else if(data.games[targetRoom.id]){
-			room.broadcast(user, "There is already a game of Trivia Tracker in " + room.name + ".");
+			room.broadcast(user, "There is already a game in " + room.name + ".");
 		}else if(!AuthManager.rankgeq(commandRank, config.startGameRank)){
 			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker");
 		}else{
-			let targetUser = targetRoom.getUserData(user.id);
-			if(targetUser){
-				let curHist = {active:targetUser};
-				data.games[targetRoom.id] = {room: targetRoom, curUser: targetUser, curHist: curHist, history:[curHist]};
-				targetRoom.send("**A new game of Trivia Tracker has started.**");
-			}else{
-				data.games[targetRoom.id] = {room: room, history:[], bpOpen: "auth"};
-				targetRoom.send("**A new game of Trivia Tracker has started. Since " + user.name + " is not in the room for some reason, BP is now open.**");
-			}
+			data.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom);
 		}
 	},
 	endgame: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1302,9 +1271,8 @@ let ttCommands = {
 		}else if(!AuthManager.rankgeq(commandRank, config.endGameRank)){
 			room.broadcast(user, "Your rank is not high enough to end the game of Trivia Tracker.");
 		}else{
-			clearTimers(data.games[targetRoom.id]);
+			data.games[targetRoom.id].end();
 			delete data.games[targetRoom.id];
-			targetRoom.send("**The game of Trivia Tracker has ended.**");
 		}
 	}
 };
@@ -2142,32 +2110,6 @@ let achievementsOnReset = function(leaderboard, scores){
 					triviaRoom.send(p + " has earned the achievement '" + a + "'!");
 				});
 			}
-		}
-	}
-}
-
-let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
-	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
-	if(leaderboard === "main" && achievements){
-		if(oldScore<250 && newScore >= 250){
-			achievements.awardAchievement(user, "Super", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
-		}
-		if(oldScore<500 && newScore >= 500){
-			achievements.awardAchievement(user, "Mega", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
-		}
-		if(oldScore<750 && newScore >= 750){
-			achievements.awardAchievement(user, "Ultra", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
-		}
-		if(oldScore<1000 && newScore >= 1000){
-			achievements.awardAchievement(user, "Hyper", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
 		}
 	}
 }
