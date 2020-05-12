@@ -45,6 +45,9 @@ Temporary Items
 # Node modules
 node_modules/*
 
+# Files from merges
+*.orig
+
 #Other unwanted files
 package-lock.json
 *.bat
