@@ -8,7 +8,7 @@ exports.GOVERNING_ROOM = GOVERNING_ROOM
 
 const GET_USER_SQL = "SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;";
 const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
-const INSERT_ALT_SQL = "INSERT INTO alts (username, main_id) VALUES ($1, (SELECT id FROM users WHERE username = $2 FETCH FIRST 1 ROWS ONLY));";
+const INSERT_ALT_SQL = "INSERT INTO alts (username, main_id) VALUES ($1::VARCHAR, (SELECT id FROM users WHERE username = $1::VARCHAR FETCH FIRST 1 ROWS ONLY));";
 
 
 const conInfo = {
@@ -19,6 +19,7 @@ const conInfo = {
 	port: mainConfig.dbport
 };
 
+//TODO this should no be dealing with rooms, users, and ranks. simply a callback.
 let pgReconnect = function(room, user, rank){
 	try{
 		if(data && data.client){
@@ -58,29 +59,74 @@ let pgReconnect = function(room, user, rank){
 };
 
 //This runs a postgres query, handles errors, etc.
-let runSql = function(statement, args, onRow, onEnd, onError){
-	if(!onError){
-		onError = (err)=>{
-			error(err);
-		};
+let runSql = function(statement, args, callback){
+	if(!callback){
+		callback = (err) => {if (err) error(err);};
 	}
 	if(!data.connected){
-		onError("The bot is not connected to the database.");
+		callback("The bot is not connected to the database.");
 	}
 	try{
-		let query = data.client.query(statement,args);
-		if(onRow) query.on("row", onRow);
-		if(onEnd) query.on("end", onEnd);
-		query.on("error", onError);
+		let queryConfig = {
+			text: statement,
+			values: args
+		};
+		let query = data.client.query(queryConfig, callback);
 	}catch(err){
-		error(err);
+		callback(err);
 	}
 };
 exports.runSql = runSql
 
-//Takes a username, returns their ID in the database if it exists. Can also add missing users to the database.
-let getId = function(username, createNewEntry, onEnd, onError){
-	let res;
+let runSqlAsArray = function(statement, args, callback){
+	if(!callback){
+		callback = (err) => {if (err) error(err);};
+	}
+	if(!data.connected){
+		callback("The bot is not connected to the database.");
+	}
+	try{
+		let queryConfig = {
+			text: statement,
+			values: args,
+			rowMode: 'array'
+		};
+		let query = data.client.query(queryConfig, callback);
+	}catch(err){
+		callback(err);
+	}
+};
+exports.runSqlAsArray = runSqlAsArray
+
+//Takes a username, returns their entry in the users table if it exists. Can also add missing users to the database.
+// TODO find all references to this, and make the callback something more descriptive than 'res'
+let getUser = function(username, createNewEntry, callback){
+	let newCallback = (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+		if(res.rowCount === 0 && createNewEntry){
+			let newEntryCallback = (err, res)=>{
+				if(err){
+					callback(err, res);
+					return;
+				}
+				getUser(username, createNewEntry, callback);
+			};
+			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], (err, res)=>{
+				if(err){
+					callback(err);
+					return;
+				}
+				runSqlAsArray(INSERT_ALT_SQL, [toId(username)], newEntryCallback);
+			});
+		}else{
+			callback(null, res.rows[0]);
+		}
+	}
+	runSql(GET_USER_SQL, [toId(username)], newCallback);
+	/*
 	runSql(GET_USER_SQL, [toId(username)], (row)=>{
 		res = row;
 	}, ()=>{
@@ -94,19 +140,21 @@ let getId = function(username, createNewEntry, onEnd, onError){
 			onEnd(res);
 		}
 	}, onError);
+	*/
 }
-exports.getId = getId
+exports.getUser = getUser
 
-// onEnd should take a functon of an array with two elements
-let getMains = function(username1, username2, createNewEntry, onEnd, onError){
-	let res = [];
-	getId(username1, createNewEntry, (user1)=>{
-		res[0] = user1;
-		getId(username2, createNewEntry, (user2)=>{
-			res[1] = user2;
-			onEnd(res);
-		}, onError);
-	}, onError);
+// the second arg of callback is an array with two elements
+let getMains = function(username1, username2, createNewEntry, callback){
+	getUser(username1, createNewEntry, (err, user1)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+		getUser(username2, createNewEntry, (err, user2)=>{
+			callback(err, [user1, user2]);
+		});
+	});
 }
 exports.getMains = getMains
 
@@ -165,11 +213,11 @@ let refreshDependencies = function(){
 exports.refreshDependencies = refreshDependencies;
 
 let commands = {
-  reconnect: function(message, args, user, rank, room, commandRank, commandRoom){
-    if(AuthManager.rankgeq(commandRank,"@")){
-      pgReconnect(room, user, rank);
-    }
-  }
+	reconnect: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(AuthManager.rankgeq(commandRank,"@")){
+			pgReconnect(room, user, rank);
+		}
+	}
 };
 
 self.commands = commands;

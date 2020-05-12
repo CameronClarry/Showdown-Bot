@@ -52,222 +52,267 @@ const GET_NUM_PLAYERS = "SELECT COUNT(*) num_players FROM tt_points WHERE points
 //	// ''
 //}
 
-//args is [id, leaderboard]
-let getLeaderboardEntry = function(args, onEnd, onError){
-	let res;
-	pgclient.runSql(GET_LB_ENTRY_SQL, [args[0], toId(args[1])], (row)=>{
-		res = row;
-	}, ()=>{
-		if(onEnd) onEnd(res);
-	}, onError);
+// TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists // TODO one function for updating sores: 'all' vs 'enabled' vs ['lb1', 'lb2', ...]. make updatefunc take the lb id as well
+
+//args is [dbId, leaderboard]
+let getLeaderboardEntry = function(args, callback){
+	pgclient.runSql(GET_LB_ENTRY_SQL, [args[0], toId(args[1])], (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+
+		callback(err, res.rows[0]);
+	});
 };
 
 //args is [number of entries to get, leaderboard]
-let listLeaderboardEntries = function(args, onRow, onEnd, onError){
-	pgclient.runSql(LIST_LB_ENTRIES_SQL.replace("_NUMBER_",args[0]), [toId(args[1])], onRow, onEnd, onError);
+let listLeaderboardEntries = function(args, callback){
+	pgclient.runSql(LIST_LB_ENTRIES_SQL.replace("_NUMBER_",args[0]), [toId(args[1])], callback);
 };
 
-let getAllLeaderboardEntries = function(leaderboard, onEnd, onError){
-	let entries = [];
-	pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [toId(leaderboard)], (row)=>{
-		entries.push(row);
-	}, ()=>{
-		onEnd(entries);
-	}, onError);
+let getAllLeaderboardEntries = function(leaderboard, callback){
+	pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [toId(leaderboard)], (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+
+		callback(err, res.rows);
+	});
 };
 
 //updateFunc takes the old score, and returns what the new score should be
-//onEnd takes the old row and new score, and does whatever
-//args is [id, leaderboard, display name]
-let updateLeaderboardEntryById = function(args, updateFunc, onEnd, onError){
-	let res;
-	getLeaderboardEntry(args, (res)=>{
-		if(!res){
-			let newScore = updateFunc(0);
-			pgclient.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
-				if(onEnd){
-					achievementsOnScoreUpdate(args[2], args[1], 0, newScore);
-					onEnd(res, newScore);
-				}
-			}, onError);
-		}else{
-			let newScore = updateFunc(res.points);
-			pgclient.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newScore], null, ()=>{
-				if(onEnd){
-					achievementsOnScoreUpdate(args[2], args[1], res.points, newScore);
-					onEnd(res, newScore);
-				}
-			}, onError);
+//callback takes err, the old row, and new score, and does whatever
+//args is [dbId, leaderboard, display name]
+let updateLeaderboardEntryById = function(args, updateFunc, callback){
+	getLeaderboardEntry(args, (err, res)=>{
+		if(err){
+			callback(err);
+			return;
 		}
-	}, onError);
+
+		let oldPoints = res ? res.points : 0;
+		let newPoints = updateFunc(oldPoints);
+		let newCallback = (err, res2)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			callback(err, res, newPoints);
+			achievementsOnScoreUpdate(args[2], args[1], oldPoints, newPoints, logIfError);
+		};
+
+		if(!res){
+			pgclient.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
+		}else{
+			pgclient.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
+		}
+	});
 };
 
-let updateLeaderboardEntryByUsername = function(args, updateFunc, onEnd, onError){
-	pgclient.getId(args[0], true, (res)=>{
-		updateLeaderboardEntryById([res.id, args[1], res.display_name], updateFunc, onEnd, onError);
-	}, onError);
+let updateLeaderboardEntryByUsername = function(args, updateFunc, callback){
+	pgclient.getUser(args[0], true, (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+
+		updateLeaderboardEntryById([res.id, args[1], res.display_name], updateFunc, callback);
+	});
 };
 
 let checkPendingUpdates = function(shouldStart){
 	if(data.pendingUpdates.length === 1 || shouldStart && data.pendingUpdates.length > 0){
 		let entry = data.pendingUpdates[0];
-		updateAllLeaderboardEntriesById(entry.id, entry.username, entry.updateFunc, entry.onEnd, entry.onError);
+		updateAllLeaderboardEntriesById(entry.id, entry.username, entry.updateFunc, entry.callback);
 	}
 };
 
 //updateFunc takes the old score, and returns what the new score should be
-//onEnd takes the user id, rows updated, array of events failed
-let updateAllLeaderboardEntriesById = function(id, username, updateFunc, onEnd, onError){
-	let events = [];
-	pgclient.runSql(GET_ENABLED_LB_SQL, [], (row)=>{
-		events.push(row);
-	}, ()=>{
-		let entries = {};
-		pgclient.runSql(GET_LB_ENTRIES_SQL, [id], (row)=>{
-			entries[row.leaderboard] = row;
-		}, ()=>{
-			events = events.map((event)=>{return event.id});
-			let	pendingEvents = events.length;
+//callback takes err, the user id, rows updated, array of events failed
+let updateAllLeaderboardEntriesById = function(id, username, updateFunc, callback){
+	pgclient.runSql(GET_ENABLED_LB_SQL, [], (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+
+		let leaderboards = res.rows.map((row)=>{return row.id;});
+
+		pgclient.runSql(GET_LB_ENTRIES_SQL, [id], (err, res2)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			let entries = {};
+			for(let i=0;i<res2.rows.length;i++){
+				entries[res2.rows[i].leaderboard] = res2.rows[i];
+			}
+			let	pendingEvents = leaderboards.length;
 			let failed = [];
-			let newEnd = (event)=>{
-				return ()=>{
+			let totalError = null;
+
+			let sharedCallbackCreator = (leaderboard)=>{
+				return (err, res)=>{
+					totalError = err || totalError;
 					pendingEvents--;
-					if(pendingEvents===0){
-						if(onEnd) onEnd(id, events.length - failed.length, failed);
+					if(err) failed.push(leaderboard);
+					if(pendingEvents === 0){
+						callback(totalError, username, leaderboards.length - failed.length, failed);
 						data.pendingUpdates.shift();
 						checkPendingUpdates(true);
 					}
-				};
-			};
-			let newError = (event)=>{
-				return (err)=>{
-					error(err);
-					pendingEvents--;
-					failed.push(event);
-					if(pendingEvents===0){
-						if(onEnd) onEnd(id, events.length - failed.length, failed);
-						data.pendingUpdates.shift();
-						checkPendingUpdates(true);
-					}
-				};
-			};
-			for(let i=0;i<events.length;i++){
-				if(entries[events[i]]){
-					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [id, events[i], updateFunc(entries[events[i]].points)], null, newEnd(events[i]), newError(events[i]));
-					achievementsOnScoreUpdate(username, events[i], entries[events[i]].points, updateFunc(entries[events[i]].points));
-				}else{
-					pgclient.runSql(INSERT_LB_ENTRY_SQL, [id, events[i], updateFunc(0)], null, newEnd(events[i]), newError(events[i]));
-					achievementsOnScoreUpdate(username, events[i], 0, updateFunc(0));
 				}
 			}
-			if(events.length === 0) onEnd(id, 0, 0);
-		}, onError);
-	}, onError);
+				
+			for(let i=0;i<leaderboards.length;i++){
+				if(entries[leaderboards[i]]){
+					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [id, leaderboards[i], updateFunc(entries[leaderboards[i]].points)], sharedCallbackCreator(leaderboards[i]));
+					achievementsOnScoreUpdate(username, leaderboards[i], entries[leaderboards[i]].points, updateFunc(entries[leaderboards[i]].points));
+				}else{
+					pgclient.runSql(INSERT_LB_ENTRY_SQL, [id, leaderboards[i], updateFunc(0)], sharedCallbackCreator(leaderboards[i]));
+					achievementsOnScoreUpdate(username, leaderboards[i], 0, updateFunc(0));
+				}
+			}
+			if(leaderboards.length === 0) callback(err, id, 0, 0);
+		});
+	});
 }
 
-let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, onEnd, onError){
-	pgclient.getId(username, true, (res)=>{
-		data.pendingUpdates.add({id: res.id, username: res.display_name, updateFunc: updateFunc, onEnd: (id, affected, failed)=>{
-			if(onEnd) onEnd(res.display_name, affected, failed);
-		}, onError: onError});
+let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, callback){
+	pgclient.getUser(username, true, (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+
+		data.pendingUpdates.add({
+			id: res.id,
+			username: res.display_name,
+			updateFunc: updateFunc,
+			callback: callback
+		});
 		checkPendingUpdates();
 		// updateAllLeaderboardEntriesById(res.id, res.display_name, updateFunc, (id, affected, failed)=>{
 		// 	if(onEnd) onEnd(res.display_name, affected, failed);
 		// }, onError);
-	}, onError);
+	});
 }
 
 //args is [id, leaderboard]
-let removeLeaderboardEntry = function(args, onEnd, onError){
-	let res;
-	getLeaderboardEntry(args, (res)=>{
-		if(!res){
-			onEnd(res);
-		}else{
-			pgclient.runSql(DELETE_LB_ENTRY_SQL, args, ()=>{}, ()=>{
-				if(onEnd){
-					onEnd(res);
-				}
-			}, onError);
+let removeLeaderboardEntry = function(args, callback){
+	pgclient.runSql(DELETE_LB_ENTRY_SQL, [args[0], toId(args[1])], ()=>{}, ()=>{
+		if(err){
+			callback(err);
+			return;
 		}
-	}, onError);
+
+		callback(err, res.rowCount);
+	});
 };
 
-let removeAllLeaderboardEntries = function(id, onEnd, onError){
-	pgclient.runSql(DELETE_USER_ENTRIES_SQL, [id], null, onEnd, onError);
+let removeAllLeaderboardEntries = function(dbId, callback){
+	pgclient.runSql(DELETE_USER_ENTRIES_SQL, [dbId], callback);
 }
 
 // 1) Get all achievements of fromId and toId
 // 2) For each achievement, if it doesn't exist on toId change the id to toId. If it does exist, update the date on toId to be the earlier date
 // 3) Remove all
-let transferAllAchievements = function(fromId, toId, onEnd, onError){
+let transferAllAchievements = function(fromId, callback){
 	let success = true;
 }
 
-let transferAllPoints = function(fromId, toId, onEnd, onError, onAllFinished){
-	let success = true;
-	let fromEntries = {};
-	let entriesToTransfer = 0;
-	pgclient.runSql(GET_LB_ENTRIES_SQL, [fromId], (row)=>{
-		fromEntries[row.leaderboard] = row;
-		entriesToTransfer++;
-	}, ()=>{
-		let toEntries = {};
-		pgclient.runSql(GET_LB_ENTRIES_SQL, [toId], (row)=>{
-			toEntries[row.leaderboard] = row;
-		}, ()=>{
-			if(entriesToTransfer === 0){
-				onAllFinished(success);
-				return;
-			}
-			let endFunc = ()=>{
-				entriesToTransfer--;
-				if(onEnd) onEnd();
-				if(entriesToTransfer === 0) onAllFinished(success);
-			}
-			let errorFunc = (err)=>{
-				entriesToTransfer--;
-				success = false;
-				error(err.message);
-				if(entriesToTransfer === 0) onAllFinished(success);
-			}
-			removeAllLeaderboardEntries(fromId);
-			for(let event in fromEntries){
-				if(toEntries[event]){
-					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [toId, event, toEntries[event].points + fromEntries[event].points], null, endFunc, errorFunc);
-				}else{
-					pgclient.runSql(INSERT_LB_ENTRY_SQL, [toId, event, fromEntries[event].points], null, endFunc, errorFunc);
-				}
-			}
-		}, onError);
-	}, onError);
-};
-
-let changeMains = function(id, newName, onEnd, onError){
-	pgclient.runSql(UPDATE_USER_SQL, [id, newName, toId(newName)], null, onEnd, onError);
-}
-
-// Merges two alts, and their points
-let mergeAlts = function(fromName, toName, onEnd, onError){
-	pgclient.getMains(fromName, toName, true, (res)=>{
-		if(res[0].id === res[1].id){
-			onError("Those two accounts are the same.");
+let transferAllPoints = function(fromDbId, toDbId, callback){
+	pgclient.runSql(GET_LB_ENTRIES_SQL, [fromDbId], (err, res)=>{
+		if(err){
+			callback(err);
 			return;
 		}
-		transferAllPoints(res[0].id, res[1].id, null, null, (success)=>{
-			if(success){
-				pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], null, ()=>{
-					pgclient.runSql(DELETE_USER_SQL, [res[0].id], null, ()=>{
-						onEnd();
-					}, onError);
-				}, onError);
-			}else{
-				if(onError){
-					onError("One of the updates failed.");
+
+		let entriesToTransfer = res.rows.length;
+		let fromEntries = {};
+		for(let i=0;i<res.rows.length;i++){
+			fromEntries[res.rows[i].leaderboard] = res.rows[i];
+		}
+		
+		if(entriesToTransfer === 0){
+			callback();
+		}
+
+		pgclient.runSql(GET_LB_ENTRIES_SQL, [toDbId], (err, res2)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			let toEntries = {};
+			for(let i=0;i<res2.rows.length;i++){
+				toEntries[res2.rows[i].leaderboard] = res2.rows[i];
+			}
+
+			let totalError = null;
+			let sharedCallback = (err, res3)=>{
+				totalError = err || totalError;
+				entriesToTransfer--;
+				if(entriesToTransfer === 0) callback(err);
+			}
+
+			removeAllLeaderboardEntries(fromDbId, logIfError);
+			for(let event in fromEntries){
+				if(toEntries[event]){
+					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [toDbId, event, toEntries[event].points + fromEntries[event].points], sharedCallback);
+				}else{
+					pgclient.runSql(INSERT_LB_ENTRY_SQL, [toDbId, event, fromEntries[event].points], sharedCallback);
 				}
 			}
 		});
-	}, onError);
+	});
+};
+
+let changeMains = function(id, newName, callback){
+	pgclient.runSql(UPDATE_USER_SQL, [id, newName, toId(newName)], callback);
+}
+
+// Merges two alts, and their points
+let mergeAlts = function(fromName, toName, callback){
+	pgclient.getMains(fromName, toName, true, (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}else if(!res[0] || !res[1]){
+			callback("One or more of those accounts does not exist.");
+			return;
+		}else if(res[0].id === res[1].id){
+			callback("Those two accounts are the same.");
+			return;
+		}
+
+		transferAllPoints(res[0].id, res[1].id, (err)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], (err, res2)=>{
+				if(err){
+					callback(err);
+					return;
+				}
+
+				pgclient.runSql(DELETE_USER_SQL, [res[0].id], (err, res3)=>{
+					if(err){
+						callback(err);
+						return;
+					}
+
+					callback();
+				});
+			});
+		});
+	});
 };
 
 exports.onLoad = function(module, loadData, oldData){
@@ -482,19 +527,19 @@ let commands = {
 				let success = tryBatonPass(game, user, nextPlayer, {active:nextPlayer, undoAsker:function(){
 					updateAllLeaderboardEntriesByUsername(asker, (oldPoints)=>{
 						return Math.max(oldPoints - config.askPoints, 0);
-					});
+					}, logIfError);
 				}, undoAnswerer: function(){
 					updateAllLeaderboardEntriesByUsername(answerer, (oldPoints)=>{
 						return Math.max(oldPoints - config.answerPoints, 0);
-					});
+					}, logIfError);
 				}}, false, shouldUndo);
 				if(success){
 					updateAllLeaderboardEntriesByUsername(asker, (oldPoints)=>{
 						return oldPoints + config.askPoints;
-					});
+					}, logIfError);
 					updateAllLeaderboardEntriesByUsername(answerer, (oldPoints)=>{
 						return oldPoints + config.answerPoints;
-					});
+					}, logIfError);
 				}
 			}
 		}
@@ -768,38 +813,40 @@ let commands = {
 	},
 	alts: function(message, args, user, rank, room, commandRank, commandRoom){
 		let target = toId(args[0]) ? args[0] : user.name;
-		pgclient.getMains(user.id, target, false, (res)=>{
+		pgclient.getMains(user.id, target, false, (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error " + err);
+				return;
+			}
+
 			if(!AuthManager.rankgeq(commandRank, "%") && (!res[0] || !res[1] || (res[0].id !== res[1].id))){
 				room.broadcast(user, "Your rank is not high enough to check other users' alts.")
 			}else if(!res[1]){
 				room.broadcast(user, target + " does not have any alts.");
 			}else{
-				let alts = [];
-				pgclient.runSql(GET_ALTS_SQL, [res[1].id], (row)=>{
-					alts.push(row);
-				}, ()=>{
-					alts = alts.map((alt)=>{return alt.username});
+				pgclient.runSql(GET_ALTS_SQL, [res[1].id], (err, res2)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error " + err);
+					}
+
+					let alts = res2.rows.map((row)=>{return row.username});
 					if(alts.length === 0){
 						room.broadcast(user, target + " does not have any alts");
 					}else if(alts.length < 11){
 						room.broadcast(user, res[1].display_name + "'s alts: " + alts.join(", "));
 					}else{
 						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
-						// TODO: make this only reply through PM.
+						// TODO: make this only reply through PM
 						uploadText(text, (address)=>{
 							room.broadcast(user, "There were more than 10 alts, so they were put into a text file: " + address);
 						}, (error)=>{
 							room.broadcast(user, "There was an error while saving the file. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
 						});
 					}
-				}, (err)=>{
-					error(err);
-					room.broadcast(user, "Something went wrong finding " + target + "'s alts.");
 				});
 			}
-		}, (err)=>{
-			error(err);
-			room.broadcast(user, "There was an error verifying your main account.");
 		});
 	},
 	alt: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -810,15 +857,18 @@ let commands = {
 			let userId = user.id;
 			let altuser = toId(args[0]);
 			if(pendingAlts[altuser] && pendingAlts[altuser].indexOf(userId)>-1){
-				mergeAlts(altuser, userId, ()=>{
+				mergeAlts(altuser, userId, (err)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error: " + err);
+						return;
+					}
+
 					pendingAlts[altuser].splice(pendingAlts[altuser].indexOf(userId),1);
 					if(pendingAlts[altuser].length === 0){
 						delete pendingAlts[altuser];
 					}
 					room.broadcast(user, "Successfully linked accounts.");
-				}, (err)=>{
-					error(JSON.stringify(err));
-					room.broadcast(user, "There was an error while linking accounts: " + JSON.stringify(err));
 				});
 			}else{
 				if(!pendingAlts[userId]){
@@ -827,7 +877,7 @@ let commands = {
 				if(pendingAlts[userId].indexOf(altuser) === -1){
 					pendingAlts[userId].push(altuser);
 				}
-				room.broadcast(user, "Now say \"~alt " + user.name + "\" on that account to link them. Make sure all your linked accounts are registered or your points may be at risk.");
+				room.broadcast(user, "Now say ``~alt " + user.name + "`` on that account to link them. Make sure all your linked accounts are registered or your points may be at risk.");
 			}
 		}
 	},
@@ -836,7 +886,13 @@ let commands = {
 		if(args.length===0 || !args[0]){
 			room.broadcast(user, "You must specify an alt.");
 		}else{
-			pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (res)=>{
+			pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
 				if(!res[0] && !canEditOthers){
 					room.broadcast(user, "You do not have any alts.");
 				}else if(!res[1]){
@@ -850,31 +906,36 @@ let commands = {
 						room.broadcast(user, "You cannot remove your main account.");
 					}
 				}else{
-					pgclient.runSql(DELETE_ALT_SQL, [toId(args[0])], null, (res)=>{
+					pgclient.runSql(DELETE_ALT_SQL, [toId(args[0])], (err, res)=>{
+						if(err){
+							error(err);
+							room.broadcast("Error: " + err);
+						}
+
 						if(res.rowCount === 0){
 							room.broadcast(user, "That's weird, the query didn't delete anything. Something is probably wrong.");
 						}else{
 							room.broadcast(user, "Successfully removed the alt.");
 						}
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was an error removing the alt.");
-					})
+					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "Something went wrong when finding your main.");
 			});
 		}
 	},
 	main: function(message, args, user, rank, room, commandRank, commandRoom){
+		// 34
 		let canEditOthers = AuthManager.rankgeq(commandRank, "@");
 		if(args.length===0 || !args[0]){
 			room.broadcast(user, "You must specify an alt.");
 		}else if(args[0].length>20){
 			room.broadcast(user, "That name is too long.");
 		}else{
-			pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (res)=>{
+			pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+				}
+
 				if(!res[0] && !canEditOthers){
 					room.broadcast(user, "You do not have any alts.");
 				}else if(!res[1]){
@@ -882,48 +943,49 @@ let commands = {
 				}else if(res[0].id !== res[1].id && !canEditOthers){
 					room.broadcast(user, "That account is not one of your alts.");
 				}else{
-					changeMains(res[1].id, removeFormatting(removeRank(args[0])), ()=>{
+					changeMains(res[1].id, removeFormatting(removeRank(args[0])), (err, res2)=>{
+						if(err){
+							error(err);
+							room.broadcast(user, "Error: " + err);
+						}
+
 						if(!res[0].id || res[0].id !== res[1].id){
 							room.broadcast(user, "Their name was successfully changed.");
 						}else{
 							room.broadcast(user, "Your name was successfully changed.");
 						}
-					}, (err)=>{
-						error(JSON.stringify(err));
-						if(res[0].id !== res[1].id){
-							room.broadcast(user, "There was an error while changing their main account name.");
-						}else{
-							room.broadcast(user, "There was an error while changing your main account name.");
-						}
 					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "Something went wrong when finding your main.");
 			});
 		}
 	},
 	removeformatting: function(message, args, user, rank, room, commandRank, commandRoom){
+		// 22
 		if(!AuthManager.rankgeq(commandRank,"@")){
 			user.send("You rank isn't high enough to do that.");
 		}else if (args.length < 1){
 			user.send("You need to give a player to fix.");
 		}else{
 			let id = toId(args[0]);
-			pgclient.getId(id, false, (row)=>{
-				if(!row){
+			pgclient.getUser(id, false, (err, dbUser)=>{
+				if(err){
+					error(err);
+					user.send("Error: " + err);
+					return;
+				}
+
+				if(!dbUser){
 					user.send("That user does not have an entry.");
 				}else{
-					changeMains(row.id, id, ()=>{
-						room.broadcast(user, "Successfully reset the main mane.");
-					}, (err)=>{
-						error(err);
-						user.send("Something went wrong when updating the main.");
+					changeMains(dbUser.id, dbUser.username, (err, res)=>{
+						if(err){
+							error(err);
+							user.send("Error: " + err);
+							return;
+						}
+						room.broadcast(user, "Successfully reset their main name.");
 					});
 				}
-			}, (err)=>{
-				error(err)
-				user.send("Something went wrong when finding the main account.");
 			});
 		}
 	},
@@ -1090,7 +1152,6 @@ let commands = {
 			room.broadcast(user, "There are no query batches :<");
 		}
 	},
-	//TODO: When a proper text upload method is implemented, redo this
 	minigameupdate: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, config.batchRank)){
 			user.send("Your rank is not high enough to manage query batches.");
@@ -1314,9 +1375,14 @@ let ttleaderboardCommands = {
 		let lb = args[2] || "main";
 		let number = /^[\d]+$/.test(args[1]) ? parseInt(args[1], 10) : 5;
 		let rows = [];
-		listLeaderboardEntries([number, lb], (row)=>{
-			rows.push(row);
-		},()=>{
+		listLeaderboardEntries([number, lb], (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
+			}
+
+			let rows = res.rows;
 			if(!rows.length){
 				room.broadcast(user, "There are no players on the " + lb + " leaderboard.", rank, true);
 			}else{
@@ -1326,18 +1392,19 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "The top " + rows.length + " score" + (rows.length === 1 ? "" : "s") + " in the " + lb + " leaderboard " + (rows.length === 1 ? "is" : "are") + ": " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".", rank, true);
 				}
 			}
-		},(err)=>{
-			error(err);
-			room.broadcast(user, "There was either an error fetching the scores or the leaderboard you entered does not exist.", rank, true);
 		});
 	},
 	listall: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, "#")) return;
 		let lb = toId(args[1]) || "main";
-		let rows = [];
-		pgclient.runSql(LIST_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
-			rows.push(row);
-		},()=>{
+		pgclient.runSql(LIST_ALL_LB_ENTRIES_SQL, [lb], (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
+			}
+
+			let rows = res.rows;
 			if(!rows.length){
 				user.send("There are no players on the " + lb + " leaderboard.");
 			}else{
@@ -1349,194 +1416,207 @@ let ttleaderboardCommands = {
 					user.send("There was an error: " + err);
 				});
 			}
-		},(err)=>{
-			error(err);
-			user.send("There was either an error fetching the scores or the leaderboard you entered does not exist.")
 		});
 	},
 	check: function(message, args, user, rank, room, commandRank, commandRoom){
-		let player = args[1] || user.id;
+		let username = args[1] || user.name;
 		let boardId = toId(args[2]) || "main";
-		let boardName;
-		pgclient.runSql(GET_LB_SQL, [boardId], (row)=>{
-			boardName = row.display_name;
-		}, ()=>{
-			if(!boardName){
+		pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
+			}
+
+			if(!res.rowCount){
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank, true);
 			}else{
-				pgclient.getId(player, false, (res)=>{
-					if(!res){
-						room.broadcast(user, player + " does not have a score on the " + boardName + " leaderboard.", rank, true);
+				let boardName = res.rows[0].display_name;
+				pgclient.getUser(username, false, (err, res2)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error " + err);
+						return;
+					}
+
+					if(!res2){
+						room.broadcast(user, username + " does not have a score on the " + boardName + " leaderboard.", rank, true);
 					}else{
-						getLeaderboardEntry([res.id, boardId], (entry)=>{
-							if(!entry){
-								room.broadcast(user, res.display_name + " does not have a score on the " + boardName + " leaderboard.", rank, true);
-							}else{
-								room.broadcast(user, res.display_name + "'s score on the " + boardName + " leaderboard is " + entry.points + ".", rank, true);
+						getLeaderboardEntry([res2.id, boardId], (err, entry)=>{
+							if(err){
+								error(err);
+								room.broadcast(user, "Error " + err);
+								return;
 							}
-						},(err)=>{
-							error(err);
-							room.broadcast(user, "There was an error fetching the score for " + res.display_name + ".", rank, true);
+
+							if(!entry){
+								room.broadcast(user, res2.display_name + " does not have a score on the " + boardName + " leaderboard.", rank, true);
+							}else{
+								room.broadcast(user, entry.display_name + "'s score on the " + boardName + " leaderboard is " + entry.points + ".", rank, true);
+							}
 						});
 					}
-				}, (err)=>{
-					error(err);
-					room.broadcast(user, "There was an error getting " + player + "'s id.", rank, true);
 				});
 			}
-		}, (err)=>{
-			error(err);
-			room.broadcast(user, "There was an error getting the leaderboard list.", rank, true);
 		});
-
-
 	},
 	//Number of people, your place, your score, points to next place
 	summary: function(message, args, user, rank, room, commandRank, commandRoom){
-		let lb = toId(args[1]) || "main";
-		let id = (AuthManager.rankgeq(commandRank, "%") && toId(args[2])) || user.id;
-		let lbExists = false;
-		let lbname = "";
-		pgclient.runSql(GET_ALL_LB_SQL, [], (lbRow)=>{
-			if(lbRow.id === lb){
-				lbExists = true;
-				lbname = lbRow.display_name;
+		let lbId = toId(args[1]) || "main";
+		let userId = (AuthManager.rankgeq(commandRank, "%") && toId(args[2])) || user.id;
+		pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
 			}
-		}, ()=>{
-			if(!lbExists){
+			
+			let lbEntry = res.rows.filter((row)=>{return row.id === lbId;})[0];
+			if(!lbEntry){
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank);
 			}else{
-				let res;
-				pgclient.getId(id, false, (res)=>{
-					if(!res){
-						room.broadcast(user, "You do not have a score on the " + lbname + " leaderboard.", rank);
+				let lbName = lbEntry.display_name;
+				pgclient.getUser(userId, false, (err, res2)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error " + err);
+						return;
+					}
+
+					if(!res2){
+						room.broadcast(user, "You do not have a score on the " + lbName + " leaderboard.", rank);
 					}else{
-						getLeaderboardEntry([res.id, lb], (entry)=>{
+						getLeaderboardEntry([res2.id, lbId], (err, entry)=>{
+							if(err){
+								error(err);
+								room.broadcast(user, "Error " + err);
+								return;
+							}
+
 							if(!entry){
-								room.broadcast(user, "You do not have a score on the " + lbname + " leaderboard.", rank);
+								room.broadcast(user, "You do not have a score on the " + lbName + " leaderboard.", rank);
 							}else{
 								let score = entry.points;
-								let entries = [];
-								pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [lb], (row)=>{
-									entries.push(row)
-								}, (res2)=>{
+								pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [lbId], (err, res3)=>{
+									if(err){
+										error(err);
+										room.broadcast(user, "Error " + err);
+										return;
+									}
+
+									let entries = res3.rows;
 									if(entries.length === 0){
 										room.broadcast(user, "There doesn't seem to be anyone on the leaderboard. Maybe something went wrong.", rank);
 									}else if(entries.length === 1){
 										room.broadcast(user, "You are the only person on the leaderboard (and your score is " + score + ").", rank);
+									}else if(entries[0].points === score){
+										let nextPlayer = idsMatch(entries[0].display_name, res2.display_name) ? entries[1] : entries[0];
+										let response = "You are first on the leaderboard with " + score + " points."
+										response += " Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.";
+										room.broadcast(user, response, rank);
 									}else{
-										if(entries[0].points === score){
-											let nextPlayer = idsMatch(entries[0].display_name, res.display_name) ? entries[1] : entries[0];
-											let response = "You are first on the leaderboard with " + score + " points."
-											response += " Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.";
-											room.broadcast(user, response, rank);
-										}else{
-											let higherEntries = entries.filter(item=>{return item.points > score});
-											let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
-											response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
-											response += " The next player above you is __" + higherEntries[higherEntries.length - 1].display_name + "__ with " + higherEntries[higherEntries.length - 1].points + " points.";
-											room.broadcast(user, response, rank);
-										}
+										let higherEntries = entries.filter(item=>{return item.points > score});
+										let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
+										response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
+										response += " The next player above you is __" + higherEntries[higherEntries.length - 1].display_name + "__ with " + higherEntries[higherEntries.length - 1].points + " points.";
+										room.broadcast(user, response, rank);
 									}
-								}, (err)=>{
-									error(err);
-									room.broadcast(user, "There was an error while getting the scores.", rank);
 								});
 							}
-						},(err)=>{
-							error(err);
-							room.broadcast(user, "There was an error fetching the score for " + res.display_name + ".", rank);
 						});
 					}
-				}, (err)=>{
-					error(err);
-					room.broadcast(user, "There was an error getting " + user + "'s id.", rank);
 				});
 			}
-		}, (err)=>{
-			error(err);
-			room.broadcast(user, "There was an error getting the leaderboard list.", rank);
 		});
 	},
+	// TODO this can be just one query that gets all three...
 	stats: function(message, args, user, rank, room, commandRank, commandRoom){
-
-		let lb = toId(args[1]) || "main";
-		let avg, std, num, lbname;
-
-		pgclient.runSql(GET_ALL_LB_SQL, [], (row)=>{
-			if(row.id === lb){
-				lbname = row.display_name;
+		let lbId = toId(args[1]) || "main";
+		pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
 			}
-		}, ()=>{
-			if(!lbname){
+
+			let lbEntry = res.rows.filter((row)=>{return row.id === lbId;})[0];
+			if(!lbEntry){
 				room.broadcast(user, "That leaderboard doesn't exist.", rank);
 			}else{
-				pgclient.runSql(GET_NUM_PLAYERS, [lb], (row)=>{
-					num = parseInt(row.num_players);
-				}, ()=>{
-					if(num === 0){
+				let lbName = lbEntry.displayName;
+				pgclient.runSql(GET_NUM_PLAYERS, [lbId], (err, res2)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error: " + err);
+						return;
+					}
+
+					if(res2.rowCount === 0 || res2.rows[0].num_players === '0'){
 						room.broadcast(user, "There are no players on that leaderboard.", rank);
 					}else{
-						pgclient.runSql(GET_STD_POINTS, [lb], (row)=>{
-							std = Math.round(row.std_points*100)/100;
-						}, ()=>{
-							pgclient.runSql(GET_AVG_POINTS, [lb], (row)=>{
-								avg = Math.round(row.avg_points*10)/10;
-							}, ()=>{
-								room.broadcast(user, "There are " + num + " players on the " + lbname + " leaderboard. The average score is " + avg + " and the standard deviation is " + std + ".", rank);
-							}, (err)=>{
+						let num = parseInt(res2.rows[0].num_players);
+						pgclient.runSql(GET_STD_POINTS, [lbId], (err, res3)=>{
+							if(err){
 								error(err);
-								room.broadcast(user, "There was an error getting the leaderboard information.", rank);
+								rooom.broadcast(user, "Error: " + err);
+								return;
+							}
+
+							let std = Math.round(res3.rows[0].std_points*100)/100;
+							pgclient.runSql(GET_AVG_POINTS, [lbId], (err, res4)=>{
+								if(err){
+									error(err);
+									rooom.broadcast(user, "Error: " + err);
+									return;
+								}
+
+								let avg = Math.round(res4.rows[0].avg_points*10)/10;
+								room.broadcast(user, "There are " + num + " players on the " + lbName + " leaderboard. The average score is " + avg + " and the standard deviation is " + std + ".", rank);
 							});
-						}, (err)=>{
-							error(err);
-							room.broadcast(user, "There was an error getting the leaderboard information.", rank);
 						});
 					}
-				}, (err)=>{
-					error(err);
-					room.broadcast(user, "There was an error getting the leaderboard information.", rank);
 				});
 			}
-		}, (err)=>{
-			error(err);
-			room.broadcast(user, "There was an error getting the leaderboard list.", rank);
 		});
 	},
 	set: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank,config.editScoreRank)){
 			room.broadcast(user, "Your rank is not high enough to change someone's score.", rank);
-		}else	if(args.length<=2 || !toId(args[1])){
+		}else if(args.length<=2 || !toId(args[1])){
 			room.broadcast(user, "You must specify the user's name, and the number of points to add.", rank);
 		}else if(!/^[\d]+$/.test(args[2])){
 			room.broadcast(user, "Invalid number format for the number of points.", rank);
 		}else{
-			let player = args[1];
+			let username = args[1];
 			let points = parseInt(args[2], 10);
 			let boardId = toId(args[3]) || "main"
-			let boardName;
-			pgclient.runSql(GET_LB_SQL, [boardId], (row)=>{
-				boardName = row.display_name;
-			}, ()=>{
+			pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				let boardName = res.rowCount ? res.rows[0].display_name : null;
 				if(!boardName){
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
-					updateLeaderboardEntryByUsername([player, boardId], (oldPoints)=>{
+					updateLeaderboardEntryByUsername([username, boardId], (oldPoints)=>{
 						return points;
-					}, (res, newPoints)=>{
-						if(!res){
-							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + player + " and set their score to " + newPoints + ".", rank);
-						}else{
-							room.broadcast(user, "Updated the score for " + res.display_name + ". Their " + boardName + " leaderboard score changed from " + res.points + " to " + newPoints + ".", rank);
+					}, (err, entry, newPoints)=>{
+						if(err){
+							error(err);
+							room.broadcast(user, "Error: " + err);
+							return;
 						}
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was an error updating the score.", rank);
+
+						if(!entry){
+							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + username + " and set their score to " + newPoints + ".", rank);
+						}else{
+							room.broadcast(user, "Updated the score for " + entry.display_name + ". Their " + boardName + " leaderboard score changed from " + entry.points + " to " + newPoints + ".", rank);
+						}
 					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "There was an error getting the leaderboard information.", rank);
 			});
 		}
 	},
@@ -1548,19 +1628,22 @@ let ttleaderboardCommands = {
 		}else if(!/^-?[\d]+$/.test(args[2])){
 			room.broadcast(user, "Invalid number format for the number of points.", rank);
 		}else{
-			let target = args[1];
+			let username = args[1];
 			let points = parseInt(args[2], 10);
-			updateAllLeaderboardEntriesByUsername(target, (oldPoints)=>{
+			updateAllLeaderboardEntriesByUsername(username, (oldPoints)=>{
 				return Math.max(oldPoints + points, 0);
-			}, (name, affected, failed)=>{
-				let response = "Updated " + affected + " scores for " + name + ".";
+			}, (err, username, affected, failed)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				let response = "Updated " + affected + " scores for " + username + ".";
 				if(failed.length){
 					response += " The following leaderboards failed to update: " + failed.join(", ") + ".";
 				}
 				room.broadcast(user, response, rank);
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "There was an error updating the scores.", rank);
 			});
 		}
 	},
@@ -1572,33 +1655,37 @@ let ttleaderboardCommands = {
 		}else if(!/^-?[\d]+$/.test(args[2])){
 			room.broadcast(user, "Invalid number format for the number of points.", rank);
 		}else{
-			let player = args[1];
+			let username = args[1];
 			let points = parseInt(args[2], 10);
 			let boardId = toId(args[3])
-			let boardName;
-			pgclient.runSql(GET_LB_SQL, [boardId], (row)=>{
-				boardName = row.display_name;
-			}, ()=>{
-				if(!boardName){
+			pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+				
+				if(!res.rowCount){
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
-					updateLeaderboardEntryByUsername([player, boardId], (oldPoints)=>{
+					let boardName = res.rows[0].display_name;
+					updateLeaderboardEntryByUsername([username, boardId], (oldPoints)=>{
 						return oldPoints + points;
-					}, (res, newPoints)=>{
-						if(!res){
-							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + player + " and set their score to " + newPoints + ".", rank);
-						}else{
-							room.broadcast(user, "Updated the score for " + res.display_name + ". Their " + boardName + " leaderboard score changed from " + res.points + " to " + newPoints + ".", rank);
+					}, (err, res2, newPoints)=>{
+						if(err){
+							error(err);
+							room.broadcast(user, "Error: " + err);
+							return;
 						}
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was an error updating the score.", rank);
+						
+						if(!res2){
+							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + username + " and set their score to " + newPoints + ".", rank);
+						}else{
+							room.broadcast(user, "Updated the score for " + res2.display_name + ". Their " + boardName + " leaderboard score changed from " + res2.points + " to " + newPoints + ".", rank);
+						}
 					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "There was an error getting the leaderboard information.", rank);
-			})
+			});
 		}
 	},
 	remove: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1607,20 +1694,26 @@ let ttleaderboardCommands = {
 		}else if(!AuthManager.rankgeq(commandRank, config.editScoreRank)){
 			room.broadcast(user, "Your rank is not high enough to remove someone's leaderboard entries.", rank);
 		}else{
-			pgclient.getId(args[1], false, (player)=>{
+			pgclient.getUser(args[1], false, (err, player)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
 				if(!player){
 					room.broadcast(user, args[1] + " does not have any leaderboard entries.", rank);
 				}else{
-					removeAllLeaderboardEntries(player.id, (res)=>{
+					removeAllLeaderboardEntries(player.id, (err, res)=>{
+						if(err){
+							error(err);
+							room.broadcast(user, "Error: " + err);
+							return;
+						}
+
 						room.broadcast(user, "Removed " + res.rowCount + " leaderboard entries for " +	args[1] + ".", rank);
-					}, ()=>{}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was an error removing the entries.", rank);
 					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "There was an error while getting " + args[1] + "'s id.", rank);
 			});
 		}
 	},
@@ -1630,6 +1723,7 @@ let ttleaderboardCommands = {
 		}else{
 			if(idsMatch(user.id, data.askToReset)){
 				try{
+					// TODO can this just be pg_dump > filename?
 					let child = spawn("pg_dump", [mainConfig.dbname]);
 					let parts = [];
 					child.stdout.on("data", (data)=>{
@@ -1644,24 +1738,39 @@ let ttleaderboardCommands = {
 						let filename = "backups/" + new Date().toISOString() + ".dump";
 						fs.writeFile(filename, text, (err)=>{
 							// Now that the database has been written, it's okay to reset
-							getAllLeaderboardEntries("main", (arr)=>{
-								pgclient.getId(user.id, true, (user)=>{
-									pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], null, (res)=>{
-										pgclient.runSql(RESET_MAIN_LB_SQL, [user.id], null, ()=>{
+							getAllLeaderboardEntries("main", (err, rows)=>{
+								if(err){
+									error(err);
+									room.broadcast(user, "Error: " + err);
+									return;
+								}
+
+								pgclient.getUser(user.id, true, (err, user)=>{
+									if(err){
+										error(err);
+										room.broadcast(user, "Error: " + err);
+										return;
+									}
+
+									pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], (err, res)=>{
+										if(err){
+											error(err);
+											room.broadcast(user, "Error: " + err);
+											return;
+										}
+
+										pgclient.runSql(RESET_MAIN_LB_SQL, [user.id], (err, res2)=>{
+											if(err){
+												error(err);
+												room.broadcast(user, "Error: " + err);
+												return;
+											}
+
 											room.broadcast(user, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.", rank);
 											data.askToReset = "";
-											achievementsOnReset("main", arr);
-										}, (err)=>{
-											error(err);
-											room.broadcast(user, "There was an updating the leaderboard info.", rank);
+											achievementsOnReset("main", rows);
 										})
-									}, (err)=>{
-										error(err);
-										room.broadcast(user, "There was an error while removing the leaderboard.", rank);
 									});
-								}, (err)=>{
-									error(err);
-									room.broadcast(user, "There was an error while getting your id.", rank);
 								});
 							});
 						});
@@ -1680,18 +1789,19 @@ let ttleaderboardCommands = {
 
 let ttleaderboardEventCommands = {
 	list: function(message, args, user, rank, room, commandRank, commandRoom){
-		let events = [];
-		pgclient.runSql(GET_ALL_LB_SQL, [], (row)=>{
-			events.push(row);
-		}, ()=>{
-			if(!events.length){
+		pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
+			}
+
+			if(!res.rowCount){
 				room.broadcast(user, "There are no leaderboards right now.", rank);
 			}else{
-				room.broadcast(user, "These are the current leaderboards: " + events.map((event)=>{return event.display_name}).join(", "), rank);
+				let leaderboards = res.rows.map((row)=>{return row.display_name;});
+				room.broadcast(user, "These are the current leaderboards: " + leaderboards.join(", "), rank);
 			}
-		}, (err)=>{
-			error(err);
-			room.broadcast(user, "There was an error fetching the leaderboards.", rank);
 		});
 	},
 	add: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1702,29 +1812,35 @@ let ttleaderboardEventCommands = {
 		}else if(args[1].length > 20){
 			room.broadcast(user, "That name is too long.", rank);
 		}else{
-			let displayName = args[1];
-			let lb;
-			pgclient.runSql(GET_LB_SQL, [toId(displayName)], (row)=>{
-				lb = row;
-			}, ()=>{
-				if(lb){
+			let boardName = args[1];
+			pgclient.runSql(GET_LB_SQL, [toId(boardName)], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				if(res.rowCount){
 					room.broadcast(user, "A leaderboard already exists with the same name.", rank);
 				}else{
-					pgclient.getId(user.id, true, (res)=>{
-						pgclient.runSql(INSERT_LB_SQL, [toId(displayName), displayName, res.id], null, ()=>{
-							room.broadcast(user, "Successfully created a new leaderboard.", rank);
-						}, (err)=>{
+					pgclient.getUser(user.id, true, (error, res)=>{
+						if(err){
 							error(err);
-							room.broadcast(user, "There was an error while creating the new leaderboard.", rank);
+							room.broadcast(user, "Error: " + err);
+							return;
+						}
+
+						pgclient.runSql(INSERT_LB_SQL, [toId(boardName), boardName, res.id], (err, res2)=>{
+							if(err){
+								error(err);
+								room.broadcast(user, "Error: " + err);
+								return;
+							}
+
+							room.broadcast(user, "Successfully created a new leaderboard.", rank);
 						});
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was a problem getting your id.", rank);
 					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "Something went wrong when trying to fetch the leaderboard list.", rank);
 			});
 		}
 	},
@@ -1737,48 +1853,54 @@ let ttleaderboardEventCommands = {
 			room.broadcast(user, "You cannot remove that leaderboard.", rank);
 		}else{
 			let id = toId(args[1]);
-			let lb;
-			pgclient.runSql(GET_LB_SQL, [id], (row)=>{
-				lb = row;
-			}, ()=>{
-				if(!lb){
+			pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				if(!res.rowCount){
 					room.broadcast(user, "There is no leaderboard with that name.", rank);
 				}else{
-					pgclient.runSql(DELETE_LB_ENTRIES_SQL, [id], null, (res)=>{
-						pgclient.runSql(DELETE_LB_SQL, [id], null, ()=>{
-							room.broadcast(user, "Successfully removed the leaderboard and deleted " + res.rowCount + " score(s).", rank);
-						}, (err)=>{
+					pgclient.runSql(DELETE_LB_ENTRIES_SQL, [id],(err, res2)=>{
+						if(err){
 							error(err);
-							room.broadcast(user, "There was an error while removing the leaderboard.", rank);
+							room.broadcast(user, "Error: " + err);
+							return;
+						}
+
+						pgclient.runSql(DELETE_LB_SQL, [id], (err, res3)=>{
+							if(err){
+								error(err);
+								room.broadcast(user, "Error: " + err);
+								return;
+							}
+
+							room.broadcast(user, "Successfully removed the leaderboard and deleted " + res2.rowCount + " score(s).", rank);
 						});
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was an error while removing the leaderboard.", rank);
 					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "Something went wrong when trying to fetch the leaderboard list.", rank);
 			});
 		}
 	},
 	info: function(message, args, user, rank, room, commandRank, commandRoom){
-		let lbName = args[1] || "main";
-		let id = toId(lbName);
-		let lb;
-		pgclient.runSql(GET_LB_SQL, [id], (row)=>{
-			lb = row;
-		}, ()=>{
-			if(!lb){
-				room.broadcast(user, "There is no leaderboard with the name " + lbName + ".", rank);
-			}else if(id !== "main"){
-				room.broadcast(user, "Leaderboard name: " + lb.display_name + ", created on: " + lb.created_on.toUTCString() + ", created by: " + lb.created_by + ", enabled: " + lb.enabled, rank);
-			}else{
-				room.broadcast(user, "Leaderboard name: " + lb.display_name + ", last reset: " + lb.created_on.toUTCString() + ", reset by: " + lb.created_by + ", enabled: " + lb.enabled, rank);
+		let id = args[1] || "main";
+		pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
 			}
-		}, (err)=>{
-			error(err);
-			room.broadcast(user, "Something went wrong when trying to fetch the leaderboard.", rank);
+			
+			let lbEntry = res.rows[0];
+			if(!res.rowCount){
+				room.broadcast(user, "The leaderboard you specified doesn't exist.", rank);
+			}else if(id !== "main"){
+				room.broadcast(user, "Leaderboard name: " + lbEntry.display_name + ", created on: " + lbEntry.created_on.toUTCString() + ", created by: " + lbEntry.created_by + ", enabled: " + lbEntry.enabled, rank);
+			}else{
+				room.broadcast(user, "Leaderboard name: " + lbEntry.display_name + ", last reset: " + lbEntry.created_on.toUTCString() + ", reset by: " + lbEntry.created_by + ", enabled: " + lbEntry.enabled, rank);
+			}
 		});
 	},
 	enable: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1788,25 +1910,29 @@ let ttleaderboardEventCommands = {
 			room.broadcast(user, "You must specify the name for the leaderboard.", rank);
 		}else{
 			let id = toId(args[1]);
-			let lb;
-			pgclient.runSql(GET_LB_SQL, [id], (row)=>{
-				lb = row;
-			}, (res)=>{
-				if(!lb){
+			pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+			
+				let lbEntry = res.rows[0];
+				if(!lbEntry){
 					room.broadcast(user, "The leaderboard you specified doesn't exist.", rank);
-				}else if(lb.enabled){
+				}else if(lbEntry.enabled){
 					room.broadcast(user, "That leaderboard is already enabled.", rank);
 				}else{
-					pgclient.runSql(UPDATE_LB_SQL, [id, true], null, (res)=>{
-						room.broadcast(user, "Successfully enabled the " + lb.display_name + " leaderboard.", rank);
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was an error while updating the leaderboard.", rank);
-					})
+					pgclient.runSql(UPDATE_LB_SQL, [id, true], (err, res2)=>{
+						if(err){
+							error(err);
+							room.broadcast(user, "Error: " + err);
+							return;
+						}
+					
+						room.broadcast(user, "Successfully enabled the " + lbEntry.display_name + " leaderboard.", rank);
+					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "There was an error when retrieving the leaderboards.", rank);
 			});
 		}
 	},
@@ -1817,25 +1943,29 @@ let ttleaderboardEventCommands = {
 			room.broadcast(user, "You must specify the name for the leaderboard.", rank);
 		}else{
 			let id = toId(args[1]);
-			let lb;
-			pgclient.runSql(GET_LB_SQL, [id], (row)=>{
-				lb = row;
-			}, (res)=>{
-				if(!lb){
+			pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+			
+				let lbEntry = res.rows[0];
+				if(!lbEntry){
 					room.broadcast(user, "The leaderboard you specified doesn't exist.", rank);
-				}else if(!lb.enabled){
+				}else if(!lbEntry.enabled){
 					room.broadcast(user, "That leaderboard is already disabled.", rank);
 				}else{
-					pgclient.runSql(UPDATE_LB_SQL, [id, false], null, (res)=>{
-						room.broadcast(user, "Successfully disabled the " + lb.display_name + " leaderboard.", rank);
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "There was an error while updating the leaderboard.", rank);
-					})
+					pgclient.runSql(UPDATE_LB_SQL, [id, false], (err, res2)=>{
+						if(err){
+							error(err);
+							room.broadcast(user, "Error: " + err);
+							return;
+						}
+				
+						room.broadcast(user, "Successfully disabled the " + lbEntry.display_name + " leaderboard.", rank);
+					});
 				}
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "There was an error when retrieving the leaderboards.", rank);
 			});
 		}
 	}
@@ -2113,10 +2243,19 @@ let loadBatches = function(){
 // scores is an array of {display_name, points}, sorted descending by points.
 // There are achievements for getting first, getting top 5, and getting 6th
 let achievementsOnReset = function(leaderboard, scores){
+	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
+	let callback = (err, username, achievement)=>{
+		if(err){
+			error(err);
+			return;
+		}
+
+		if(triviaRoom) triviaRoom.send(username + " has earned the achievement '" + achievement + "'!");
+	}
 	if(scores.length > 0 && leaderboard === "main" && achievements){ // Awarding achievements
 		let firstPlace = scores.filter((e)=>{return e.points === scores[0].points});
 		for(let i=0;i<firstPlace.length;i++){
-			achievements.awardAchievement(firstPlace[i].display_name, "Hatmor", (p,a)=>{});
+			achievements.awardAchievement(firstPlace[i].display_name, "Hatmor", callback);
 		}
 		let num = firstPlace.length;
 		while(num<5 && num < scores.length){ // Using black magic to find all players in the top 5
@@ -2124,7 +2263,7 @@ let achievementsOnReset = function(leaderboard, scores){
 		}
 		let top5 = scores.slice(firstPlace.length, num);
 		for(let i=0;i<top5.length;i++){
-			achievements.awardAchievement(top5[i].display_name, "Elite", (p,a)=>{});
+			achievements.awardAchievement(top5[i].display_name, "Elite", callback);
 		}
 		let message = "Congratulations to " + prettyList(firstPlace.map((e)=>{return e.display_name})) + " for getting first";
 		if(top5.length){
@@ -2132,15 +2271,12 @@ let achievementsOnReset = function(leaderboard, scores){
 		}else{
 			message += "!"
 		}
-		let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
 		if(!triviaRoom) return;
 		triviaRoom.send(message);
 		if(num === 5 && scores.length > 5){
 			let consolation = scores.filter((e)=>{return e.points === scores[5].points});
 			for(let i=0;i<consolation.length;i++){
-				achievements.awardAchievement(consolation[i].display_name, "Consolation Prize", (p,a)=>{
-					triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-				});
+				achievements.awardAchievement(consolation[i].display_name, "Consolation Prize", callback);
 			}
 		}
 	}
@@ -2148,26 +2284,26 @@ let achievementsOnReset = function(leaderboard, scores){
 
 let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
 	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
+	let callback = (err, username, achievement)=>{
+		if(err){
+			error(err);
+			return;
+		}
+
+		if(triviaRoom) triviaRoom.send(username + " has earned the achievement '" + achievement + "'!");
+	}
 	if(leaderboard === "main" && achievements){
 		if(oldScore<250 && newScore >= 250){
-			achievements.awardAchievement(user, "Super", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
+			achievements.awardAchievement(user, "Super", callback);
 		}
 		if(oldScore<500 && newScore >= 500){
-			achievements.awardAchievement(user, "Mega", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
+			achievements.awardAchievement(user, "Mega", callback);
 		}
 		if(oldScore<750 && newScore >= 750){
-			achievements.awardAchievement(user, "Ultra", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
+			achievements.awardAchievement(user, "Ultra", callback);
 		}
 		if(oldScore<1000 && newScore >= 1000){
-			achievements.awardAchievement(user, "Hyper", (p,a)=>{
-				if(triviaRoom) triviaRoom.send(p + " has earned the achievement '" + a + "'!");
-			});
+			achievements.awardAchievement(user, "Hyper", callback);
 		}
 	}
 }
