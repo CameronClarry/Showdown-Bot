@@ -62,8 +62,8 @@ global.error = function (text) {
 	console.log("Error: ".red + text);
 };
 
-global.ifError = function (err) {
-	if(err) error(err);
+global.logIfError = function (text) {
+	if(text) error(text);
 }
 
 global.ok = function (text) {
@@ -574,6 +574,7 @@ global.MD5 = function(f){function i(b,c){var d,e,f,g,h;f=b&2147483648;g=c&214748
 
 //Saves text to somewhere accessible via the internet, and returns the link used to access it.
 //onSuccess takes one argument (the link to the text), and onError takes one argument (the string failure reason)
+// TODO make this have just one callback
 global.uploadText = function(text, onSuccess, onError){
 	let filename = MD5(text.substr(0,10)+Date.now()) + ".txt";
 	try{

@@ -66,88 +66,94 @@ exports.commands = commands;
 
 let achievementCommands = {
 	add: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(AuthManager.rankgeq(commandRank, config.achievementManageRank)){
-			if(args.length>2){
-				let name = args[0];
-				let id = toId(name);
-				let desc = args[1];
-				let points = args[2] && /^[\d]+$/.test(args[2]) ? parseInt(args[2]) : -1;
-				if(name.length>40){
-					room.broadcast(user, "The name can be 40 characters long at most.", rank);
-				}else if(!id){
-					room.broadcast(user, "The name needs at least one alphanumeric character.", rank);
-				}else if(points==-1){
-					room.broadcast(user, "The value must be a non-negative integer.", rank);
-				}else{
-					pgclient.runSql(INSERT_ACHIEVEMENT_SQL, [name, id, desc, points], (row)=>{
-					},()=>{
-						room.broadcast(user, "Successfully created the achievement.", rank);
-					},(err)=>{
-						error(err);
-						room.broadcast(user, "Something went wrong when adding the achievement. It may already exist.", rank);
-					});
-				}
-			}else{
-				room.broadcast(user, "Please specify a name, a description, and a points value.", rank);
-			}
-		}else{
+		let name = args[0];
+		let id = toId(name);
+		let desc = args[1];
+		let points = args[2] && /^[\d]+$/.test(args[2]) ? parseInt(args[2]) : -1;
+		if(!AuthManager.rankgeq(commandRank, config.achievementManageRank)){
 			room.broadcast(user, "Your rank is not high enough to manage achievements.", rank);
+		}else if(args.length<3){
+			room.broadcast(user, "Please specify a name, a description, and a points value.", rank);
+		}else if(name.length>40){
+			room.broadcast(user, "The name can be 40 characters long at most.", rank);
+		}else if(!id){
+			room.broadcast(user, "The name needs at least one alphanumeric character.", rank);
+		}else if(points<0){
+			room.broadcast(user, "The value must be a non-negative integer.", rank);
+		}else{
+			pgclient.runSql(INSERT_ACHIEVEMENT_SQL, [name, id, desc, points], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				room.broadcast(user, "Successfully created the achievement.", rank);
+			});
 		}
 	},
 	remove: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(AuthManager.rankgeq(commandRank, config.achievementManageRank)){
-			if(args.length>0){
-				let id = toId(args[0]);
-				if(!id){
-					room.broadcast(user, "The name needs at least one alphanumeric character.", rank);
-				}else{
-					pgclient.runSql(DELETE_ACHIEVEMENT_BY_NAME_SQL, [id], ()=>{}, ()=>{
-						pgclient.runSql(DELETE_ACHIEVEMENT_SQL, [id], (row)=>{
-						},(res)=>{
-							if(res.rowCount===0){
-								room.broadcast(user, "That achievement doesn't exist.", rank);
-							}else{
-								room.broadcast(user, "Successfully removed the achievement.", rank);
-							}
-						},(err)=>{
-							error(err);
-							room.broadcast(user, "Something went wrong when deleting the achievement.", rank);
-						});
-					}, (err)=>{
-						error(err);
-						room.broadcast(user, "Something went wrong when deleting the achievement.", rank);
-					});
-				}
-			}else{
-				room.broadcast(user, "Please specify the achievement name.", rank);
-			}
-		}else{
+		let id = toId(args[0]);
+		if(!AuthManager.rankgeq(commandRank, config.achievementManageRank)){
 			room.broadcast(user, "Your rank is not high enough to manage achievements.", rank);
+		}else if(!id){
+			room.broadcast(user, "The name needs at least one alphanumeric character.", rank);
+		}else{
+			pgclient.runSql(DELETE_ACHIEVEMENT_BY_NAME_SQL, [id], (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				pgclient.runSql(DELETE_ACHIEVEMENT_SQL, [id], (err, res2)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error: " + err);
+						return;
+					}
+
+					if(res2.rowCount===0){
+						room.broadcast(user, "That achievement doesn't exist.", rank);
+					}else{
+						room.broadcast(user, "Successfully removed the achievement.", rank);
+					}
+				});
+			});
 		}
 	},
 	list: function(message, args, user, rank, room, commandRank, commandRoom){
 		let output = "ACHIEVEMENT LIST\n################\n\n";
-		pgclient.runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (row)=>{
-			//output+="Name: " + row.name + ", Points: " + row.value + ", Description: \n" + row.description + "\n\n"; //This can be used if points ever matter
-			output+="Name: " + row.name + ", Description: \n" + row.description + "\n\n";
-		}, (res)=>{
+		pgclient.runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (err, res)=>{
+			if(err){
+				error(JSON.stringify(err));
+				room.broadcast(user, "Error: " + err);
+				return;
+			}
+
+			let output="ACHIEVEMENT LIST\n################\n\n"+res.rows.map((row)=>{return "Name: " + row.name + ", Description: \n" + row.description;}).join("\n\n");
 			uploadText(output, (address)=>{
 				room.broadcast(user, "Here are the achievements: " + address, rank);
 			}, (error)=>{
 				room.broadcast(user, "There was an error while saving the file.", rank);
 			});
-		}, (err)=>{
-			room.broadcast(user, "Something went wrong when getting the achievement list.", rank);
 		});
 	},
 	award: function(message, args, user, rank, room, commandRank, commandRoom){
-		info(args);
 		if(!AuthManager.rankgeq(commandRank, config.achievementManageRank)){
 			room.broadcast(user, "Your rank is not high enough to manage achievements.", rank);
 		}else if(args.length<2){
 			room.broadcast(user, "You must specify the user and the achievement.", rank);
 		}else{
-			awardAchievement(args[0], args[1], (p,a)=>{room.broadcast(user, p + " has earned the achievement '" + a + "'!")}, (result)=>{room.broadcast(user, result)});
+			awardAchievement(args[0], args[1], (err, username, achievement)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				room.broadcast(user, username + " has earned the achievement '" + achievement + "'!")
+			});
 		}
 	},
 	unaward: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -158,99 +164,102 @@ let achievementCommands = {
 		}else{
 			let username = args[0];
 			let achievement = toId(args[1]);
-			pgclient.getId(username, false, (user)=>{
-				if(!user){
+			pgclient.getUser(username, false, (err, res)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, "Error: " + err);
+					return;
+				}
+
+				if(!res){
 					room.broadcast(user, "That user does not exist.", rank);
 					return;
 				}
-				let achievementid;
-				pgclient.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (row)=>{
-					achievementid = row.id;
-				}, (res)=>{
-					if(!achievementid){
+				pgclient.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (err, res2)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error: " + err);
+						return;
+					}
+
+					if(!res2.rowCount){
 						room.broadcast(user, "There's no achievement with that name.", rank);
 					}else{
-						pgclient.runSql(DELETE_PLAYER_ACHIEVEMENT_SQL, [user.id, achievementid], null, (res)=>{
-							if(res.rowCount===0){
-								room.broadcast(user, user.display_name + " doesn't have that achievement.", rank);
+						let achievementId = res2.rows[0].id;
+						pgclient.runSql(DELETE_PLAYER_ACHIEVEMENT_SQL, [res.id, achievementId], (err, res3)=>{
+							if(err){
+								error(err);
+								room.broadcast(user, "Error: " + err);
+								return;
+							}
+
+							if(res3.rowCount===0){
+								room.broadcast(user, res.display_name + " doesn't have that achievement.", rank);
 							}else{
 								room.broadcast(user, "Successfully removed the achievement.", rank);
 							}
-						}, (err)=>{
-							error(err);
-							room.broadcast(user, "Something went wrong removing the achievement.", rank);
-						})
+						});
 					}
-				}, (err)=>{
-					error(err);
-					room.broadcast(user, "Something went wrong getting the achievement.", rank);
 				});
-			}, (err)=>{
-				error(err);
-				room.broadcast(user, "Something went wrong getting the user.", rank);
 			});
 		}
 	},
 	check: function(message, args, user, rank, room, commandRank, commandRoom){
 		let username = args[0] || user.name;
-		pgclient.getId(username, false, (res)=>{
+		pgclient.getUser(username, false, (err, res)=>{
+			if(err){
+				error(err);
+				room.broadcast(user, "Error: " + err);
+				return;
+			}
+
 			if(!res){
 				room.broadcast(user, "The user " + username + " doesn't exist.", rank);
 			}else{
-				let output = res.display_name + "'s achievements:\n";
-				pgclient.runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [res.id], (row)=>{
-					output += row.name + "\n";
-				},(res2)=>{
+				pgclient.runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [res.id], (err, res2)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, "Error: " + err);
+						return;
+					}
+
+					let output = res.display_name + "'s achievements:\n" + res2.rows.map((row)=>{return row.name;}).join("\n");
 					uploadText(output, (address)=>{
 						room.broadcast(user, "Here are " + res.display_name + "'s achievements: " + address, rank);
 					}, (error)=>{
 						room.broadcast(user, "There was an error while saving the file.", rank);
 					});
-				},(err)=>{
-					error(err);
-					room.broadcast(user, "There was a problem getting " + res.display_name + "'s achievements.", rank);
 				});
 			}
-		}, (err)=>{
-			error(err);
-			room.broadcast(user, "There was a problem when getting the user.", rank);
 		});
 
 	},
 
 };
 
-let awardAchievement = function(username, achievement, onSuccess, onFailure){
-	if(!onSuccess){
-		onSuccess = (p, a)=>{info(p + " earned achievement " + a)};
-	}
-	if(!onFailure){
-		onFailure = (message)=>{error(message)};
-	}
-	achievement = toId(achievement);
-	pgclient.getId(username, true, (user)=>{
-		let achievementid;
-		pgclient.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (row)=>{
-			achievementid = row.id;
-			username = row.name
-		}, (res)=>{
-			if(!achievementid){
-				onFailure("Tried to give " + username + " the achievement " + achievement + ", but it doesn't exist.");
-			}else{
-				pgclient.runSql(INSERT_PLAYER_ACHIEVEMENT_SQL, [user.id, achievementid], null, (res)=>{
-					onSuccess(user.display_name, username);
-				}, (err)=>{
-					error(err);
-					onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong. Maybe they already had it.");
-				})
+let awardAchievement = function(username, achievement, callback){
+	let achievementId = toId(achievement);
+	pgclient.getUser(username, true, (err, user)=>{
+		pgclient.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievementId], (err, res)=>{
+			if(err){
+				callback(err);
+				return;
 			}
-		}, (err)=>{
-			error(err);
-			onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong getting the achievement.");
+
+			let achEntry = res.rows[0];
+			if(!achEntry){
+				callback("Tried to give " + username + " the achievement " + achievementId + ", but it doesn't exist.");
+			}else{
+				pgclient.runSql(INSERT_PLAYER_ACHIEVEMENT_SQL, [user.id, achEntry.id], (err, res)=>{
+					if(err){
+						callback(err);
+						return;
+					}
+
+					callback(err, user.display_name, achEntry.name);
+				});
+			}
 		});
-	}, (err)=>{
-		error(err);
-		onFailure("Tried to give " + username + " the achievement " + achievement + ", but something went wrong getting the user.");
 	});
 };
 exports.awardAchievement = awardAchievement;
