@@ -1200,11 +1200,14 @@ let commands = {
 						}
 						queryFunc(queries);
 					}else{
-						pgclient.runSql(queries.shift(), null, null, ()=>{
+						pgclient.runSql(queries.shift(), [], (err, res)=>{
+							if(err){
+								error(err);
+								room.broadcast(user, "Error: " + err);
+								return;
+							}
+
 							queryFunc(queries);
-						}, (err)=>{
-							error(err);
-							room.broadcast(user, "There was an error executing one of the queries.");
 						});
 					}
 				}else{
