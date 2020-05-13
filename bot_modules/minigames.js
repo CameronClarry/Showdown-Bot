@@ -21,17 +21,21 @@ let updatePointsByDbId = function(dbId, name, updateFunc, leaderboards, callback
 		for(let i=0;i<res.rows.length;i++){
 			let curPoints = res.rows[i][0] || 0;
 			let leaderboardId = res.rows[i][1];
-			pgclient.runSql2(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints)], sharedCallback);
+			pgclient.runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints)], sharedCallback);
 			achievements.achievementsOnScoreUpdate(name, leaderboardId, curPoints, updateFunc(curPoints));
 		}
 	});
 }
 
 let updatePointsByPsId = function(psId, name, updateFunc, leaderboards, callback){
-	// TODO change the getid to use a single callback
-	pgclient.getId(name, true, (res)=>{
+	pgclient.getUser(name, true, (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+
 		updatePointsByDbId(res.id, name, updateFunc, leaderboards, callback);
-	}, (err)=>{callback(err)});
+	});
 }
 
 class TriviaTrackerGame{
@@ -66,8 +70,8 @@ class TriviaTrackerGame{
 	/// prevUser: the user that asked the question
 	/// nextUser: the user who got the question correct:
 	givePoints(prevUser, nextUser){
-		updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, ifError);
-		updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, ifError);
+		updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
+		updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
 	}
 
 	makeUndoFunc(id, name, points, leaderboards){
