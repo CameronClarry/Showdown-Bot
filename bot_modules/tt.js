@@ -356,7 +356,7 @@ exports.onLoad = function(module, loadData, oldData){
 					room.broadcast(user, "!rfaq bold");
 				}
 
-			}else if(user.id === game.curUser.id && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(message)){
+			}else if(user.id === game.curUser.id && /\*\*(([^\s\u200b])|([^\s\u200b].*[^\s]))\*\*/g.test(message)){
 				clearTimers(game);
 				game.curHist.hasAsked = true;
 				if(message.length > 10){
