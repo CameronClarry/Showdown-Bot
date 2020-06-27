@@ -319,54 +319,21 @@ exports.onLoad = function(module, loadData, oldData){
 			askToReset: "",
 			timers: {},
 			flags: {},
-			pendingUpdates: []
+			pendingUpdates: [],
+			blacklistManager: new BlacklistManager()
 		};
 		loadFacts();
 		loadBatches();
 		loadLeaderboard();
+		data.blacklistManager.load()
 	}
-	self.chathooks2 = {
+	self.chathooks = {
 		chathook: function(room, user, message){
 			let game = data.games[room.id];
 			if(!game) return;
-			let triviaRank = AuthManager.getRank(user, RoomManager.getRoom("trivia"));
+			let triviaRank = AuthManager.getRank(user, RoomManager.getRoom('trivia'));
 
-			if(game.bpOpen){
-				let text = toId(message);
-				if(text === "bp" || text === "me" || text === "bpme"){
-					tryBatonPass(game, user, user, {active:user}, false, false, config.remindTime/2);
-				}
-			}else if((AuthManager.rankgeq(triviaRank, config.manageBpRank) || user.id === game.curUser.id) && (/\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(message) || /^\/announce .*veto.*/i.test(message)) && user.id !== toId(mainConfig.user)){
-				if(game.curHist.hasAsked){
-					game.curHist.hasAsked = false;
-					clearTimers(game);
-					game.remindTimer = setTimeout(()=>{
-						onRemind(game);
-					}, config.remindTime*1000/2);
-				}
-
-				if(AuthManager.rankgeq(triviaRank, config.manageBpRank) && (/boldfail/i.test(toId(message)))){
-					room.broadcast(user, "!rfaq bold");
-				}
-
-			}else if(user.id === game.curUser.id && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(message)){
-				clearTimers(game);
-				game.curHist.hasAsked = true;
-				if(message.length > 10){
-					game.curHist.question = message;
-				}
-			}
-			if(game && data.flags["timer"] && /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(message)){
-				if(game.blitzTimer){
-					clearTimeout(game.blitzTimer);
-					game.blitzTimer = null;
-				}
-				game.blitzTimer = setTimeout(()=>{
-					game.blitzTimer = null;
-					room.send("/wall Timer's up!");
-				}, data.flags["timer"]*1000);
-				room.send("Set the timer for " + data.flags["timer"] + " seconds.");
-			}
+			game.onRoomMessage(user, triviaRank, message);
 		}
 	};
 };
@@ -428,15 +395,14 @@ let processLeave = function(room, user){
 self.processLeave = processLeave;
 exports.processLeave = processLeave;
 
+//TODO needs testing
 let processName = function(room, user){
 	let game = data.games[room.id];
-	if(game && user.id === game.curUser.id){
-		if( (user.trueRank === "‽" || user.trueRank === "!") && !game.bpLocked){ // Let's go ahead and open BP if the user is muted or locked
-			// but we can't open BP if it's locked!
-			if(!game.bpOpen){
-				room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
-			}
-			game.bpOpen = "auth";
+	if(game){
+		if(user.trueRank === '‽'){
+			game.onPunishment(user, 'lock');
+		}else if(user.trueRank === '!'){
+			game.onPunishment(user, 'mute');
 		}
 	}
 }
@@ -507,90 +473,51 @@ let commands = {
 				game.room.broadcast(user, reason);
 				return;
 			}
+
 			game.doYes(user, nextPlayer);
 		}
 	},
 	nah: "no",
 	nope: "no",
 	no: function(message, args, user, rank, room, commandRank, commandRoom){
-		// TODO rewrite this
+		// TODO test this
 		let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
 		let number = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0],10) : 1;
 		let game = data.games[roomId];
 		if(!game){
 			room.broadcast(user, "There is no trivia game in " + roomId + ".");
-		}else if(AuthManager.rankgeq(commandRank, config.manageBpRank) || (user.id === game.curUser.id && number === 1)){
-			if(game.lastNo && Date.now() - game.lastNo < 5000){
-				room.broadcast(user, "There is a cooldown between uses of ~no, try again in a few seconds.");
-			}else{
-				game.lastNo = Date.now();
-				let i;
-				for(i=0;i<number && game.history.length>0;i++){
-					let curHist = game.history.pop();
-					if(curHist.undoAsker) curHist.undoAsker();
-					if(curHist.undoAnswerer) curHist.undoAnswerer();
-				}
-				let response = "**Undid " + i + " action(s)";
-				clearTimers(game);
-				game.bpOpen = null;
-				// if we're undoing actions, we probably want BP to be unlocked.
-				game.bpLocked = null;
-				if(game.history.length>0){
-					game.curHist = game.history[game.history.length-1];
-					let newUser = game.curHist.active;
-					let newNewUser = game.room.getUserData(newUser.id);
-					if(newNewUser){
-						game.curUser = newNewUser;
-						if(newNewUser.rank === "!" || newNewUser.rank === "‽"){
-							response += ". Since " + newNewUser.name + " is muted or locked, BP is open.**";
-							game.bpOpen = "auth";
-						}else{
-							response += ", it is now " + newNewUser.name + "'s turn to ask a question.**";
-						}
-					}else{
-						game.curUser = newUser;
-						response += ". Since " + newUser.name + " is not in the room, BP is open.**";
-						game.bpOpen = "auth";
-					}
-				}else{
-					game.curHist = {active: user};
-					game.history = [game.curHist]
-					game.curUser = user;
-					response += ". Since the end of the history was reached, BP is open.**";
-					game.bpOpen = "auth";
-				}
-				if(!game.bpOpen){
-					game.remindTimer = setTimeout(()=>{
-						onRemind(game);
-					}, config.remindTime*1000);
-				}
-				game.room.send(response);
-			}
 		}else{
-			room.broadcast(user, "You are either not the active user or do not have a high enough rank to use this command.");
+			let reason = game.cantNo(user, rank, number);
+			if(reason){
+				room.broadcast(user, reason);
+				return;
+			}
+
+			game.doNo(user, number);
 		}
 	},
 	bp: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = toRoomId(args[1]) || "trivia";
-		if(!data.games[roomId]){
-			room.broadcast("There is no trivia game in " + roomId + ".");
+		let game = data.games[roomId];
+		if(!game){
+			room.broadcast(user, "There is no trivia game in " + roomId + ".");
 		}else{
-			let game = data.games[roomId];
 			let id = toId(args[0]);
 			if(!id || !AuthManager.rankgeq(commandRank, config.manageBpRank)){
-				let lastActive = game.curUser.name;
+				let curUser = game.curHist.active;
 				// if BP is open or locked, there's no need to HL the user who last had it.
-				room.broadcast(user,
-					(game.bpOpen || game.bpLocked ? "__" + lastActive + "__" : lastActive)
-					+ " has BP" + (game.bpOpen ? " (BP is open)" : "")
-					+ (game.bpLocked ? " (BP is locked)." : "."));
+				let curName = game.bpOpen || game.bpLocked ? "__" + lastActive.name + "__" : lastActive.name;
+				let openLockMessage = game.bpLocked ? " (BP is locked)." : (game.bpOpen ? " (BP is open)." : ".");
+				room.broadcast(user, curName + " has BP" + openLockMessage);
 			}else{
 				let nextUser = game.room.getUserData(id);
-				if(!nextUser){
-					room.broadcast(user, "That user is not in the room.");
-				}else{
-					let result = tryBatonPass(game, user, nextUser, {active: nextUser}, false, false, null, true);
+				let reason = game.cantBp(user, rank, id);
+				if(reason){
+					room.broadcast(user, reason);
+					return;
 				}
+
+				game.doBp(user, id);
 
 			}
 		}
@@ -598,121 +525,74 @@ let commands = {
 	lockbp: "bplock",
 	bplock: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let game = data.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
-		}else if(!data.games[roomId]){
+		}else if(!game){
 			room.broadcast(user, "There is no game in " + roomId + ".");
 		}else{
-			let game = data.games[roomId];
-			let gameRoom = game.room;
-			let lastActive = game.curUser;
-			// I'm making it so that only auth can lock BP - since it's only for
-			// hosting minigames/fish, no regs should have need of it.
-			if(AuthManager.rankgeq(commandRank, config.manageBpRank)){
-				if(game.bpOpen){
-					// BP shouldn't be open and locked at the same time—that doesn't make sense
-					gameRoom.send("BP is open — please claim it or close BP before locking BP.");
-				}else if(!game.bpLocked){
-					game.bpLocked = true;
-					gameRoom.send("**BP is now locked; no one can ask questions.**");
-				}else{
-					room.broadcast(user,"BP is already locked.");
-				}
-			}else{
-				room.broadcast(user, "You are not ranked high enough to lock BP.")
+			let reason = game.cantLockBp(user, rank);
+			if(reason){
+				room.broadcast(user, reason);
+				return;
 			}
+
+			game.doBpLock(true);
 		}
 	},
 	unlockbp: "bpunlock",
 	bpunlock: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let game = data.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
-		}else if(!data.games[roomId]){
+		}else if(!game){
 			room.broadcast(user, "There is no game in " + roomId + ".");
 		}else{
-			let game = data.games[roomId];
-			let gameRoom = game.room;
-			if(AuthManager.rankgeq(commandRank, config.manageBpRank)){
-				if(game.bpLocked){
-					game.bpLocked = null;
-					game.bpOpen = null;
-					let lastActive = game.curUser.name;
-					if(game.room.getUserData(toId(lastActive))){ // if the user's in the room
-						clearTimers(game);
-						game.remindTimer = setTimeout(()=>{
-							onRemind(game);
-						}, config.remindTime*1000);
-						gameRoom.send("**BP is now unlocked; " + lastActive + " has BP.**");
-					}else{ // not in the room, so open BP due to leaving
-						game.bpOpen = "leave";
-						game.timeout = null;
-						gameRoom.send("**BP is now unlocked; " + lastActive + " has left, so BP is now open (say 'me' or 'bp' to claim it).**");
-					}
-				}else{
-					room.broadcast(user, "BP is not locked.");
-				}
-			}else{
-				room.broadcast(user, "Either BP is not locked or you do not have permission to unlock it.");
+			let reason = game.cantUnlockBp(user, rank);
+			if(reason){
+				room.broadcast(user, reason);
+				return;
 			}
+
+			game.doBpUnlock(true);
 		}
 	},
-
 	openbp: "bpopen",
 	bpopen: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let game = data.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
-		}else if(!data.games[roomId]){
+		}else if(!game){
 			room.broadcast(user, "There is no game in " + roomId + ".");
 		}else{
-			let game = data.games[roomId];
-			let gameRoom = game.room;
-			let lastActive = game.curUser;
-			if(game.bpLocked){ // Opening BP while it's locked makes no sense.
-				gameRoom.send("You cannot open BP while BP is locked.");
-			}else if(lastActive.id === user.id){
-				if(!game.bpOpen){
-					game.bpOpen = "user";
-					gameRoom.send("**BP is now open (say 'me' or 'bp' to claim it).**");
-				}else{
-					room.broadcast(user, "BP is already open.");
-				}
-			}else if(AuthManager.rankgeq(commandRank, config.manageBpRank)){
-				if(!game.bpOpen){
-					game.bpOpen = "auth";
-					gameRoom.send("**BP is now open (say 'me' or 'bp' to claim it).**");
-				}else if(game.bpOpen !== "auth"){
-					game.bpOpen = "auth";
-				}else{
-					room.broadcast(user,"BP is already open.");
-				}
-			}else{
-				room.broadcast(user, "You are either not the active player or not ranked high enough to open BP.")
+			let type = AuthManager.rankgeq(rank, '+') ? 'auth' : 'user';
+			let reason = game.cantOpenBp(user, rank, type);
+			if(reason){
+				room.broadcast(user, reason);
+				return;
 			}
+
+			game.doOpenBp(type, true);
 		}
 	},
 	closebp: "bpclose",
 	bpclose: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let game = data.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
-		}else if(!data.games[roomId]){
+		}else if(!game){
 			room.broadcast(user, "There is not game in " + roomId + ".");
 		}else{
-			let game = data.games[roomId];
-			let gameRoom = game.room;
-			if(AuthManager.rankgeq(commandRank, config.manageBpRank) || (game.curUser.id === user.id && game.bpOpen === "user")){
-				if(game.bpOpen){
-					game.bpOpen = null;
-					gameRoom.send("**BP is now closed.**");
-				}else{
-					room.broadcast(user, "BP is not open. Timers have been cleared.");
-					clearTimers(game);
-				}
-			}else{
-				room.broadcast(user, "Either BP is not open or you do not have permission to close it.");
+			let reason = game.cantCloseBp(user, rank);
+			if(reason){
+				room.broadcast(user, reason);
+				return;
 			}
+
+			game.doCloseBp(true, AuthManager.rankgeq(rank, '+'));
 		}
 	},
 	//~ttblacklist add/remove/check, [user], {duration}, {reason}
@@ -805,11 +685,11 @@ let commands = {
 						room.broadcast(user, res[1].display_name + "'s alts: " + alts.join(", "));
 					}else{
 						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
-						// TODO: make this only reply through PM
+						// TODO: make this only reply through PM (testing)
 						uploadText(text, (address)=>{
-							room.broadcast(user, "There were more than 10 alts, so they were put into a text file: " + address);
+							user.send("There were more than 10 alts, so they were put into a text file: " + address);
 						}, (error)=>{
-							room.broadcast(user, "There was an error while saving the file. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
+							user.send("There was an error while saving the file. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
 						});
 					}
 				});
@@ -1020,7 +900,7 @@ let commands = {
 		rank = AuthManager.getRank(user, targetRoom);
 		if(!roomId || !targetRoom){
 			user.send("You must specify a room that I am in.");
-		}if(!AuthManager.rankgeq(rank, config.timerRank)){
+		}else if(!AuthManager.rankgeq(rank, config.timerRank)){
 			user.send("Your rank is not high enough to manage timers.");
 		}else if(/^\d+$/.test(arg0) && /^\d+$/.test(arg1)){
 			let timerName = "room:" + roomId;
@@ -1144,74 +1024,21 @@ let commands = {
 		}
 	},
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
-		let command = toId(args[0]);
-		let qbatch = data.batches[command];
-		if(!qbatch){
-			room.broadcast(user, "There's no query batch with that name.");
-		}else if(!AuthManager.rankgeq(commandRank, qbatch.rank)){
-			room.broadcast(user, "Your rank is not high enough to use that query batch.");
+		let gameType = toId(args[0]);
+		let targetRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
+		if(!targetRoom || !targetRoom.id){
+			room.broadcast(user, "You either specified an invalid room, or I am not in that room.");
+		}else if(data.games[targetRoom.id]){
+			room.broadcast(user, "There is already a game in " + room.name + ".");
+		}else if(!AuthManager.rankgeq(commandRank, config.startGameRank)){
+			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
+		}else if(!gameType){
+			room.broadcast(user, "You must give the game you would like to start.");
+		}else if(!minigames.gameTypes[gameType]){
+			room.broadcast(user, "That game type is not recognized.");
 		}else{
-			let queries = qbatch.queries.slice();
-			let queryFunc = (queries)=>{
-				if(queries.length){
-					if(queries[0].substring(0,2) === '--'){
-						let parts = queries.shift().substr(2).split(" ")
-						if(parts.length === 1){
-							delete data.flags[parts[0]]
-						}else if(/^\d+$/.test(parts[1])){
-							data.flags[parts[0]] = parseInt(parts[1]);
-						}else{
-							data.flags[parts[0]] = parts[1];
-						}
-						queryFunc(queries);
-					}else{
-						pgclient.runSql(queries.shift(), null, null, ()=>{
-							queryFunc(queries);
-						}, (err)=>{
-							error(err);
-							room.broadcast(user, "There was an error executing one of the queries.");
-						});
-					}
-				}else{
-					room.broadcast(user, qbatch.response || "Successfully executed the queries.");
-				}
-			}
-			queryFunc(queries);
+			data.games[targetRoom.id] = new minigames.gameTypes[gameType](user, targetRoom, config, data.blacklistManager);
 		}
-		// if(qbatch){
-		// 	if(AuthManager.rankgeq(commandRank, qbatch.rank)){
-		// 		let queries = qbatch.queries.slice();
-		// 		let queryFunc = (queries)=>{
-		// 			if(queries.length){
-		// 				if(queries[0].substring(0,2) === '--'){
-		// 					let parts = queries.shift().substr(2).split(" ")
-		// 					if(parts.length === 1){
-		// 						delete data.flags[parts[0]]
-		// 					}else if(/^\d+$/.test(parts[1])){
-		// 						data.flags[parts[0]] = parseInt(parts[1]);
-		// 					}else{
-		// 						data.flags[parts[0]] = parts[1];
-		// 					}
-		// 					queryFunc(queries);
-		// 				}else{
-		// 					pgclient.runSql(queries.shift(), null, null, ()=>{
-		// 						queryFunc(queries);
-		// 					}, (err)=>{
-		// 						error(err);
-		// 						room.broadcast(user, "There was an error executing one of the queries.");
-		// 					});
-		// 				}
-		// 			}else{
-		// 				room.broadcast(user, qbatch.response || "Successfully executed the queries.");
-		// 			}
-		// 		}
-		// 		queryFunc(queries);
-		// 	}else{
-		// 		room.broadcast(user, "Your rank is not high enough to use that query batch.");
-		// 	}
-		// }else{
-		// 	room.broadcast(user, "There's no query batch with that name.");
-		// }
 	},
 	nominate: function(message, args, user, rank, room, commandRank, commandRoom){
 		let nominee = toId(args[0]);
@@ -1306,9 +1133,9 @@ let ttCommands = {
 		}else if(data.games[targetRoom.id]){
 			room.broadcast(user, "There is already a game in " + room.name + ".");
 		}else if(!AuthManager.rankgeq(commandRank, config.startGameRank)){
-			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker");
+			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
 		}else{
-			data.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom);
+			data.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, config, data.blacklistManager);
 		}
 	},
 	endgame: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1586,14 +1413,18 @@ let ttleaderboardCommands = {
 		}else{
 			let username = args[1];
 			let points = parseInt(args[2], 10);
-			updateAllLeaderboardEntriesByUsername(username, (oldPoints)=>{
+			pgclient.updatePointsByPsId(toId(username), username, (oldPoints)=>{
 				return Math.max(oldPoints + points, 0);
-			}, (err, username, affected, failed)=>{
+			}, 'enabled', (err, username, affected, failed)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
 					return;
 				}
+				info(err);
+				info(username);
+				info(affected);
+				info(failed);
 
 				let response = "Updated " + affected + " scores for " + username + ".";
 				if(failed.length){
@@ -1776,6 +1607,8 @@ let ttleaderboardEventCommands = {
 					return;
 				}
 
+				info("git here");
+
 				if(res.rowCount){
 					room.broadcast(user, "A leaderboard already exists with the same name.", rank);
 				}else{
@@ -1927,41 +1760,114 @@ let ttleaderboardEventCommands = {
 	}
 };
 
+// TODO finish and test all blacklist functionality
+class BlacklistManager{
+
+	constructor(){
+		this.blacklist = {};
+	}
+
+	load(){
+		let path = "data/blacklist.json";
+		if(fs.existsSync(path)){
+			this.blacklist = JSON.parse(fs.readFileSync(path, 'utf8'));
+		}else{
+			this.blacklist = {};
+		}
+	}
+
+	save(){
+		let path = "data/blacklist.json";
+		fs.writeFile(path, JSON.stringify(this.blacklist, null, "\t"), logIfError);
+	}
+
+	addUser(username, duration, reason, giver){
+		let id = toId(username);
+		let entry = this.getEntry(id);
+		let currentDuration = this.getDuration(entry);
+
+		info(duration);
+		info(currentDuration);
+		
+		if((duration*60000 <= currentDuration && duration > 0) || currentDuration == -1) return "The duration given isn't longer than their current blacklist length.";
+
+		if(duration < 0) duration = 0;
+		
+		this.blacklist[id] = {
+			displayName: username,
+			reason: reason,
+			duration: duration*60000,
+			time: Date.now()
+		};
+		this.save();
+
+		let triviaRoom = RoomManager.getRoom('trivia');
+		if(triviaRoom){
+			let durationText = duration ? "for " + millisToTime(duration*60000) : "permanently";
+			triviaRoom.send("/modnote " + username + " (" + id + ") was added to the Trivia Tracker blacklist " + durationText + " by " + giver.name + ". (" + reason + ")");
+		}
+	}
+
+	removeUser(username, giver){
+		let id = toId(username);
+		let entry = this.getEntry(id);
+
+		if(!entry) return "The user " + username + " is not on the TT blacklist.";
+
+		delete this.blacklist[id];
+		this.save()
+		
+		let triviaRoom = RoomManager.getRoom('trivia');
+		if(triviaRoom){
+			triviaRoom.send("/modnote " + username + " was removed from the Trivia Tracker blacklist by " + giver.name);
+		}
+	}
+
+	getEntry(id){
+		let entry = this.blacklist[id];
+		if(!entry) return;
+		if(this.getDuration(entry) === 0){
+			delete this.blacklist[id];
+			this.save();
+			return;
+		}
+
+		return entry;
+	}
+
+	getDuration(entry){
+		if(!entry) return 0;
+		if(!entry.duration) return -1;
+		let duration = entry.duration - Date.now() + entry.time;
+		duration = duration < 0 ? 0 : duration;
+		return duration
+	}
+}
+
+// TODO remove this middleman commands and make the chat commands directly reference the manager
 let blacklistCommands = {
 	add: function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = getBlacklistEntry(id);
-		if(entry){
-			room.broadcast(user, "The user " + entry.displayName + " is already on the blacklist.");
-		}else if(duration){
-			data.leaderboard.blacklist[id] = {displayName: username, reason: reason, duration: duration*60000, time: Date.now()};
-			room.broadcast(user, "Added " + username + " to the blacklist for " + millisToTime(duration*60000) + ".");
-			triviaRoom.send("/modnote " + username + " was added to the Trivia Tracker blacklist by " + user.name + " for " + millisToTime(duration*60000) + ". (" + reason + ")");
+		let response = data.blacklistManager.addUser(username, duration, reason, user);
+		if(response){
+			room.broadcast(user, response);
 		}else{
-			data.leaderboard.blacklist[id] = {displayName: username, reason: reason, duration: duration*60000, time: Date.now()};
-			room.broadcast(user, "Added " + username + " to the blacklist permanently.");
-			triviaRoom.send("/modnote " + username + " was added to the Trivia Tracker blacklist permanently by " + user.name + ". (" + reason + ")");
+			room.broadcast(user, "Added " + username + " to the TT blacklist.");
 		}
 		let game = data.games[triviaRoom.id];
-		if(game.curUser.id === id){
-			clearTimers(game);
-			game.bpOpen = "auth";
-			triviaRoom.send("**BP is now open (say 'me' or 'bp' to claim it).**");
+		for(let roomId in data.games){
+			data.games[roomId].onPunishment(data.games[roomId].room.getUser(id), 'ttbl');
 		}
-		saveLeaderboard();
 	},
 	remove: function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = getBlacklistEntry(id);
-		if(!entry){
-			room.broadcast(user, "The user " + username + " is not on the blacklist.");
+		let response = data.blacklistManager.removeUser(username, user);
+		if(response){
+			room.broadcast(user, response);
 		}else{
-			delete data.leaderboard.blacklist[id];
-			room.broadcast(user, "Removed " + entry.displayName + " from the blacklist.");
-			triviaRoom.send("/modnote " + entry.displayName + " was removed from the Trivia Tracker blacklist by " + user.name);
-			saveLeaderboard();
+			room.broadcast(user, "Removed " + username + " from the TT blacklist.");
 		}
 	},
 	check: function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = getBlacklistEntry(id);
+		let entry = data.blacklistManager.getEntry(id);
 		if(entry && !entry.duration){
 			room.broadcast(user, "The user " + entry.displayName + " is permantently on the blacklist. Reason: " + entry.reason + ".");
 		}else if(entry){
@@ -1971,58 +1877,17 @@ let blacklistCommands = {
 		}
 	},
 	unmute:function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = getBlacklistEntry(id);
+		let entry = data.blacklistManager.getEntry(id);
 		if(!entry){
 			room.broadcast(user, "The user " + username + " is not on the blacklist.");
 		}else if(!entry.duration || entry.duration > 60*60000){
 			room.broadcast(user, "That user is blacklisted for longer than a mute.");
 		}else{
-			delete data.leaderboard.blacklist[id];
-			room.broadcast(user, "Removed " + entry.displayName + " from the blacklist.");
-			triviaRoom.send("/modnote " + entry.displayName + " was removed from the Trivia Tracker blacklist by " + user.name);
-			saveLeaderboard();
+			data.blacklistManager.removeUser(username, user);
+			room.broadcast(user, "Unmuted " + username + ".");
 		}
 	}
 };
-
-let tryBatonPass = function(game, user, nextPlayer, historyToAdd, shouldUndoAsker, shouldUndoAnswerer, remindTime, bypassBl){
-	remindTime = remindTime || config.remindTime;
-	let blEntry = getBlacklistEntry(nextPlayer.id);
-	if(game.curUser.id === nextPlayer.id){
-		game.room.broadcast(user, "It is already " + nextPlayer.name + "'s turn to ask a question.");
-	}else if(blEntry && !bypassBl){
-		game.room.send(nextPlayer.name + " is on the blacklist. BP is now open.");
-		game.bpOpen = "auth";
-		clearTimers(game);
-	}else if(nextPlayer.trueRank === "‽" || nextPlayer.trueRank === "!"){
-		game.room.broadcast(user, nextPlayer.name + " is either muted or locked.");
-	}else{
-		if(shouldUndoAsker && game.curHist.undoAsker){
-			game.curHist.undoAsker();
-			game.curHist.undoAsker = null;
-		}
-		if(shouldUndoAnswerer && game.curHist.undoAnswerer){
-			game.curHist.undoAnswerer();
-			game.curHist.undoAnswerer = null;
-		}
-		let response = "**It is now " + nextPlayer.name + "'s turn to ask a question.**";
-		if(blEntry){
-			response = response + " " + nextPlayer.name + " is on the TT blacklist.";
-		}
-		game.history.add(historyToAdd);
-		game.curHist = historyToAdd;
-		game.curUser = nextPlayer;
-		if(game.history.length>10) game.history.shift();
-		game.bpOpen = null;
-		clearTimers(game);
-		game.remindTimer = setTimeout(()=>{
-			onRemind(game);
-		}, remindTime*1000);
-		game.room.send(response);
-		return true;
-	}
-	return false;
-}
 
 let sayScores = function(scores, lb, room){
 	let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black\" border=1><tr style=\"background-color: #209331\"><th colspan=\"2\">" + lb + "</th></tr><tr style=\"background-color: #209331\"><th style=\"width: 150px\">User</th><th>Score</th></tr>";
