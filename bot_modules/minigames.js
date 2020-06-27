@@ -185,7 +185,7 @@ class TriviaTrackerGame{
 		// Failure conditions that do not depend on whether user1 is auth
 		if(!user2) return "That player is not in the room.";
 		if(this.curHist.active.id === id2) return "It is already " + this.curHist.active.name + "'s turn to ask a question.";
-		if(user2.trueRank === '‽' || user2.trueRank === '!') return user.name + " is muted or locked.";
+		if(user2.trueRank === '‽' || user2.trueRank === '!') return user2.name + " is muted or locked.";
 
 		// At this point, if the user1 is auth they can ~yes
 		if(hasRank) return;
