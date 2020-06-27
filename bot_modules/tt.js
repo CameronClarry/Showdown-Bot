@@ -506,7 +506,7 @@ let commands = {
 			if(!id || !AuthManager.rankgeq(commandRank, config.manageBpRank)){
 				let curUser = game.curHist.active;
 				// if BP is open or locked, there's no need to HL the user who last had it.
-				let curName = game.bpOpen || game.bpLocked ? "__" + lastActive.name + "__" : lastActive.name;
+				let curName = game.bpOpen || game.bpLocked ? "__" + curUser.name + "__" : curUser.name;
 				let openLockMessage = game.bpLocked ? " (BP is locked)." : (game.bpOpen ? " (BP is open)." : ".");
 				room.broadcast(user, curName + " has BP" + openLockMessage);
 			}else{

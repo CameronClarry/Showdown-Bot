@@ -51,6 +51,7 @@ class TriviaTrackerGame{
 		this.history = [this.curHist];
 		this.maxHistLength = 10;
 		this.blacklistManager = blacklistManager;
+		this.timers = {};
 		this.setupData();
 		this.sendStart();
 	}
@@ -343,11 +344,22 @@ class TriviaTrackerGame{
 
 	}
 
+	cantClaimBp(user){
+		if(this.blacklistManager.getEntry(user.id)) return "You are on the blacklist and cannot claim BP.";
+
+		if(user.id === this.curHist.active.id) return "You are the active player and can't claim BP.";
+	}
+
 	onRoomMessage(user, rank, message){
 		if(this.bpOpen){
 			let text = toId(message);
 			if(text === 'bp' || text === 'me' || text === 'bpme'){
-				// TODO check if they can claim, and if they can do the bp
+				if(this.cantClaimBp(user)){
+					// Could potentially PM the user here, but it is probably unnecessary
+				}else{
+					this.doBp(this.curHist.active, user.id)
+					this.bpOpen = false;
+				}
 			}
 		}else if((AuthManager.rankgeq(rank, this.config.manageBpRank) || user.id === this.curHist.active.id) && this.checkVeto(message) && user.id !== toId(mainConfig.user)){
 			// TODO make mainConfig.userId auto generate at start
@@ -358,7 +370,7 @@ class TriviaTrackerGame{
 			}
 
 			if(AuthManager.rankgeq(rank, this.config.manageBpRank)){
-				this.doVetoResponse(vetoMessage);
+				this.doVetoResponse(message);
 			}
 
 		}else if(user.id === this.curHist.active.id && this.checkBold(message)){
