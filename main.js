@@ -89,6 +89,11 @@ global.loadConfig = function(name, defaults){
 
 		if(name === "main"){
 			mainConfig = newConfig;
+			if(mainConfig.user && !mainConfig.userId){
+				mainConfig.userId = toId(mainConfig.user);
+				saveConfig(name);
+				shouldSave = false;
+			}
 			if(shouldSave) saveConfig(name);
 			if(!mainConfig.user || !mainConfig.pass){
 				error("The main config file is missing login information. Please fill it in and re-run the bot.");

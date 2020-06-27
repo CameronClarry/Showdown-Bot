@@ -205,9 +205,10 @@ class TriviaTrackerGame{
 		this.givePoints(this.curHist.active, user2);
 		let historyToAdd = this.makeHistory(user1, user2);
 		this.changeBp(user1, user2, historyToAdd);
-		//TODO implement blacklist check
+
 		let isBlacklisted = this.blacklistManager.getEntry(user2.id);
 		if(isBlacklisted) this.doOpenBp('auth', false);
+
 		this.sendYes(user1, user2, undoAsker, isBlacklisted);
 	}
 
@@ -276,11 +277,6 @@ class TriviaTrackerGame{
 		this.room.send("**It is now " + user2.name + "'s turn to ask a question.**");
 	}
 
-	cantClaimBp(user){
-		// TODO implement blaclist check
-		if(user.id === this.curHist.active.id) return "You are already the active player.";
-	}
-	
 	/// At this point it is assumed that the baton will be passed.
 	changeBp(user1, user2, historyToAdd, bypassBl){
 		// Append the new hist
@@ -347,7 +343,7 @@ class TriviaTrackerGame{
 	cantClaimBp(user){
 		if(this.blacklistManager.getEntry(user.id)) return "You are on the blacklist and cannot claim BP.";
 
-		if(user.id === this.curHist.active.id) return "You are the active player and can't claim BP.";
+		if(user.id === this.curHist.active.id) return "You are already the active player.";
 	}
 
 	onRoomMessage(user, rank, message){
@@ -361,8 +357,7 @@ class TriviaTrackerGame{
 					this.bpOpen = false;
 				}
 			}
-		}else if((AuthManager.rankgeq(rank, this.config.manageBpRank) || user.id === this.curHist.active.id) && this.checkVeto(message) && user.id !== toId(mainConfig.user)){
-			// TODO make mainConfig.userId auto generate at start
+		}else if((AuthManager.rankgeq(rank, this.config.manageBpRank) || user.id === this.curHist.active.id) && this.checkVeto(message) && user.id !== mainConfig.userId){
 			if(this.curHist.hasAsked){
 				this.curHist.hasAsked = false;
 				this.clearTimers();
