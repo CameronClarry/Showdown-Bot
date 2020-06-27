@@ -147,13 +147,14 @@ class TriviaTrackerGame{
 
 		if(this.bpLock) return "BP is already locked";
 
-		// TODO should bplock always overwrite bpopen?
-		if(this.bpOpen) return "BP cannot be locked while it is open.";
+		// For now, allow bp to be locked while it is open
+		// if(this.bpOpen) return "BP cannot be locked while it is open.";
 	}
 
 	doBpLock(shouldSendMessage){
 		this.clearTimers();
 		this.bpLock = true;
+		this.bpOpen = null;
 
 		if(shouldSendMessage) this.room.send("**BP is now locked; no one can ask questions.**");
 	}
