@@ -196,8 +196,9 @@ let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, callb
 }
 
 //args is [id, leaderboard]
+// TODO is this needed?
 let removeLeaderboardEntry = function(args, callback){
-	pgclient.runSql(DELETE_LB_ENTRY_SQL, [args[0], toId(args[1])], ()=>{}, ()=>{
+	pgclient.runSql(DELETE_LB_ENTRY_SQL, [args[0], toId(args[1])], ()=>{
 		if(err){
 			callback(err);
 			return;
@@ -214,6 +215,7 @@ let removeAllLeaderboardEntries = function(dbId, callback){
 // 1) Get all achievements of fromId and toId
 // 2) For each achievement, if it doesn't exist on toId change the id to toId. If it does exist, update the date on toId to be the earlier date
 // 3) Remove all
+// TODO implement
 let transferAllAchievements = function(fromId, callback){
 	let success = true;
 }
@@ -270,6 +272,7 @@ let changeMains = function(id, newName, callback){
 }
 
 // Merges two alts, and their points
+// TODO preserve achievements
 let mergeAlts = function(fromName, toName, callback){
 	pgclient.getMains(fromName, toName, true, (err, res)=>{
 		if(err){
@@ -340,7 +343,7 @@ exports.onLoad = function(module, loadData, oldData){
 
 exports.onUnload = function(){
 	for(let roomid in data.games){
-		clearTimers(data.games[roomid], true);
+		data.games[roomid].end();
 	}
 };
 let refreshDependencies = function(){
@@ -473,7 +476,6 @@ let commands = {
 	nah: "no",
 	nope: "no",
 	no: function(message, args, user, rank, room, commandRank, commandRoom){
-		// TODO test this
 		let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
 		let number = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0],10) : 1;
 		let game = data.games[roomId];
@@ -678,7 +680,6 @@ let commands = {
 						room.broadcast(user, res[1].display_name + "'s alts: " + alts.join(", "));
 					}else{
 						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
-						// TODO: make this only reply through PM (testing)
 						uploadText(text, (address)=>{
 							user.send("There were more than 10 alts, so they were put into a text file: " + address);
 						}, (error)=>{
@@ -1016,6 +1017,7 @@ let commands = {
 			user.send("There was something wrong with your link, make sure it's only the raw paste.");
 		}
 	},
+	// TODO minigame commands as they currently are are deprecated. This should be repurposed to pass commands to the current minigame, or start a new one
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameType = toId(args[0]);
 		let targetRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
@@ -1753,7 +1755,6 @@ let ttleaderboardEventCommands = {
 	}
 };
 
-// TODO finish and test all blacklist functionality
 class BlacklistManager{
 
 	constructor(){
@@ -1892,66 +1893,6 @@ let sayScores = function(scores, lb, room){
 	room.send(message);
 }
 
-let onRemind = function(game){
-	if(game.curUser){
-		let rank = AuthManager.getRank(game.curUser, game.room);
-		let hasManageRank = AuthManager.rankgeq(rank, config.manageBpRank);
-		if(!game.bpOpen && !game.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
-			if(hasManageRank){
-				game.curUser.send("You have " + (config.openTime) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
-			}else{
-				game.curUser.send("You have " + (config.openTime) + " seconds to ask a question.");
-			}
-
-		}
-		game.openTimer = setTimeout(()=>{
-			onTimeUp(game);
-		},config.openTime*1000);
-	}
-};
-
-let onTimeUp = function(game){
-	if(!game.bpOpen && !game.bpLocked){
-		game.room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
-		game.bpOpen = "timer";
-	}else if( (game.bpOpen == "leave" || game.bpOpen == "user") && !game.bpLocked ){
-		game.bpOpen = "timer";
-	}
-	clearTimers(game);
-}
-
-let clearTimers = function(game, clearAll){
-	if(game.timeout){
-		clearTimeout(game.timeout);
-		game.timeout = null;
-	}
-	if(game.remindTimer){
-		clearTimeout(game.remindTimer);
-		game.remindTimer = null;
-	}
-	if(game.openTimer){
-		clearTimeout(game.openTimer);
-		game.openTimer = null;
-	}
-	if(game.blitzTimer && clearAll){
-		clearTimeout(game.blitzTimer);
-		game.blitzTimer = null;
-	}
-}
-
-let getBlacklistEntry = function(username){
-	let leaderboard = data.leaderboard;
-	let entry = leaderboard.blacklist[username];
-	if(entry && entry.duration){
-		if(Date.now() - entry.time > entry.duration){
-			delete leaderboard.blacklist[username];
-			saveLeaderboard();
-			return;
-		}
-	}
-	return entry;
-};
-
 let millisToTime = function(millis){
 	let seconds = millis/1000;
 	let hours = Math.floor(seconds/3600);
@@ -1965,6 +1906,7 @@ let millisToTime = function(millis){
 	return response;
 };
 
+// TODO is the leaderboard file still needed? blacklists are stored elsewhere
 let saveLeaderboard = function(){
 	let path = "data/leaderboard.json";
 	//let file = fs.openSync(path,'w');
@@ -2021,6 +1963,7 @@ let loadFacts = function(){
 	}
 };
 
+// TODO should be removed when ~minigame is repurposed
 let saveBatches = function(){
 	try{
 		let filename = "data/batches.json";
@@ -2032,6 +1975,7 @@ let saveBatches = function(){
 	}
 }
 
+// TODO should be removed when ~minigame is repurposed
 let loadBatches = function(){
 	let result = "Could not load the query batches.";
 	try{
@@ -2120,6 +2064,7 @@ let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
 	}
 }
 
+// TODO move this to a general helper function file
 let removeFormatting = function(text){
 	let reg = /([_~*`^])\1(.+)\1\1/g;
 	while(reg.test(text)){
