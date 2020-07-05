@@ -380,22 +380,13 @@ exports.processJoin = processJoin;
 
 let processLeave = function(room, user){
 	let game = data.games[room.id];
-	if(game && user.id === game.curUser.id){
-		if(!game.bpOpen && !game.bpLocked){
-			game.timeout = setTimeout(function(){
-				if(!game.bpOpen && !game.bpLocked){ // if bp is locked dont change it
-					game.bpOpen = "leave";
-					game.timeout = null;
-					room.send("**" + game.curUser.name + " has left, so BP is now open (say 'me' or 'bp' to claim it).**");
-				}
-			}, config.leaveGraceTime*1000);
-		}
+	if(game){
+		game.onLeave(user);
 	}
 }
 self.processLeave = processLeave;
 exports.processLeave = processLeave;
 
-//TODO needs testing
 let processName = function(room, user){
 	let game = data.games[room.id];
 	if(game){
@@ -457,6 +448,8 @@ let commands = {
 	oui: "yes", si: "yes", right: "yes",
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", ja: "yes",
 	indeed: "yes", damnright: "yes",
+	// Custom ~yes alias reward
+	audino: "yes",
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, config.manageBpRank)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
@@ -1855,7 +1848,7 @@ let blacklistCommands = {
 		}
 		let game = data.games[triviaRoom.id];
 		for(let roomId in data.games){
-			data.games[roomId].onPunishment(data.games[roomId].room.getUser(id), 'ttbl');
+			data.games[roomId].onPunishment(data.games[roomId].room.getUserData(id), 'ttbl');
 		}
 	},
 	remove: function(username, id, duration, reason, user, room, triviaRoom){

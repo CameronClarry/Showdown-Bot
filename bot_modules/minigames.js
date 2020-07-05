@@ -94,6 +94,8 @@ class TriviaTrackerGame{
 
 		if(this.bpOpen === 'auth') return "BP is already open.";
 
+		if(this.bpLock) return "BP cannot be opened while it is locked.";
+
 		if(this.bpOpen && !hasRank) return "BP is already open.";
 
 		if(type !== 'user' && !hasRank) return "You are not able to open BP in that way.";
@@ -102,6 +104,8 @@ class TriviaTrackerGame{
 	/// Handles bpopen, including the interactions between different types.
 	/// type: the kind of bpopen (eg 'user', 'auth', 'leave')
 	doOpenBp(type, shouldSendMessage){
+		// don't open bp if it is locked
+		if(this.bpLock) return;
 		// auth > timer > leave > user
 		// timer, leave, and user shouldn't message if bp is already open at all
 		let types = ['user', 'leave', 'timer', 'auth'];
@@ -120,7 +124,7 @@ class TriviaTrackerGame{
 			return;
 		}
 		
-		if(shouldSendMessage) this.room.send("**BP is now opwn.**");
+		if(shouldSendMessage) this.room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
 	}
 
 	cantCloseBp(user, rank){
@@ -145,7 +149,7 @@ class TriviaTrackerGame{
 
 		if(!hasRank) return "Your rank is not high enough to lock BP.";
 
-		if(this.bpLock) return "BP is already locked";
+		if(this.bpLock) return "BP is already locked.";
 
 		// For now, allow bp to be locked while it is open
 		// if(this.bpOpen) return "BP cannot be locked while it is open.";
@@ -171,7 +175,16 @@ class TriviaTrackerGame{
 		this.clearTimers();
 		this.bpOpen = null;
 		this.bpLock = null;
-		// TODO finish this. if the current user is not in the room, open bp. if the current user is muted or locked, open bp.
+		let curUser = this.room.getUserData(this.curHist.active.id);
+		if(!curUser){
+			this.bpOpen = 'auth';
+			if(shouldSendMessage) this.room.send("**BP is now unlocked. Since " + this.curHist.active.name + " is not in the room, BP is now open.**");
+		}else if(curUser.trueRank === '‽' || curUser.trueRank === '!'){
+			this.bpOpen = 'auth';
+			if(shouldSendMessage) this.room.send("**BP is now unlocked. Since " + this.curHist.active.name + " is muted or locked, BP is now open.**");
+		}else if(shouldSendMessage){
+			this.room.send("BP is now unlocked. It is " + this.curHist.active.name + "'s turn to ask a question.");
+		}
 	}
 
 	cantYes(user1, rank1, id2){
@@ -192,8 +205,8 @@ class TriviaTrackerGame{
 		if(hasRank) return;
 
 		// From here on, user1 is not auth
-		if(this.bpOpen) return "You cannot use ~yes while bp is open.";
-		if(this.bpLocked) return "You cannot use ~yes while bp is locked.";
+		if(this.bpOpen) return "You cannot use ~yes while BP is open.";
+		if(this.bpLock) return "You cannot use ~yes while BP is locked.";
 		if(!this.curHist.hasAsked) return "You must ask a question before you can use ~yes.";
 	}
 
@@ -239,7 +252,7 @@ class TriviaTrackerGame{
 		}
 		this.clearTimers();
 		this.bpOpen = null;
-		this.bpLocked = null;
+		this.bpLock = null;
 		if(this.history.length === 0){
 			// Make a new history, with just the person who used ~no, and open bp
 			this.curHist = {active: user};
@@ -258,7 +271,7 @@ class TriviaTrackerGame{
 			this.doOpenBp('auth', false);
 		}else{
 			this.room.send("Undid " + i + " action(s). It is now " + newActive.name + "'s turn to ask a question.");
-			this.setRemindTimer();
+			this.setRemindTimer(this.config.remindTime*1000);
 		}
 	}
 
@@ -289,6 +302,7 @@ class TriviaTrackerGame{
 		this.curHist = historyToAdd;
 		if(this.history.length > this.maxHistLength) this.history.shift();
 		this.clearTimers();
+		this.setRemindTimer(this.config.remindTime*1000);
 	}
 
 	makeHistory(user1, user2){
@@ -311,12 +325,27 @@ class TriviaTrackerGame{
 	}
 
 	setRemindTimer(duration){
+		this.setTimer('remind', duration, ()=>{this.doReminder();});
+	}
 
+	setOpenTimer(duration){
+		this.setTimer('open', duration, ()=>{this.doOpen();});
+	}
+
+	setLeaveTimer(duration){
+		this.setTimer('leave', duration, ()=>{this.doLeave();});
 	}
 
 	setTimer(id, time, callback){
-		if(this.timers[id]) clearTimeout(this.timers[id]);
+		this.clearTimer(id);
 		this.timers[id] = setTimeout(callback, time);
+	}
+
+	clearTimer(id){
+		if(this.timers[id]){
+			clearTimeout(this.timers[id]);
+			delete this.timers[id];
+		}
 	}
 
 	checkVeto(message){
@@ -338,7 +367,36 @@ class TriviaTrackerGame{
 	}
 
 	doReminder(){
+		this.clearTimer('remind');
+		if(this.curHist.active){
+			let rank = AuthManager.getRank(this.curHist.active, this.room);
+			let hasManageRank = AuthManager.rankgeq(rank, this.config.manageBpRank);
+			if(!this.bpOpen && !this.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
+				if(hasManageRank){
+					this.curHist.active.send("You have " + (this.config.openTime) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
+				}else{
+					this.curHist.active.send("You have " + (this.config.openTime) + " seconds to ask a question.");
+				}
 
+			}
+			this.setOpenTimer(this.config.openTime*1000)
+		}
+	}
+
+	doOpen(){
+		this.clearTimer('open');
+		if(!this.bpOpen && !this.bpLocked){
+			this.doOpenBp('timer', true);
+		}else if( (this.bpOpen == 'leave' || this.bpOpen == 'user') && !this.bpLocked ){
+			this.doOpenBp('timer', false);
+		}
+	}
+
+	doLeave(){
+		this.clearTimer('leave');
+		if(!this.bpOpen && !this.bpLock){
+			this.doOpenBp('leave', true);
+		}
 	}
 
 	cantClaimBp(user){
@@ -354,7 +412,7 @@ class TriviaTrackerGame{
 				if(this.cantClaimBp(user)){
 					// Could potentially PM the user here, but it is probably unnecessary
 				}else{
-					this.doBp(this.curHist.active, user.id)
+					this.doBp(this.curHist.active, user.id);
 					this.bpOpen = false;
 				}
 			}
@@ -362,7 +420,7 @@ class TriviaTrackerGame{
 			if(this.curHist.hasAsked){
 				this.curHist.hasAsked = false;
 				this.clearTimers();
-				this.setTimer('remind', this.config.remindTime*1000/2, this.doReminder);
+				this.setRemindTimer(this.config.remindTime*1000/2);
 			}
 
 			if(AuthManager.rankgeq(rank, this.config.manageBpRank)){
@@ -378,14 +436,17 @@ class TriviaTrackerGame{
 		}
 	}
 
-	// TODO needs testing
 	onPunishment(user, punishment){
 		// If the user isn't the active player, we don't care
 		if(!user || user.id !== this.curHist.active.id) return;
 
-		if(!this.bpOpen) this.room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
+		this.doOpenBp('auth', !this.bpOpen);
+	}
 
-		this.doOpenBp('auth', false);
+	onLeave(user){
+		if(!this.bpOpen && !this.bpLock && user.id === this.curHist.active.id){
+			this.setLeaveTimer(this.config.leaveGraceTime*1000);
+		}
 	}
 
 	end(){
