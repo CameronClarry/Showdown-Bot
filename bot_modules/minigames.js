@@ -490,16 +490,15 @@ exports.TriviaTrackerGame = TriviaTrackerGame;
 
 class Blitz extends TriviaTrackerGame{
 	
-	constructor(user, room, config){
-		super(user, room, config);
+	constructor(user, room, config, blacklistManager){
+		super(user, room, config, blacklistManager);
 		this.remindTime = 60;
 		this.chatCommands['finals'] = (user, rank)=>{this.doFinals(user, rank)};
 		this.chatCommands['hyperfinals'] = (user, rank)=>{this.doHyperFinals(user, rank)};
 	}
 
 	setupData(){
-		this.askPoints = 1;
-		this.answerPoints = 1;
+		this.answerPoints = 2;
 		this.leaderboards = ['main', 'highhorsepower'];
 	}
 
@@ -514,6 +513,8 @@ class Blitz extends TriviaTrackerGame{
 
 		this.leaderboards = ['blitzmonthly'];
 		this.scores = {};
+		this.clearTimers();
+		this.room.send("Congratulations to our blitz finalists! Get ready for the final round!");
 	}
 
 	changeBp(user1, user2, historyToAdd, bypassBl){
