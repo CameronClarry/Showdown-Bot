@@ -45,13 +45,15 @@ class TriviaTrackerGame{
 	/// config: config settings for the tt module
 	constructor(user, room, config, blacklistManager){
 		this.room = room;
-		this.creator = user;
+		this.host = user;
 		this.config = config;
-		this.curHist = {active: this.creator};
+		this.curHist = {active: this.host};
 		this.history = [this.curHist];
 		this.maxHistLength = 10;
 		this.blacklistManager = blacklistManager;
 		this.timers = {};
+		this.chatCommands = {};
+		this.scores = {};
 		this.setupData();
 		this.sendStart();
 	}
@@ -60,6 +62,14 @@ class TriviaTrackerGame{
 		this.askPoints = 1;
 		this.answerPoints = 1;
 		this.leaderboards = ['main', 'highhorsepower'];
+	}
+
+	getHost(){
+		return this.host;
+	}
+
+	setHost(newHost){
+		this.host = newHost;
 	}
 
 	sendStart(){
@@ -74,21 +84,37 @@ class TriviaTrackerGame{
 	/// prevUser: the user that asked the question
 	/// nextUser: the user who got the question correct:
 	givePoints(prevUser, nextUser){
-		pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
-		pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
+		if(this.askPoints){
+			pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
+			if(this.scores[prevUser.id]){
+				this.scores[prevUser.id].score = this.scores[prevUser.id].score + this.askPoints;
+			}else{
+				this.scores[prevUser.id] = {score: this.askPoints, user: prevUser};
+			}
+		}
+		if(this.answerPoints){
+			pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
+			if(this.scores[nextUser.id]){
+				this.scores[nextUser.id].score = this.scores[nextUser.id].score + this.answerPoints;
+			}else{
+				this.scores[nextUser.id] = {score: this.answerPoints, user:nextUser};
+			}
+		}
 	}
 
 	makeUndoFunc(id, name, points, leaderboards){
 		return ()=>{
 			pgclient.updatePointsByPsId(id, name, (p)=>{return p - points}, leaderboards, logIfError);
+			if(this.scores[id]){
+				this.scores[id].score = Math.max(0,this.scores[id].score - points);
+			}
 		};
 	}
-
 
 	/// Check if a user can open BP. Either they are auth or they have bp.
 	cantOpenBp(user, rank, type){
 		let isCurUser = this.curHist.active.id !== user.id;
-		let hasRank = AuthManager.rankgeq(rank, '+');
+		let hasRank = AuthManager.rankgeq(rank, '+') || user.id === this.host.id;
 
 		if(!hasRank && !isCurUser) return "You are not the active player.";
 
@@ -128,7 +154,7 @@ class TriviaTrackerGame{
 	}
 
 	cantCloseBp(user, rank){
-		let hasRank = AuthManager.rankgeq(rank, '+');
+		let hasRank = AuthManager.rankgeq(rank, '+') || user.id === this.host.id;
 		
 		if(!this.bpOpen) return "BP is already closed.";
 
@@ -145,7 +171,7 @@ class TriviaTrackerGame{
 	}
 
 	cantLockBp(user, rank){
-		let hasRank = AuthManager.rankgeq(rank, '+');
+		let hasRank = AuthManager.rankgeq(rank, '+') || user.id === this.host.id;
 
 		if(!hasRank) return "Your rank is not high enough to lock BP.";
 
@@ -164,7 +190,7 @@ class TriviaTrackerGame{
 	}
 
 	cantUnlockBp(user, rank){
-		let hasRank = AuthManager.rankgeq(rank, '+');
+		let hasRank = AuthManager.rankgeq(rank, '+') || user.id === this.host.id;
 
 		if(!hasRank) return "Your rank is not high enough to unlock BP.";
 
@@ -191,7 +217,7 @@ class TriviaTrackerGame{
 		// Is user1 either the active player or an auth? have they asked a question? is bp locked or open?
 		// Is user2 in the room? muted/locked? ttmuted? Different from the active player?
 		let user2 = this.room.getUserData(id2);
-		let hasRank = AuthManager.rankgeq(rank1, '+');
+		let hasRank = AuthManager.rankgeq(rank1, '+') || user1.id === this.host.id;
 
 		// This message should take priority
 		if(!hasRank && this.curHist.active.id !== user1.id) return "You are not the active player.";
@@ -235,7 +261,7 @@ class TriviaTrackerGame{
 	}
 
 	cantNo(user, rank, number){
-		if(!AuthManager.rankgeq(rank, '+') && user.id !== this.curHist.active.id) return "Your rank is not high enough to use that command.";
+		if(!AuthManager.rankgeq(rank, '+') && user.id !== this.curHist.active.id && user.id !== this.host.id) return "Your rank is not high enough to use that command.";
 		
 		if(this.lastNo && Date.now() - this.lastNo < 5000) return "There is a cooldown between uses of ~no, try again in a few seconds.";
 
@@ -276,7 +302,7 @@ class TriviaTrackerGame{
 	}
 
 	cantBp(user1, rank1, id2){
-		if(!AuthManager.rankgeq(rank1, '+')) return "Your rank is not high enough to use that command.";
+		if(!AuthManager.rankgeq(rank1, '+') && user1.id !== this.host.id) return "Your rank is not high enough to use that command.";
 
 		let user2 = this.room.getUserData(id2);
 
@@ -312,7 +338,6 @@ class TriviaTrackerGame{
 			undoAnswerer: this.makeUndoFunc(user2.id, user2.name, this.answerPoints, this.leaderboards)
 		};
 	}
-
 
 	/// Clears all timers (eg question asking, leaving)
 	clearTimers(){
@@ -405,6 +430,26 @@ class TriviaTrackerGame{
 		if(user.id === this.curHist.active.id) return "You are already the active player.";
 	}
 
+	onVeto(vetoee, vetoer, message){
+		if(this.curHist.hasAsked){
+			this.curHist.hasAsked = false;
+			this.clearTimers();
+			this.setRemindTimer(this.config.remindTime*1000/2);
+		}
+
+		if(vetoee.id !== vetoer.id){
+			this.doVetoResponse(message);
+		}
+	}
+
+	onFirstBold(user, message){
+		this.clearTimers();
+		this.curHist.hasAsked = true;
+		if(message.length > 10){
+			this.curHist.question = message;
+		}
+	}
+
 	onRoomMessage(user, rank, message){
 		if(this.bpOpen){
 			let text = toId(message);
@@ -417,22 +462,9 @@ class TriviaTrackerGame{
 				}
 			}
 		}else if((AuthManager.rankgeq(rank, this.config.manageBpRank) || user.id === this.curHist.active.id) && this.checkVeto(message) && user.id !== mainConfig.userId){
-			if(this.curHist.hasAsked){
-				this.curHist.hasAsked = false;
-				this.clearTimers();
-				this.setRemindTimer(this.config.remindTime*1000/2);
-			}
-
-			if(AuthManager.rankgeq(rank, this.config.manageBpRank)){
-				this.doVetoResponse(message);
-			}
-
-		}else if(user.id === this.curHist.active.id && this.checkBold(message)){
-			this.clearTimers();
-			this.curHist.hasAsked = true;
-			if(message.length > 10){
-				this.curHist.question = message;
-			}
+			this.onVeto(this.curHist.active, user, message);
+		}else if(user.id === this.curHist.active.id && this.checkBold(message) && !this.curHist.hasAsked){
+			this.onFirstBold(user, message);
 		}
 	}
 
@@ -460,13 +492,87 @@ class Blitz extends TriviaTrackerGame{
 	
 	constructor(user, room, config){
 		super(user, room, config);
+		this.remindTime = 60;
+		this.chatCommands['finals'] = (user, rank)=>{this.doFinals(user, rank)};
+		this.chatCommands['hyperfinals'] = (user, rank)=>{this.doHyperFinals(user, rank)};
+	}
+
+	setupData(){
+		this.askPoints = 1;
+		this.answerPoints = 1;
+		this.leaderboards = ['main', 'highhorsepower'];
+	}
+
+	doHyperFinals(user, rank){
+		if(user.id !== this.host.id) return;
+		this.remindTime = 30;
+		this.doFinals(user, rank);
+	}
+
+	doFinals(user, rank){
+		if(user.id !== this.host.id) return;
+
+		this.leaderboards = ['blitzmonthly'];
+		this.scores = {};
+	}
+
+	changeBp(user1, user2, historyToAdd, bypassBl){
+		this.history.push(historyToAdd);
+		this.curHist = historyToAdd;
+		if(this.history.length > this.maxHistLength) this.history.shift();
+		this.clearTimers();
+		if(user2.id !== this.host.id){
+			this.setRemindTimer();
+		}
+	}
+
+	setRemindTimer(duration){
+		this.room.send("The timer has been set for " + this.remindTime + " seconds.");
+		this.setTimer('remind', this.remindTime*1000, ()=>{this.doReminder();});
+	}
+
+	setOpenTimer(duration){
+	}
+
+	setLeaveTimer(duration){
+	}
+
+	onVeto(vetoee, vetoer, message){
+		if(this.curHist.hasAsked){
+			this.curHist.hasAsked = false;
+			this.clearTimers();
+			this.setRemindTimer(this.config.remindTime*1000/2);
+		}
+
+		if(vetoee.id !== vetoer.id){
+			this.doVetoResponse(message);
+		}
+	}
+
+	onFirstBold(user, message){
+		this.clearTimers();
+		this.setRemindTimer();
+		this.curHist.hasAsked = true;
+		if(message.length > 10){
+			this.curHist.question = message;
+		}
+	}
+
+	doReminder(){
+		this.clearTimer('remind');
+		this.room.send("Time's up!");
 	}
 
 	sendStart(){
-		this.room.send("A new game of blitz is starting! Wait for the host's tossup question.");
+		this.room.send("A new game of Blitz is starting! Wait for the host's tossup question.");
+	}
+
+	end(){
+		this.clearTimers();
+		this.room.send("The game of Blitz has ended.");
 	}
 }
-exports.Bltz = Blitz;
+exports.Blitz = Blitz;
 
 class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
@@ -478,39 +584,16 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 
 	setupData(){
 		this.answerPoints = 1;
-		this.leaderboards = ['picturetrivia'];
-		this.scores = {};
+		this.leaderboards = [];
 	}
 
 	sendStart(){
-		this.room.send("**A new gare of Trivia Tracker (SA) has started.**");
+		this.room.send("**A new game of Trivia Tracker (SA) has started.**");
 	}
 
 	sendEnd(){
 		this.room.send("The game of Trivia Tracker (SA) has ended.");
 	}
-
-
-	/// prevUser: the user that asked the question
-	/// nextUser: the user who got the question correct
-	givePoints(prevUser, nextUser){
-		pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
-		if(this.scores[nextUser.id]){
-			this.scores[nextUser.id] = this.scores[nextUser.id] + this.answerPoints;
-		}else{
-			this.scores[nextUser.id] = this.answerPoints;
-		}
-	}
-
-	makeUndoFunc(id, name, points, leaderboards){
-		return ()=>{
-			pgclient.updatePointsByPsId(id, name, (p)=>{return p - points}, leaderboards, logIfError);
-			if(this.scores[id]){
-				this.scores[id] = Math.max(0,this.scores[id] - points);
-			}
-		};
-	}
-
 
 	/// Check if a user can open BP. Either they are auth or they have bp.
 	cantOpenBp(user, rank, type){
@@ -543,22 +626,21 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		// Is user1 either the active player or an auth? have they asked a question? is bp locked or open?
 		// Is user2 in the room? muted/locked? ttmuted? Different from the active player?
 		let user2 = this.room.getUserData(id2);
-		let hasRank = AuthManager.rankgeq(rank1, '+');
+		let hasRank = AuthManager.rankgeq(rank1, '+') || user1.id === this.host.id;
 
 		// This message should take priority
 		if(!hasRank && this.curHist.active.id !== user1.id) return "You are not the question asker.";
 
 		// Failure conditions that do not depend on whether user1 is auth
 		if(!user2) return "That player is not in the room.";
-		if(this.curHist.active.id === id2) return this.curHist.active.name + " is the question asker.";
-		if(user2.trueRank === '‽' || user2.trueRank === '!') return user.name + " is muted or locked.";
+		if(this.host.id === id2) return this.host.name + " is the question asker.";
+		if(user2.trueRank === '‽' || user2.trueRank === '!') return user2.name + " is muted or locked.";
 
 		// At this point, if the user1 is auth they can ~yes
 		if(hasRank) return;
 	}
 
 	doYes(user1, user2, undoAsker){
-		// this was unchanged
 		// The current asker is the answerer in the most recent history
 		if(undoAsker && this.curHist.undoAnswerer){
 			this.curHist.undoAnswerer();
@@ -567,15 +649,16 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		this.givePoints(this.curHist.active, user2);
 		let historyToAdd = this.makeHistory(user1, user2);
 		this.changeBp(user1, user2, historyToAdd);
+		// No blacklist here
 		this.sendYes(user1, user2, undoAsker);
 	}
 
 	sendYes(user1, user2, undoAsker){
-		this.room.send(user2.name + " answered correctly. They now have " + this.scores[user2.id] + " point(s).");
+		this.room.send(user2.name + " answered correctly. They now have " + this.scores[user2.id].score + " point(s).");
 	}
 
 	cantNo(user, rank, number){
-		if(!AuthManager.rankgeq(rank, '+') && user.id !== this.curHist.active.id) return "Your rank is not high enough to use that command.";
+		if(!AuthManager.rankgeq(rank, '+') && user.id !== this.curHist.active.id && user.id !== this.host.id) return "Your rank is not high enough to use that command.";
 		
 		if(this.lastNo && Date.now() - this.lastNo < 5000) return "There is a cooldown between uses of ~no, try again in a few seconds.";
 
@@ -590,7 +673,7 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 			if(curHist.undoAsker) curHist.undoAsker();
 			if(curHist.undoAnswerer) curHist.undoAnswerer();
 		}
-		this.clearTimers();
+
 		if(this.history.length === 0){
 			// Make a new history, with just the person who used ~no, and open bp
 			this.curHist = {active: user};
@@ -602,7 +685,7 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	}
 
 	cantBp(user1, rank1, id2){
-		if(!AuthManager.rankgeq(rank1, '+')) return "Your rank is not high enough to use that command.";
+		if(!AuthManager.rankgeq(rank1, '+') && user.id !== this.host.id) return "Your rank is not high enough to use that command.";
 
 		let user2 = this.room.getUserData(id2);
 
@@ -617,21 +700,15 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		this.room.send(user2.name + " is now the question asker.**");
 	}
 
-	cantClaimBp(user){
-		return "BP cannot be opened in this mode.";
-	}
-	
 	/// At this point it is assumed that the baton will be passed.
 	changeBp(user1, user2, historyToAdd, bypassBl){
 		// Append the new hist
 		// Update the current hist
 		// If user2 is on the blacklist and !bypassBl, open bp
 		// Give a message saying who has bp, and mention if they are on the blacklist
-		// Clear timers
 		this.history.push(historyToAdd);
 		this.curHist = historyToAdd;
 		if(this.history.length > this.maxHistLength) this.history.shift();
-		this.clearTimers();
 	}
 
 	makeHistory(user1, user2){
@@ -657,9 +734,24 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 
 	}
 
+	setOpenTimer(duration){
+		this.setTimer('open', duration, ()=>{this.doOpen();});
+	}
+
+	setLeaveTimer(duration){
+		this.setTimer('leave', duration, ()=>{this.doLeave();});
+	}
+
 	setTimer(id, time, callback){
 		if(this.timers[id]) clearTimeout(this.timers[id]);
 		this.timers[id] = setTimeout(callback, time);
+	}
+
+	clearTimer(id){
+		if(this.timers[id]){
+			clearTimeout(this.timers[id]);
+			delete this.timers[id];
+		}
 	}
 
 	checkVeto(message){
@@ -682,6 +774,26 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 
 	doReminder(){}
 
+	doOpen(){
+		this.clearTimer('open');
+		if(!this.bpOpen && !this.bpLocked){
+			this.doOpenBp('timer', true);
+		}else if( (this.bpOpen == 'leave' || this.bpOpen == 'user') && !this.bpLocked ){
+			this.doOpenBp('timer', false);
+		}
+	}
+
+	doLeave(){
+		this.clearTimer('leave');
+		if(!this.bpOpen && !this.bpLock){
+			this.doOpenBp('leave', true);
+		}
+	}
+
+	cantClaimBp(user){
+		return "BP cannot be opened in this mode.";
+	}
+	
 	onRoomMessage(user, rank, message){
 		if(user.id === this.curHist.active.id && this.checkBold(message)){
 			this.clearTimers();
@@ -690,6 +802,12 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 				this.curHist.question = message;
 			}
 		}
+	}
+
+	onPunishment(user, punishment){
+	}
+
+	onLeave(user){
 	}
 
 	end(){
@@ -704,6 +822,12 @@ class PictureTrivia extends TriviaTrackerSingleAsker{
 		super(user, room, config);
 	}
 
+	setupData(){
+		this.answerPoints = 1;
+		this.leaderboards = ['picturetrivia'];
+		this.scores = {};
+	}
+
 	sendStart(){
 		this.room.send("A new game of Picture Trivia has started.");
 	}
@@ -716,7 +840,8 @@ class PictureTrivia extends TriviaTrackerSingleAsker{
 
 let gameTypes = {
 	'triviatracker': TriviaTrackerGame,
-	'picturetrivia': PictureTrivia
+	'picturetrivia': PictureTrivia,
+	'blitz': Blitz
 };
 
 exports.gameTypes = gameTypes;

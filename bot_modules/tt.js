@@ -1035,6 +1035,92 @@ let commands = {
 			data.games[targetRoom.id] = new minigames.gameTypes[gameType](user, targetRoom, config, data.blacklistManager);
 		}
 	},
+	checkhost: function(message, args, user, rank, room, commandRank, commandRoom){
+		let gameRoom = args[0] ? RoomManager.getRoom(toRoomId(args[0])) : room;
+		if(!gameRoom || !gameRoom.id){
+			room.broadcast(user, "You must specify a valid room.");
+		}else if(!data.games[gameRoom.id]){
+			room.broadcast(user, "There is no game in that room currently.");
+		}else{
+			room.broadcast(user, "The current host is " + data.games[gameRoom.id].getHost().name + ".");
+		}
+	},
+	minigamenew: function(message, args, user, rank, room, commandRank, commandRoom){
+		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
+		let gameType = toId(args[0]);
+		if(!AuthManager.rankgeq(commandRank, '+')){
+			room.broadcast(user, "Your rank is not high enough to start minigames.");
+		}else if(!gameRoom || !gameRoom.id){
+			room.broadcast(user, "You must specify a valid room.");
+		}else if(data.games[gameRoom.id]){
+			room.broadcast(user, "There already a game in progress.");
+		}else if(!minigames.gameTypes[gameType]){
+			room.broadcast(user, "That game type does not exist.");
+		}else{
+			data.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, config, data.blacklistManager);
+			info(gameRoom.id);
+		}
+	},
+	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
+		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
+		if(!AuthManager.rankgeq(commandRank, '+')){
+			room.broadcast(user, "Your rank is not high enough to end minigames.");
+		}else if(!gameRoom || !gameRoom.id){
+			room.broadcast(user, "You must specify a valid room.");
+		}else if(!data.games[gameRoom.id]){
+			room.broadcast(user, "There is no game in progress.");
+		}else{
+			data.games[gameRoom.id].end();
+			delete data.games[gameRoom.id];
+		}
+	},
+	sethost: function(message, args, user, rank, room, commandRank, commandRoom){
+		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
+		let newHost = gameRoom ? gameRoom.getUserData(toId(args[0])) : null;
+		if(!AuthManager.rankgeq(commandRank, '+')){
+			room.broadcast(user, "Your rank is not high enough to change the host");
+		}else if(!gameRoom || !gameRoom.id){
+			room.broadcast(user, "You must specify a valid room.");
+		}else if(!data.games[gameRoom.id]){
+			room.broadcast(user, "There is no game in that room currently.");
+		}else if(!newHost){
+			room.broadcast(user, "The user you specify must be in the room and not the current host.");
+		}else{
+			data.games[gameRoom.id].setHost(newHost);
+			room.broadcast(user, newHost.name + " is now the host.");
+		}
+	},
+	showpoints: function(message, args, user, rank, room, commandRank, commandRoom){
+		let id = toId(args[0]);
+		let roomId = args[1] ? toRoomId(args[1]) : room.id;
+		if(!roomId){
+			room.broadcast(user, "You must specify a room.");
+			return;
+		}else if(!data.games[roomId]){
+			room.broadcast(user, "There is no game in progress.");
+			return;
+		}
+		let scores = data.games[roomId].scores;
+		if(id){
+			let entry = scores[id];
+			if(entry){
+				room.broadcast(user, entry.name + "'s score is " + entry.score + ".", rank);
+			}else{
+				room.broadcast(user, entry.name + " does not have a score.", rank);
+			}
+		}else{
+			let scoresArray = [];
+			for(let p in scores){
+				scoresArray.push(scores[p]);
+			}
+			scoresArray.sort((e1,e2)=>{return e1.score < e2.score});
+			if(scoresArray.length == 0){
+				room.broadcast(user, "No one has any points.", rank);
+			}else{
+				room.broadcast(user, "The current top scores are: " + scoresArray.slice(0,10).map(e=>{return "__" + e.user.name + "__ (" + e.score + ")"}).join(", "), rank);
+			}
+		}
+	},
 	nominate: function(message, args, user, rank, room, commandRank, commandRoom){
 		let nominee = toId(args[0]);
 		let entry = data.leaderboard.nominations[user.id];
