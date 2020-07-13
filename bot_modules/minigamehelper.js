@@ -291,7 +291,7 @@ let commands = {
 			room.broadcast(user, data.scores[id].name + "'s score is now " + data.scores[id].score + ".", rank);
 		}
 	},
-	showpoints: function(message, args, user, rank, room, commandRank, commandRoom){
+	showmghpoints: function(message, args, user, rank, room, commandRank, commandRoom){
 		let id = toId(args[0]);
 		if(id){
 			let entry = data.scores[id];
