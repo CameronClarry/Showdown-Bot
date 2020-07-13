@@ -991,33 +991,6 @@ let commands = {
 			room.broadcast(user, "There are no query batches :<");
 		}
 	},
-	minigameupdate: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.batchRank)){
-			user.send("Your rank is not high enough to manage query batches.");
-		}else if(args.length < 1){
-			user.send("You must give a link to the query batches.");
-		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[0])){
-			success = true;
-			request.get(args[0],function(err, response, body){
-				if(err){
-						error(err);
-						user.send(err);
-						return;
-				}
-				try{
-					data.batches = JSON.parse(body);
-					saveBatches();
-					user.send("Updated the query batches.");
-				}catch(e){
-					error(e);
-					user.send("There was an error parsing the text in the hastebin link.");
-				}
-			});
-		}else{
-			user.send("There was something wrong with your link, make sure it's only the raw paste.");
-		}
-	},
-	// TODO minigame commands as they currently are are deprecated. This should be repurposed to pass commands to the current minigame, or start a new one
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameType = toId(args[0]);
 		let targetRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
@@ -1033,16 +1006,6 @@ let commands = {
 			room.broadcast(user, "That game type is not recognized.");
 		}else{
 			data.games[targetRoom.id] = new minigames.gameTypes[gameType](user, targetRoom, config, data.blacklistManager);
-		}
-	},
-	checkhost: function(message, args, user, rank, room, commandRank, commandRoom){
-		let gameRoom = args[0] ? RoomManager.getRoom(toRoomId(args[0])) : room;
-		if(!gameRoom || !gameRoom.id){
-			room.broadcast(user, "You must specify a valid room.");
-		}else if(!data.games[gameRoom.id]){
-			room.broadcast(user, "There is no game in that room currently.");
-		}else{
-			room.broadcast(user, "The current host is " + data.games[gameRoom.id].getHost().name + ".");
 		}
 	},
 	minigamenew: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1072,6 +1035,16 @@ let commands = {
 		}else{
 			data.games[gameRoom.id].end();
 			delete data.games[gameRoom.id];
+		}
+	},
+	checkhost: function(message, args, user, rank, room, commandRank, commandRoom){
+		let gameRoom = args[0] ? RoomManager.getRoom(toRoomId(args[0])) : room;
+		if(!gameRoom || !gameRoom.id){
+			room.broadcast(user, "You must specify a valid room.");
+		}else if(!data.games[gameRoom.id]){
+			room.broadcast(user, "There is no game in that room currently.");
+		}else{
+			room.broadcast(user, "The current host is " + data.games[gameRoom.id].getHost().name + ".");
 		}
 	},
 	sethost: function(message, args, user, rank, room, commandRank, commandRoom){
