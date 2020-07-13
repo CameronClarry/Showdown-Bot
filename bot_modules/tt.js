@@ -780,7 +780,7 @@ let commands = {
 					room.broadcast(user, "You do not have any alts.");
 				}else if(!res[1]){
 					room.broadcast(user, "That account has no alts.");
-				}else if(res[0].id !== res[1].id && !canEditOthers){
+				}else if(!canEditOthers && res[0].id !== res[1].id){
 					room.broadcast(user, "That account is not one of your alts.");
 				}else{
 					changeMains(res[1].id, removeFormatting(removeRank(args[0])), (err, res2)=>{
@@ -789,7 +789,7 @@ let commands = {
 							room.broadcast(user, "Error: " + err);
 						}
 
-						if(!res[0].id || res[0].id !== res[1].id){
+						if(!res[0] || res[0].id !== res[1].id){
 							room.broadcast(user, "Their name was successfully changed.");
 						}else{
 							room.broadcast(user, "Your name was successfully changed.");
