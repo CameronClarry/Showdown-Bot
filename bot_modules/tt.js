@@ -977,20 +977,6 @@ let commands = {
 			user.send("There are no facts :<");
 		}
 	},
-	minigamelist: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.batchRank)){
-			room.broadcast(user, "Your rank is not high enough to manage query batches.");
-		}else if(true){
-			let text = JSON.stringify(data.batches, null, "\t");
-			uploadText(text, (link)=>{
-				user.send("Here is a list of all the batches: " + link);
-			}, (err)=>{
-				user.send("There was an error: " + err);
-			});
-		}else{
-			room.broadcast(user, "There are no query batches :<");
-		}
-	},
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameType = toId(args[0]);
 		let targetRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
