@@ -978,20 +978,16 @@ let commands = {
 		}
 	},
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
-		let gameType = toId(args[0]);
-		let targetRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
-		if(!targetRoom || !targetRoom.id){
-			room.broadcast(user, "You either specified an invalid room, or I am not in that room.");
-		}else if(data.games[targetRoom.id]){
-			room.broadcast(user, "There is already a game in " + room.name + ".");
-		}else if(!AuthManager.rankgeq(commandRank, config.startGameRank)){
-			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
-		}else if(!gameType){
-			room.broadcast(user, "You must give the game you would like to start.");
-		}else if(!minigames.gameTypes[gameType]){
-			room.broadcast(user, "That game type is not recognized.");
+		let game = data.games[room.id];
+		let command = toId(args[0]);
+		if(!room.id){
+			room.broadcast(user, "You must use this command in the room that has the minigame in it.");
+		}else if(!game){
+			room.broadcast(user, "There is no minigame in this room.");
+		}else if(!game.chatCommands[command]){
+			room.broadcast(user, "That command is not recognized.");
 		}else{
-			data.games[targetRoom.id] = new minigames.gameTypes[gameType](user, targetRoom, config, data.blacklistManager);
+			game.chatCommands[command](user, rank);
 		}
 	},
 	minigamenew: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1063,9 +1059,9 @@ let commands = {
 		if(id){
 			let entry = scores[id];
 			if(entry){
-				room.broadcast(user, entry.name + "'s score is " + entry.score + ".", rank);
+				room.broadcast(user, entry.user.name + "'s score is " + entry.score + ".", rank);
 			}else{
-				room.broadcast(user, entry.name + " does not have a score.", rank);
+				room.broadcast(user, entry.user.name + " does not have a score.", rank);
 			}
 		}else{
 			let scoresArray = [];
