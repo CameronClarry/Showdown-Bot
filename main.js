@@ -89,6 +89,11 @@ global.loadConfig = function(name, defaults){
 
 		if(name === "main"){
 			mainConfig = newConfig;
+			if(mainConfig.user && !mainConfig.userId){
+				mainConfig.userId = toId(mainConfig.user);
+				saveConfig(name);
+				shouldSave = false;
+			}
 			if(shouldSave) saveConfig(name);
 			if(!mainConfig.user || !mainConfig.pass){
 				error("The main config file is missing login information. Please fill it in and re-run the bot.");
@@ -318,6 +323,7 @@ function handle(message){
 	if(chunks[0][0]==">"){
 		roomName = chunks.splice(0,1)[0].substr(1);
 	}
+	// TODO detect lobby 
 	room = RoomManager.getRoom(toRoomId(roomName))
 	for(let i=0;i<chunks.length;i++){
 		let args = chunks[i].split("|");
@@ -358,6 +364,7 @@ function handle(message){
 			for(let modulename in modules){
 				let module = modules[modulename];
 				if(module && module.onConnect){
+					// TODO is there a better way to detect when the bot finished logging in?
 					module.onConnect();
 				}
 			}
@@ -480,6 +487,7 @@ function handle(message){
 
 //Here are some useful functions for all modules to use
 
+// TODO is this still needed?
 global.getChatInfo = function(room, args, isInit){
 	let messageInfo = null;
 	if(args.length>=4){

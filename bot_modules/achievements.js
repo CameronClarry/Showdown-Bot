@@ -261,8 +261,34 @@ let awardAchievement = function(username, achievement, callback){
 			}
 		});
 	});
-}
+};
 exports.awardAchievement = awardAchievement;
+
+let achievementsOnScoreUpdate = function(username, leaderboard, oldScore, newScore){
+	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
+	let callback = (err, username, achievement)=>{
+		if(err){
+			error(err);
+			return;
+		}
+
+		if(triviaRoom) triviaRoom.send(username + " has earned the achievement '" + achievement + "'!");
+	}
+	if(leaderboard === "main"){
+		if(oldScore<250 && newScore >= 250){
+			awardAchievement(username, "Super", callback);
+		} if(oldScore<500 && newScore >= 500){
+			awardAchievement(username, "Mega", callback);
+		}
+		if(oldScore<750 && newScore >= 750){
+			awardAchievement(username, "Ultra", callback);
+		}
+		if(oldScore<1000 && newScore >= 1000){
+			awardAchievement(username, "Hyper", callback);
+		}
+	}
+};
+exports.achievementsOnScoreUpdate = achievementsOnScoreUpdate; 
 
 let defaultConfigs = {
 	achievementManageRank: "@"
