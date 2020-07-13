@@ -114,7 +114,7 @@ class TriviaTrackerGame{
 
 	/// Check if a user can open BP. Either they are auth or they have bp.
 	cantOpenBp(user, rank, type){
-		let isCurUser = this.curHist.active.id !== user.id;
+		let isCurUser = this.curHist.active.id === user.id;
 		let hasRank = AuthManager.rankgeq(rank, '+') || user.id === this.host.id;
 
 		if(!hasRank && !isCurUser) return "You are not the active player.";
