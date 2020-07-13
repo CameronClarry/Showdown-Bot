@@ -103,6 +103,7 @@ class TriviaTrackerGame{
 	}
 
 	makeUndoFunc(id, name, points, leaderboards){
+		if(!points) return ()=>{};
 		return ()=>{
 			pgclient.updatePointsByPsId(id, name, (p)=>{return p - points}, leaderboards, logIfError);
 			if(this.scores[id]){
