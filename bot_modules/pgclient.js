@@ -98,6 +98,7 @@ let runSqlAsArray = function(statement, args, callback, client){
 	}
 	if(!data.connected){
 		callback("The bot is not connected to the database.");
+		return;
 	}
 	try{
 		let queryConfig = {
@@ -139,30 +140,13 @@ let getUser = function(username, createNewEntry, callback, client){
 					callback(err);
 					return;
 				}
-				runSqlAsArray(INSERT_ALT_SQL, [toId(username)], newEntryCallback, client);
+				runSql(INSERT_ALT_SQL, [toId(username)], newEntryCallback, client);
 			}, client);
 		}else{
 			callback(null, res.rows[0]);
 		}
 	}
 	runSql(GET_USER_SQL, [toId(username)], newCallback, client);
-	/*
-	runSql(GET_USER_SQL, [toId(username)], (row)=>{
-		res = row;
-	}, ()=>{
-		if(!res && createNewEntry){
-			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], null, ()=>{
-				runSql(INSERT_ALT_SQL, [toId(username), toId(username)], null, (res)=>{
-					info(JSON.stringify(res));
-					// TODO can this be done without the extra call? using rows as array?
-					getId(username, createNewEntry, onEnd, onError);
-				}, onError);
-			}, onError);
-		}else{
-			onEnd(res);
-		}
-	}, onError);
-	*/
 }
 exports.getUser = getUser
 
