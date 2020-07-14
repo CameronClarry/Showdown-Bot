@@ -1005,7 +1005,6 @@ let commands = {
 			room.broadcast(user, "That game type does not exist.");
 		}else{
 			data.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, config, data.blacklistManager);
-			info(gameRoom.id);
 		}
 	},
 	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1459,10 +1458,6 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "Error: " + err);
 					return;
 				}
-				info(err);
-				info(username);
-				info(affected);
-				info(failed);
 
 				let response = "Updated " + affected + " scores for " + username + ".";
 				if(failed.length){
@@ -1823,8 +1818,6 @@ class BlacklistManager{
 		let entry = this.getEntry(id);
 		let currentDuration = this.getDuration(entry);
 
-		info(duration);
-		info(currentDuration);
 		
 		if((duration*60000 <= currentDuration && duration > 0) || currentDuration == -1) return "The duration given isn't longer than their current blacklist length.";
 

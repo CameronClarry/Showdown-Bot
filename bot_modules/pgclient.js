@@ -67,7 +67,6 @@ let pgReconnect = function(callback){
 
 //This runs a postgres query, handles errors, etc.
 let runSql = function(statement, args, callback, client){
-	info(statement);
 	if(!callback){
 		callback = (err) => {if (err) error(err);};
 	}
@@ -165,7 +164,6 @@ let getMains = function(username1, username2, createNewEntry, callback, client){
 exports.getMains = getMains
 
 let getPoints = function(id, leaderboards, callback, client){
-	info(leaderboards)
 	if(leaderboards === 'all'){
 		runSql(GET_ALL_POINTS_SQL, [id], callback, client);
 	}else if(leaderboards === 'enabled'){
@@ -196,14 +194,11 @@ let updatePointsByDbId = function(dbId, name, updateFunc, leaderboards, callback
 		};
 
 		for(let i=0;i<res.rows.length;i++){
-			info(JSON.stringify(res.rows[i]));
 			let curPoints = res.rows[i].points || 0;
 			let leaderboardId = res.rows[i].id;
 			if(res.rows[i].points !== null){
-				info('updating');
 				runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
 			}else{
-				info('inserting');
 				runSql(INSERT_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
 			}
 			achievements.achievementsOnScoreUpdate(name, leaderboardId, curPoints, updateFunc(curPoints, leaderboardId));
