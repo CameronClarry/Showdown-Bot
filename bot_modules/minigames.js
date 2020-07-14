@@ -284,20 +284,20 @@ class TriviaTrackerGame{
 			// Make a new history, with just the person who used ~no, and open bp
 			this.curHist = {active: user};
 			this.history.push(this.curHist);
-			this.room.send("Undid " + i + " action(s). Since the end of the history was reached, BP is now open.");
+			this.room.send("**Undid " + i + " action(s). Since the end of the history was reached, BP is now open.**");
 			this.doOpenBp('auth', false);
 			return;
 		}
 		this.curHist = this.history[this.history.length-1];
 		let newActive = this.room.getUserData(this.curHist.active.id);
 		if(!newActive){
-			this.room.send("Undid " + i + " action(s). Since " + this.curHist.active.name + " is not in the room, BP is now open.");
+			this.room.send("**Undid " + i + " action(s). Since " + this.curHist.active.name + " is not in the room, BP is now open.**");
 			this.doOpenBp('auth', false);
 		}else if(newActive.trueRank === '!' || newActive.trueRank === '‽'){
-			this.room.send("Undid " + i + " action(s). Since " + newActive.name + " is muted or locked, BP is now open.");
+			this.room.send("**Undid " + i + " action(s). Since " + newActive.name + " is muted or locked, BP is now open.**");
 			this.doOpenBp('auth', false);
 		}else{
-			this.room.send("Undid " + i + " action(s). It is now " + newActive.name + "'s turn to ask a question.");
+			this.room.send("**Undid " + i + " action(s). It is now " + newActive.name + "'s turn to ask a question.**");
 			this.setRemindTimer(this.config.remindTime*1000);
 		}
 	}
