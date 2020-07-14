@@ -195,7 +195,7 @@ class TriviaTrackerGame{
 
 		if(!hasRank) return "Your rank is not high enough to unlock BP.";
 
-		if(!this.bpLock) return "BP is already unlocked";
+		if(!this.bpLock) return "BP is already unlocked.";
 	}
 
 	doBpUnlock(shouldSendMessage){
@@ -211,6 +211,7 @@ class TriviaTrackerGame{
 			if(shouldSendMessage) this.room.send("**BP is now unlocked. Since " + this.curHist.active.name + " is muted or locked, BP is now open.**");
 		}else if(shouldSendMessage){
 			this.room.send("BP is now unlocked. It is " + this.curHist.active.name + "'s turn to ask a question.");
+			this.setRemindTimer(this.config.remindTime*1000);
 		}
 	}
 
@@ -459,6 +460,7 @@ class TriviaTrackerGame{
 					// Could potentially PM the user here, but it is probably unnecessary
 				}else{
 					this.doBp(this.curHist.active, user.id);
+					this.setRemindTimer(this.config.remindTime*1000/2);
 					this.bpOpen = false;
 				}
 			}

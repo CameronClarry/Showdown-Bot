@@ -395,11 +395,7 @@ let commands = {
 			commandRoom.send("!rfaq official");
 			if(tt && tt.getData().games[commandRoom.id]){
 				let game = tt.getData().games[commandRoom.id];
-				if(game.bpOpen){
-					game.bpOpen = null;
-					clearTimers(game);
-				}
-				game.bpLocked = true;
+				game.doBpLock(false);
 			}
 		}
 	},

@@ -498,10 +498,11 @@ let commands = {
 		}else{
 			let id = toId(args[0]);
 			if(!id || !AuthManager.rankgeq(commandRank, config.manageBpRank)){
+				// TODO can this be moved to the minigame side?
 				let curUser = game.curHist.active;
 				// if BP is open or locked, there's no need to HL the user who last had it.
-				let curName = game.bpOpen || game.bpLocked ? "__" + curUser.name + "__" : curUser.name;
-				let openLockMessage = game.bpLocked ? " (BP is locked)." : (game.bpOpen ? " (BP is open)." : ".");
+				let curName = game.bpOpen || game.bpLock ? "__" + curUser.name + "__" : curUser.name;
+				let openLockMessage = game.bpLock ? " (BP is locked)." : (game.bpOpen ? " (BP is open)." : ".");
 				room.broadcast(user, curName + " has BP" + openLockMessage);
 			}else{
 				let nextUser = game.room.getUserData(id);
