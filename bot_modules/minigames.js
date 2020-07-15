@@ -210,7 +210,7 @@ class TriviaTrackerGame{
 			this.bpOpen = 'auth';
 			if(shouldSendMessage) this.room.send("**BP is now unlocked. Since " + this.curHist.active.name + " is muted or locked, BP is now open.**");
 		}else if(shouldSendMessage){
-			this.room.send("BP is now unlocked. It is " + this.curHist.active.name + "'s turn to ask a question.");
+			this.room.send("**BP is now unlocked. It is " + this.curHist.active.name + "'s turn to ask a question.**");
 			this.setRemindTimer(this.config.remindTime*1000);
 		}
 	}
