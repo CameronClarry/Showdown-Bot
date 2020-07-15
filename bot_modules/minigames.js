@@ -291,6 +291,7 @@ class TriviaTrackerGame{
 		}
 		this.curHist = this.history[this.history.length-1];
 		let newActive = this.room.getUserData(this.curHist.active.id);
+		this.curHist.hasAsked = false;
 		if(!newActive){
 			this.room.send("**Undid " + i + " action(s). Since " + this.curHist.active.name + " is not in the room, BP is now open.**");
 			this.doOpenBp('auth', false);
@@ -444,12 +445,12 @@ class TriviaTrackerGame{
 		}
 	}
 
-	onFirstBold(user, message){
+	onBold(user, message){
 		this.clearTimers();
-		this.curHist.hasAsked = true;
-		if(message.length > 10){
+		if(!this.curHist.hasAsked && message.length > 10){
 			this.curHist.question = message;
 		}
+		this.curHist.hasAsked = true;
 	}
 
 	onRoomMessage(user, rank, message){
@@ -466,8 +467,8 @@ class TriviaTrackerGame{
 			}
 		}else if((AuthManager.rankgeq(rank, this.config.manageBpRank) || user.id === this.curHist.active.id) && this.checkVeto(message) && user.id !== mainConfig.userId){
 			this.onVeto(this.curHist.active, user, message);
-		}else if(user.id === this.curHist.active.id && this.checkBold(message) && !this.curHist.hasAsked){
-			this.onFirstBold(user, message);
+		}else if(user.id === this.curHist.active.id && this.checkBold(message)){
+			this.onBold(user, message);
 		}
 	}
 
@@ -481,6 +482,15 @@ class TriviaTrackerGame{
 	onLeave(user){
 		if(!this.bpOpen && !this.bpLock && user.id === this.curHist.active.id){
 			this.setLeaveTimer(this.config.leaveGraceTime*1000);
+		}
+	}
+
+	onJoin(user){
+		if(this.timers['leave'] && user.id === this.curHist.active.id){
+			this.clearTimer('leave');
+		}else if(this.bpOpen === 'leave' && user.id === this.curHist.active.id){
+			this.doCloseBp();
+			this.room.send("**" + user.name + " has rejoined, so BP is no longer open.**");
 		}
 	}
 
@@ -553,13 +563,15 @@ class Blitz extends TriviaTrackerGame{
 		}
 	}
 
-	onFirstBold(user, message){
-		this.clearTimers();
-		this.setRemindTimer();
-		this.curHist.hasAsked = true;
-		if(message.length > 10){
+	onBold(user, message){
+		if(!this.curHist.hasAsked){
+			this.setRemindTimer();
+			this.clearTimers();
+		}
+		if(!this.curHist.hasAsked && message.length > 10){
 			this.curHist.question = message;
 		}
+		this.curHist.hasAsked = true;
 	}
 
 	doReminder(){
