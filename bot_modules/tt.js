@@ -367,16 +367,7 @@ exports.setConfig = function(newConfig){
 
 let processJoin = function(room, user){
 	let game = data.games[room.id];
-	if(game && (game.timeout || game.bpOpen === "leave") && user.id === game.curUser.id){
-		if(game.timeout){
-			clearTimeout(game.timeout);
-			game.timeout = null;
-		}
-		if(game.bpOpen == "leave"){
-			game.bpOpen = null;
-			room.send("**" + user.name + " has rejoined, so BP is no longer open.**");
-		}
-	}
+	if(game) game.onJoin(user);
 }
 self.processJoin = processJoin;
 exports.processJoin = processJoin;
