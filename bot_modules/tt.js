@@ -995,7 +995,7 @@ let commands = {
 		}else if(!minigames.gameTypes[gameType]){
 			room.broadcast(user, "That game type does not exist.");
 		}else{
-			data.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, config, data.blacklistManager);
+			data.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, config, data.blacklistManager, data.leaderboard.customBp);
 		}
 	},
 	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1081,8 +1081,11 @@ let commands = {
 			user.send("You can't nominate yourself.");
 		}else{
 			let history = game.history;
-			for(let i=history.length-1;i--;i>=0){
+			info(game.history.length);
+			for(let i=history.length-1;i>=0;i--){
+				info(history[i].active.id);
 				if(history[i].active.id == nominee){
+					info("found matching history");
 					question = history[i].question;
 					break;
 				}
@@ -1109,7 +1112,7 @@ let commands = {
 	},
 	nominations: function(message, args, user, rank, room, commandRank, commandRoom){
 		// For ROs only. Pastes all the nominations as a list
-		if(!AuthManager.rankgeq(commandRank,'#')) return;
+		if(!AuthManager.rankgeq(commandRank,'@')) return;
 
 		let text = JSON.stringify(data.leaderboard.nominations, null, '\t');
 
@@ -1127,6 +1130,61 @@ let commands = {
 		saveLeaderboard();
 
 		user.send("Successfully cleared all nominations.");
+	},
+	checknomination: function(message, args, user, rank, room, commandRank, commandRoom){
+		let hasRank = AuthManager.rankgeq(commandRank, '@');
+		let useArg = hasRank && args[0];
+		let id = useArg ? toId(args[0]) : user.id;
+		
+		if(!data.leaderboard.nominations[id]){
+			room.broadcast(user, (useArg ? "They" : "You") + " do not have a nomination.");
+		}else{
+			room.broadcast(user, (useArg ? "Their" : "Your") + " nomination is \"" + data.leaderboard.nominations[id].question + "\"");
+		}
+	},
+	removenomination: function(message, args, user, rank, room, commandRank, commandRoom){
+		let hasRank = AuthManager.rankgeq(commandRank, '@');
+		let useArg = hasRank && args[0];
+		let id = useArg ? toId(args[0]) : user.id;
+		
+		if(!data.leaderboard.nominations[id]){
+			room.broadcast(user, (useArg ? "They" : "You") + " do not have a nomination.");
+		}else{
+			delete data.leaderboard.nominations[id];
+			saveLeaderboard();
+			room.broadcast(user, "Successfully deleted " + (useArg ? "their" : "your") + " nomination.");
+		}
+	},
+	custbpadd: function(message, args, user, rank, room, commandRank, commandRoom){
+		let hasRank = AuthManager.rankgeq(commandRank, '@');
+		let id = toId(args[0]);
+		let bpMessage = args[1];
+		
+		if(!hasRank){
+			room.broadcast(user, "Your rank is not high enough to set custom BP messages.");
+		}else if(!id || !bpMessage){
+			room.broadcast(user, "You must specify a user and a message.");
+		}else{
+			data.leaderboard.customBp[id] = bpMessage;
+			saveLeaderboard();
+			room.broadcast(user, "Successfully set their custom BP message.");
+		}
+	},
+	custbpremove: function(message, args, user, rank, room, commandRank, commandRoom){
+		let hasRank = AuthManager.rankgeq(commandRank, '@');
+		let id = toId(args[0]);
+		
+		if(!hasRank){
+			room.broadcast(user, "Your rank is not high enough to remove custom BP messages.");
+		}else if(!id){
+			room.broadcast(user, "You must specify a user.");
+		}else if(!data.leaderboard.customBp[id]){
+			room.broadcast(user, "They do not have a custom BP message.");
+		}else{
+			delete data.leaderboard.customBp[id];
+			saveLeaderboard();
+			room.broadcast(user, "Successfully removed their custom BP message.");
+		}
 	},
 	info: "help",
 	commands: "help",
@@ -1163,7 +1221,7 @@ let ttCommands = {
 		}else if(!AuthManager.rankgeq(commandRank, config.startGameRank)){
 			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
 		}else{
-			data.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, config, data.blacklistManager);
+			data.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, config, data.blacklistManager, data.leaderboard.customBp);
 		}
 	},
 	endgame: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1952,10 +2010,13 @@ let loadLeaderboard = function(){
 		if(!leaderboard.nominations){
 			leaderboard.nominations = {};
 		}
+		if(!leaderboard.customBp){
+			leaderboard.customBp = {};
+		}
 		data.leaderboard = leaderboard;
 		saveLeaderboard();
 	}else{
-		data.leaderboard = {blacklist:{},nominations:{}};
+		data.leaderboard = {blacklist:{},nominations:{},customBp:{}};
 		saveLeaderboard();
 	}
 };

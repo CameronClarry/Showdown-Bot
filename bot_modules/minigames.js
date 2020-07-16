@@ -43,7 +43,7 @@ class TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
 	/// room: the room that the game should be started in
 	/// config: config settings for the tt module
-	constructor(user, room, config, blacklistManager){
+	constructor(user, room, config, blacklistManager, customBp){
 		this.room = room;
 		this.host = user;
 		this.config = config;
@@ -54,6 +54,7 @@ class TriviaTrackerGame{
 		this.timers = {};
 		this.chatCommands = {};
 		this.scores = {};
+		this.customBp = customBp;
 		this.setupData();
 		this.sendStart();
 	}
@@ -254,11 +255,19 @@ class TriviaTrackerGame{
 		this.sendYes(user1, user2, undoAsker, isBlacklisted);
 	}
 
+	sendGenericBpChange(user){
+		if(this.customBp[user.id]){
+			this.room.send("**" + this.customBp[user.id] + "**");
+		}else{
+			this.room.send("**It is now " + user.name + "'s turn to ask a question.**");
+		}
+	}
+
 	sendYes(user1, user2, undoAsker, isBlacklisted){
 		if(isBlacklisted){
 			this.room.send("**" + user2.name + " is on the blacklist, so BP is now open.**");
 		}else{
-			this.room.send("**It is now " + user2.name + "'s turn to ask a question.**");
+			this.sendGenericBpChange(user2);
 		}
 	}
 
@@ -317,7 +326,7 @@ class TriviaTrackerGame{
 		let user2 = this.room.getUserData(id2);
 		let historyToAdd = {active: user2};
 		this.changeBp(user1, user2, historyToAdd);
-		this.room.send("**It is now " + user2.name + "'s turn to ask a question.**");
+		this.sendGenericBpChange(user2);
 	}
 
 	/// At this point it is assumed that the baton will be passed.
@@ -448,6 +457,7 @@ class TriviaTrackerGame{
 	onBold(user, message){
 		this.clearTimers();
 		if(!this.curHist.hasAsked && message.length > 10){
+			info("Set question");
 			this.curHist.question = message;
 		}
 		this.curHist.hasAsked = true;
@@ -503,8 +513,8 @@ exports.TriviaTrackerGame = TriviaTrackerGame;
 
 class Blitz extends TriviaTrackerGame{
 	
-	constructor(user, room, config, blacklistManager){
-		super(user, room, config, blacklistManager);
+	constructor(user, room, config, blacklistManager, customBp){
+		super(user, room, config, blacklistManager, customBp);
 		this.remindTime = 60;
 		this.chatCommands['finals'] = (user, rank)=>{this.doFinals(user, rank)};
 		this.chatCommands['hyperfinals'] = (user, rank)=>{this.doHyperFinals(user, rank)};
@@ -594,8 +604,8 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
 	/// room: the room that the game should be started in
 	/// config: config settings for the tt module
-	constructor(user, room, config){
-		super(user, room, config);
+	constructor(user, room, config, blacklistManager, customBp){
+		super(user, room, config, blacklistManager, customBp);
 	}
 
 	setupData(){
@@ -834,8 +844,8 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 
 class PictureTrivia extends TriviaTrackerSingleAsker{
 
-	constructor(user, room, config){
-		super(user, room, config);
+	constructor(user, room, config, blacklistManager, customBp){
+		super(user, room, config, blacklistManager, customBp);
 	}
 
 	setupData(){
