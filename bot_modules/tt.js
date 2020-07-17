@@ -1158,7 +1158,7 @@ let commands = {
 	custbpadd: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, '@');
 		let id = toId(args[0]);
-		let bpMessage = args[1];
+		let bpMessage = args.slice(1).join(', ');;
 		
 		if(!hasRank){
 			room.broadcast(user, "Your rank is not high enough to set custom BP messages.");
