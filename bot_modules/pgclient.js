@@ -190,7 +190,7 @@ let updatePointsByDbId = function(dbId, name, updateFunc, leaderboards, callback
 			pendingCalls--;
 			if(err) error(err);
 			// TODO decide whether to return failed updates
-			if(pendingCalls === 0) callback(totalError, name, res.rows.length, []);
+			if(pendingCalls === 0) callback(totalError, name, res.rows.length, res);
 		};
 
 		for(let i=0;i<res.rows.length;i++){
@@ -207,6 +207,7 @@ let updatePointsByDbId = function(dbId, name, updateFunc, leaderboards, callback
 }
 exports.updatePointsByDbId = updatePointsByDbId;
 
+// TODO move the checkout to the dbId function. Only checkout if no client is given
 let updatePointsByPsId = function(psId, name, updateFunc, leaderboards, callback, client){
 	checkout((err, client, done)=>{
 		if(err){

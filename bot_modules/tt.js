@@ -40,22 +40,11 @@ const DELETE_LB_ENTRY_SQL = "DELETE FROM tt_points WHERE id = $1 AND leaderboard
 const DELETE_USER_ENTRIES_SQL = "DELETE FROM tt_points WHERE id = $1;";
 const DELETE_LB_ENTRIES_SQL = "DELETE FROM tt_points WHERE leaderboard = $1;";
 
-const GET_AVG_POINTS = "SELECT AVG(points) avg_points FROM tt_points WHERE points > 0 AND leaderboard = $1;";
-const GET_STD_POINTS = "SELECT STDDEV_POP(points) std_points FROM tt_points WHERE points > 0 AND leaderboard = $1;";
-const GET_NUM_PLAYERS = "SELECT COUNT(*) num_players FROM tt_points WHERE points > 0 AND leaderboard = $1;";
+const GET_STATS = "SELECT AVG(points)::FLOAT avg_points, STDDEV_POP(points)::FLOAT std_points, COUNT(*)::INTEGER num_players FROM tt_points WHERE points > 0 AND leaderboard = $1;";
 
 
-
-//game:{
-//	openReason:
-//	// 'auth': forced open by an auth
-//	// 'leave': automatically opened on player leaving
-//	// 'timer': automatically opened for not asking a questions
-//	// 'user': opened by the user
-//	// ''
-//}
-
-// TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists // TODO one function for updating sores: 'all' vs 'enabled' vs ['lb1', 'lb2', ...]. make updatefunc take the lb id as well
+// TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists 
+// TODO one function for updating sores: 'all' vs 'enabled' vs ['lb1', 'lb2', ...]. make updatefunc take the lb id as well
 
 //args is [dbId, leaderboard]
 let getLeaderboardEntry = function(args, callback){
@@ -1398,9 +1387,8 @@ let ttleaderboardCommands = {
 			}
 		});
 	},
-	// TODO this can be just one query that gets all three...
 	stats: function(message, args, user, rank, room, commandRank, commandRoom){
-		let lbId = toId(args[1]) || "main";
+		let lbId = toId(args[1]) || 'main';
 		pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
 			if(err){
 				error(err);
@@ -1412,37 +1400,22 @@ let ttleaderboardCommands = {
 			if(!lbEntry){
 				room.broadcast(user, "That leaderboard doesn't exist.", rank);
 			}else{
-				let lbName = lbEntry.displayName;
-				pgclient.runSql(GET_NUM_PLAYERS, [lbId], (err, res2)=>{
+				info(JSON.stringify(lbEntry));
+				let lbName = lbEntry.display_name;
+				pgclient.runSql(GET_STATS, [lbId], (err, res2)=>{
 					if(err){
 						error(err);
 						room.broadcast(user, "Error: " + err);
 						return;
 					}
 
-					if(res2.rowCount === 0 || res2.rows[0].num_players === '0'){
+					if(res2.rowCount === 0 || res2.rows[0].num_players === 0){
 						room.broadcast(user, "There are no players on that leaderboard.", rank);
 					}else{
-						let num = parseInt(res2.rows[0].num_players);
-						pgclient.runSql(GET_STD_POINTS, [lbId], (err, res3)=>{
-							if(err){
-								error(err);
-								rooom.broadcast(user, "Error: " + err);
-								return;
-							}
-
-							let std = Math.round(res3.rows[0].std_points*100)/100;
-							pgclient.runSql(GET_AVG_POINTS, [lbId], (err, res4)=>{
-								if(err){
-									error(err);
-									rooom.broadcast(user, "Error: " + err);
-									return;
-								}
-
-								let avg = Math.round(res4.rows[0].avg_points*10)/10;
-								room.broadcast(user, "There are " + num + " players on the " + lbName + " leaderboard. The average score is " + avg + " and the standard deviation is " + std + ".", rank);
-							});
-						});
+						let num = res2.rows[0].num_players;
+						let std = Math.round(res2.rows[0].std_points*100)/100;
+						let avg = Math.round(res2.rows[0].avg_points*10)/10;
+						room.broadcast(user, "There are " + num + " players on the " + lbName + " leaderboard. The average score is " + avg + " and the standard deviation is " + std + ".", rank);
 					}
 				});
 			}
@@ -1470,19 +1443,19 @@ let ttleaderboardCommands = {
 				if(!boardName){
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
-					updateLeaderboardEntryByUsername([username, boardId], (oldPoints)=>{
+					pgclient.updatePointsByPsId(toId(username), username , (oldPoints)=>{
 						return points;
-					}, (err, entry, newPoints)=>{
+					}, [boardId], (err, name, num, res)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, "Error: " + err);
 							return;
 						}
 
-						if(!entry){
+						if(!res.rows[0].points === null){
 							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + username + " and set their score to " + newPoints + ".", rank);
 						}else{
-							room.broadcast(user, "Updated the score for " + entry.display_name + ". Their " + boardName + " leaderboard score changed from " + entry.points + " to " + newPoints + ".", rank);
+							room.broadcast(user, "Updated the score for " + entry.rows[0].display_name + ". Their " + boardName + " leaderboard score changed from " + entry.rows[0].points + " to " + points + ".", rank);
 						}
 					});
 				}
