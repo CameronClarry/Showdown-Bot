@@ -432,6 +432,7 @@ let commands = {
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", ja: "yes",
 	indeed: "yes", damnright: "yes",
 	yech: "yes", audino: "yes", // Prize for Found then Lost
+	yeehaa: "yes", // Prize for Nabor
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, config.manageBpRank)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
