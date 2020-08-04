@@ -1082,11 +1082,17 @@ let commands = {
 			if(!question){
 				user.send("That user hasn't asked a question recently.");
 			}else if(entry){
-				entry.nominee = nominee;
-				entry.question = question;
-				entry.timestamp = new Date().toUTCString();
-				user.send("You have changed your nomination.");
-				saveLeaderboard();
+				if(entry.lastUse && (Date.now() - entry.lastUse) < 300*1000){
+					entry.nominee = nominee;
+					entry.question = question;
+					entry.timestamp = new Date().toUTCString();
+					delete entry.lastUse;
+					user.send("You have changed your nomination.");
+					saveLeaderboard();
+				}else{
+					entry.lastUse = Date.now();
+					user.send("Your current nomination is '" + entry.question + "'. Use ~nominate again to overwrite it.");
+				}
 			}else{
 				data.leaderboard.nominations[user.id] = {
 					nominator: user.id,
@@ -1120,6 +1126,7 @@ let commands = {
 
 		user.send("Successfully cleared all nominations.");
 	},
+	checknom: "checknomination",
 	checknomination: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, '@');
 		let useArg = hasRank && args[0];
