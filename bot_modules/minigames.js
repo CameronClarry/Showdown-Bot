@@ -335,11 +335,12 @@ class TriviaTrackerGame{
 		// Update the current hist
 		// If user2 is on the blacklist and !bypassBl, open bp
 		// Give a message saying who has bp, and mention if they are on the blacklist
-		// Clear timers
+		// Clear timers and make sure bp is closed
 		this.history.push(historyToAdd);
 		this.curHist = historyToAdd;
 		if(this.history.length > this.maxHistLength) this.history.shift();
 		this.clearTimers();
+		this.bpOpen = false;
 		this.setRemindTimer(this.config.remindTime*1000);
 	}
 
