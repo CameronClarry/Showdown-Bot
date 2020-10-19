@@ -1063,6 +1063,7 @@ let commands = {
 		let entry = data.leaderboard.nominations[user.id];
 		let game = data.games['trivia'];
 		let question;
+		let nomineeUser;
 		if(!game){
 			user.send("There isn't a Trivia Tracker game running currently.");
 		}else if(!nominee){
@@ -1071,17 +1072,17 @@ let commands = {
 			user.send("You can't nominate yourself.");
 		}else{
 			let history = game.history;
-			info(game.history.length);
 			for(let i=history.length-1;i>=0;i--){
-				info(history[i].active.id);
 				if(history[i].active.id == nominee){
-					info("found matching history");
 					question = history[i].question;
+					nomineeUser = history[i].active;
 					break;
 				}
 			}
 			if(!question){
 				user.send("That user hasn't asked a question recently.");
+			}else if(AuthManager.rankgeq(nomineeUser.rank, '%')){
+				user.send("Staff members can't be nominated for best question.");
 			}else if(entry){
 				if(entry.lastUse && (Date.now() - entry.lastUse) < 300*1000){
 					entry.nominee = nominee;
