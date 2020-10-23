@@ -42,6 +42,11 @@ const DELETE_LB_ENTRIES_SQL = "DELETE FROM tt_points WHERE leaderboard = $1;";
 
 const GET_STATS = "SELECT AVG(points)::FLOAT avg_points, STDDEV_POP(points)::FLOAT std_points, COUNT(*)::INTEGER num_players FROM tt_points WHERE points > 0 AND leaderboard = $1;";
 
+// Achievement queries, for merging achievements
+const GET_PLAYER_ACH_SQL = "SELECT achievement_list.name, player_achievements.achievement_id, player_achievements.date_achieved from player_achievements INNER JOIN achievement_list ON player_achievements.achievement_id = achievement_list.id WHERE player_achievements.player_id = $1;";
+const UPDATE_ACH_ID_SQL = "UPDATE player_achievements SET player_id = $1 WHERE player_achievements.player_id = $2 AND player_achievements.achievement_id = $3;";
+const UPDATE_ACH_DATE_SQL = "UPDATE player_achievements SET date_achieved = $1 WHERE player_id = $2 AND achievement_id = $3;";
+const REMOVE_PLAYER_ACH_SQL = "DELETE FROM player_achievements WHERE player_id = $1;";
 
 // TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists 
 // TODO one function for updating sores: 'all' vs 'enabled' vs ['lb1', 'lb2', ...]. make updatefunc take the lb id as well
@@ -201,12 +206,65 @@ let removeAllLeaderboardEntries = function(dbId, callback){
 	pgclient.runSql(DELETE_USER_ENTRIES_SQL, [dbId], callback);
 }
 
+let removeUserAch = function(dbId, callback, client){
+	pgclient.runSql(REMOVE_PLAYER_ACH_SQL, [dbId], callback, client)
+}
+
 // 1) Get all achievements of fromId and toId
 // 2) For each achievement, if it doesn't exist on toId change the id to toId. If it does exist, update the date on toId to be the earlier date
 // 3) Remove all
 // TODO implement
-let transferAllAchievements = function(fromId, callback){
-	let success = true;
+let transferAllAchievements = function(fromDbId, toDbId, callback, client){
+	pgclient.runSql(GET_PLAYER_ACH_SQL, [fromDbId], (err, res)=>{
+		if(err){
+			callback(err);
+			return;
+		}
+
+		let entriesToTransfer = res.rows.length;
+		let fromEntries = {};
+		for(let i=0;i<res.rows.length;i++){
+			fromEntries[res.rows[i].achievement_id] = res.rows[i];
+		}
+		
+		if(entriesToTransfer === 0){
+			callback();
+		}
+
+		pgclient.runSql(GET_PLAYER_ACH_SQL, [toDbId], (err, res2)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			let toEntries = {};
+			for(let i=0;i<res2.rows.length;i++){
+				toEntries[res2.rows[i].achievement_id] = res2.rows[i];
+			}
+
+			let totalError = null;
+			let sharedCallback = (err, res3)=>{
+				totalError = err || totalError;
+				entriesToTransfer--;
+				// This line should call func to remove all ach entries for fromid
+				//if(entriesToTransfer === 0) callback(err);
+				if(entriesToTransfer === 0) removeUserAch(fromDbId, callback, client);
+			}
+
+			for(let event in fromEntries){
+				if(toEntries[event]){
+					// Conflicting achievements, compare and update the date
+					let d1 = fromEntries[event].date_achieved
+					let d2 = toEntries[event].date_achieved
+					let newDate = d1 < d2 ? d1 : d2;
+					pgclient.runSql(UPDATE_ACH_DATE_SQL, [newDate, toDbId, event], sharedCallback, client);
+				}else{
+					// No conflict, update the id
+					pgclient.runSql(UPDATE_ACH_ID_SQL, [toDbId, fromDbId, event], sharedCallback, client);
+				}
+			}
+		}, client);
+	}, client);
 }
 
 let transferAllPoints = function(fromDbId, toDbId, callback){
@@ -281,20 +339,46 @@ let mergeAlts = function(fromName, toName, callback){
 				return;
 			}
 
-			pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], (err, res2)=>{
+			//TODO this checkout should be done outside the merge function
+			pgclient.checkout((err, client, done)=>{
 				if(err){
+					client.end();
+					done();
 					callback(err);
 					return;
 				}
 
-				pgclient.runSql(DELETE_USER_SQL, [res[0].id], (err, res3)=>{
+
+				transferAllAchievements(res[0].id, res[1].id, (err)=>{
 					if(err){
+						client.end();
+						done();
 						callback(err);
 						return;
 					}
 
-					callback();
-				});
+					pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], (err, res2)=>{
+						if(err){
+							client.end();
+							done();
+							callback(err);
+							return;
+						}
+
+						pgclient.runSql(DELETE_USER_SQL, [res[0].id], (err, res3)=>{
+							if(err){
+								client.end();
+								done();
+								callback(err);
+								return;
+							}
+
+							client.end();
+							done();
+							callback();
+						}, client);
+					}, client);
+				}, client);
 			});
 		});
 	});
@@ -431,9 +515,8 @@ let commands = {
 	oui: "yes", si: "yes", right: "yes",
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", ja: "yes",
 	indeed: "yes", damnright: "yes",
-	nyaa: "yes", // Prize for ruby
-	yayeetdab: "yes", // Prize for maxducks (why would anyone ever choose this)
 	bet: "yes", // Prize for Zimmy D
+	yessir: "yes", // Prize for Sandile1234
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, config.manageBpRank)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
