@@ -158,8 +158,8 @@ let getMains = function(username1, username2, createNewEntry, callback, client){
 		}
 		getUser(username2, createNewEntry, (err, user2)=>{
 			callback(err, [user1, user2]);
-		});
-	});
+		}, client);
+	}, client);
 }
 exports.getMains = getMains
 
