@@ -202,18 +202,14 @@ let removeLeaderboardEntry = function(args, callback){
 	});
 };
 
-let removeAllLeaderboardEntries = function(dbId, callback){
-	pgclient.runSql(DELETE_USER_ENTRIES_SQL, [dbId], callback);
+let removeAllLeaderboardEntries = function(dbId, callback, client){
+	pgclient.runSql(DELETE_USER_ENTRIES_SQL, [dbId], callback, client);
 }
 
 let removeUserAch = function(dbId, callback, client){
 	pgclient.runSql(REMOVE_PLAYER_ACH_SQL, [dbId], callback, client)
 }
 
-// 1) Get all achievements of fromId and toId
-// 2) For each achievement, if it doesn't exist on toId change the id to toId. If it does exist, update the date on toId to be the earlier date
-// 3) Remove all
-// TODO implement
 let transferAllAchievements = function(fromDbId, toDbId, callback, client){
 	pgclient.runSql(GET_PLAYER_ACH_SQL, [fromDbId], (err, res)=>{
 		if(err){
@@ -267,7 +263,7 @@ let transferAllAchievements = function(fromDbId, toDbId, callback, client){
 	}, client);
 }
 
-let transferAllPoints = function(fromDbId, toDbId, callback){
+let transferAllPoints = function(fromDbId, toDbId, callback, client){
 	pgclient.runSql(GET_LB_ENTRIES_SQL, [fromDbId], (err, res)=>{
 		if(err){
 			callback(err);
@@ -302,25 +298,24 @@ let transferAllPoints = function(fromDbId, toDbId, callback){
 				if(entriesToTransfer === 0) callback(err);
 			}
 
-			removeAllLeaderboardEntries(fromDbId, logIfError);
+			removeAllLeaderboardEntries(fromDbId, logIfError, client);
 			for(let event in fromEntries){
 				if(toEntries[event]){
-					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [toDbId, event, toEntries[event].points + fromEntries[event].points], sharedCallback);
+					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [toDbId, event, toEntries[event].points + fromEntries[event].points], sharedCallback, client);
 				}else{
-					pgclient.runSql(INSERT_LB_ENTRY_SQL, [toDbId, event, fromEntries[event].points], sharedCallback);
+					pgclient.runSql(INSERT_LB_ENTRY_SQL, [toDbId, event, fromEntries[event].points], sharedCallback, client);
 				}
 			}
-		});
-	});
+		}, client);
+	}, client);
 };
 
 let changeMains = function(id, newName, callback){
 	pgclient.runSql(UPDATE_USER_SQL, [id, newName, toId(newName)], callback);
 }
 
-// Merges two alts, and their points
-// TODO preserve achievements
-let mergeAlts = function(fromName, toName, callback){
+// Merges two alts, and their points and achievements
+let mergeAlts = function(fromName, toName, callback, client){
 	pgclient.getMains(fromName, toName, true, (err, res)=>{
 		if(err){
 			callback(err);
@@ -339,8 +334,7 @@ let mergeAlts = function(fromName, toName, callback){
 				return;
 			}
 
-			//TODO this checkout should be done outside the merge function
-			pgclient.checkout((err, client, done)=>{
+			transferAllAchievements(res[0].id, res[1].id, (err)=>{
 				if(err){
 					client.end();
 					done();
@@ -348,40 +342,24 @@ let mergeAlts = function(fromName, toName, callback){
 					return;
 				}
 
-
-				transferAllAchievements(res[0].id, res[1].id, (err)=>{
+				pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], (err, res2)=>{
 					if(err){
-						client.end();
-						done();
 						callback(err);
 						return;
 					}
 
-					pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], (err, res2)=>{
+					pgclient.runSql(DELETE_USER_SQL, [res[0].id], (err, res3)=>{
 						if(err){
-							client.end();
-							done();
 							callback(err);
 							return;
 						}
 
-						pgclient.runSql(DELETE_USER_SQL, [res[0].id], (err, res3)=>{
-							if(err){
-								client.end();
-								done();
-								callback(err);
-								return;
-							}
-
-							client.end();
-							done();
-							callback();
-						}, client);
+						callback();
 					}, client);
 				}, client);
-			});
-		});
-	});
+			}, client);
+		}, client);
+	}, client);
 };
 
 exports.onLoad = function(module, loadData, oldData){
@@ -763,18 +741,29 @@ let commands = {
 			let userId = user.id;
 			let altuser = toId(args[0]);
 			if(pendingAlts[altuser] && pendingAlts[altuser].indexOf(userId)>-1){
-				mergeAlts(altuser, userId, (err)=>{
+				pgclient.checkout((err, client, done)=>{
 					if(err){
-						error(err);
-						room.broadcast(user, "Error: " + err);
+						client.end();
+						done();
+						callback(err);
 						return;
 					}
 
-					pendingAlts[altuser].splice(pendingAlts[altuser].indexOf(userId),1);
-					if(pendingAlts[altuser].length === 0){
-						delete pendingAlts[altuser];
-					}
-					room.broadcast(user, "Successfully linked accounts.");
+					mergeAlts(altuser, userId, (err)=>{
+						client.end();
+						done();
+						if(err){
+							error(err);
+							room.broadcast(user, "Error: " + err);
+							return;
+						}
+
+						pendingAlts[altuser].splice(pendingAlts[altuser].indexOf(userId),1);
+						if(pendingAlts[altuser].length === 0){
+							delete pendingAlts[altuser];
+						}
+						room.broadcast(user, "Successfully linked accounts.");
+					}, client);
 				});
 			}else{
 				if(!pendingAlts[userId]){
