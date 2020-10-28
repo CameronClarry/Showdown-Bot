@@ -96,26 +96,26 @@ let managerFuncs = {
 			if(data.modulesToLoad.indexOf(moduleName) === -1){
 				data.modulesToLoad.add(moduleName);
 				saveModuleList();
-				response = "Successfully loaded the module " + name + ".";
+				response = `Successfully loaded the module ${name}.`;
 			}else{
-				response = "Successfully reloaded the module " + name + " and its data.";
+				response = `Successfully reloaded the module ${name} and its data.`;
 			}
 		}else if(result){
 			response = "Successfully loaded the module manager.";
 		}else{
-			response = "Could not load the module " + name + ".";
+			response = `Could not load the module ${name}.`;
 		}
 		return response;
 	},
 	reload: function(name){
 		let moduleName = toId(name);
-		let response = "Could not reload the module " + name + ".";
+		let response = `Could not reload the module ${name}.`;
 		if(!modules[moduleName] || (data.modulesToLoad.indexOf(moduleName) === -1 && moduleName !== "modulemanager")){
 			response = managerFuncs.load(moduleName);
 		}else{
 			let result = loadModule(moduleName,false);
 			if(result && moduleName !== "modulemanager"){
-				response = "Successfully reloaded the module " + name + ".";
+				response = `Successfully reloaded the module ${name}.`;
 			}else if(result){
 				response = "Successfully reloaded the module manager.";
 			}
@@ -125,7 +125,7 @@ let managerFuncs = {
 	unload: function(name){
 		let moduleName = toId(name);
 		let result = unloadModule(moduleName);
-		let response = "Could not unload the module " + name + ".";
+		let response = `Could not unload the module ${name}.`;
 		if(result){
 			response = "Successfully unloaded the module " + name + ".";
 			let index = data.modulesToLoad.indexOf(moduleName);
@@ -141,9 +141,9 @@ let managerFuncs = {
 	},
 	config: function(name){
 		let result = loadConfig(name);
-		let response = "Could not reload the config for " + name + ".";
+		let response = `Could not reload the config for ${name}.`;
 		if(result){
-			response = "Successfully reloaded the config for " + name + ".";
+			response = `Successfully reloaded the config for ${name}.`;
 		}
 		return response;
 	}
@@ -167,7 +167,7 @@ let configFuncs = {
 				let configs = [];
 				let moduleConfigs = module.getConfig();
 				for(let config in moduleConfigs){
-					configs.push(config + ": " + moduleConfigs[config]);
+					configs.push(`${config}: ${moduleConfigs[config]}`);
 				}
 				uploadText(configs.join("\n"), (address)=>{
 					room.broadcast(user, address, rank);
@@ -194,7 +194,7 @@ let configFuncs = {
 				if(value){
 					moduleConfigs[property] = value;
 					saveConfig(name);
-					room.broadcast(user, "Successfully set the " + property + " property of " + name + " to " + value + ".", rank);
+					room.broadcast(user, `Successfully set the ${property} property of ${name} to ${value}.`, rank);
 				}else{
 					room.broadcast(user, "You must give a proper value for that property.", rank);
 				}
@@ -210,7 +210,7 @@ let configFuncs = {
 		if(args.length<2){
 			room.broadcast(user, "You must give the module, and a link to a hastebin raw paste.", rank);
 		}else if(!name || !modules[name]){
-			room.broadcast(user, "The module '" + name + "' does not exist.", rank);
+			room.broadcast(user, `The module '${name}' does not exist.`, rank);
 		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
 			let module = modules[name];
 			let response = "Finished updating the configs.";
@@ -231,13 +231,14 @@ let configFuncs = {
 							moduleConfigs[property] = value;
 						}else{
 							response = "Invalid value given for " + property + ".";
+							response = `Invalid value given for ${property}.`;
 							info(module.configTypes[property])
 							info(config[1]);
 							info(value);
 							error(response);
 						}
 					}else{
-						response = "The property " + property + " doesn't exist.";
+						response = `The property ${property} doesn't exist.`;
 						error(response);
 					}
 				}
@@ -289,10 +290,10 @@ let loadAllModules = function(){
 		if(!result){
 			data.modulesToLoad.splice(i,1);
 			i--;
-			error("Could not load the module '" + moduleName + "'.");
+			error(`Could not load the module '${moduleName}'.`);
 			continue;
 		}
-		ok("Loaded the module '" + moduleName + "'.");
+		ok(`Loaded the module '${moduleName}'.`);
 	}
 };
 

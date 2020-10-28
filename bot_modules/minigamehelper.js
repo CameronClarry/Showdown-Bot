@@ -34,6 +34,7 @@ exports.onLoad = function(module, loadData, oldData){
 			officialReminder();
 		}, timeDiff);
 		info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+		info(`Set the reminder for ${timeDiff/1000/60} minutes`);
 	}
 
 	self.chathooks = {
@@ -50,7 +51,7 @@ exports.onLoad = function(module, loadData, oldData){
 						data.joinTimer = setTimeout(()=>{
 							data.joinTimer = null;
 							let numPlayers = data.plist.length;
-							room.send("There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
+							room.send(`There ${numPlayers === 1 ? "is" : "are"} now ${numPlayers} player${numPlayers === 1 ? "" : "s"} in the game.`);
 						}, 5000);
 					}
 				}else if(text === "meout"){
@@ -63,7 +64,7 @@ exports.onLoad = function(module, loadData, oldData){
 						data.joinTimer = setTimeout(()=>{
 							data.joinTimer = null;
 							let numPlayers = data.plist.length;
-							room.send("There " + (numPlayers === 1 ? "is" : "are") + " now " + numPlayers + " player" + (numPlayers === 1 ? "" : "s") + " in the game.");
+							room.send(`There ${numPlayers === 1 ? "is" : "are"} now ${numPlayers} player${numPlayers === 1 ? "" : "s"} in the game.`);
 						}, 5000);
 					}
 				}
@@ -76,12 +77,12 @@ exports.onUnload = function(){
 	if(!triviaRoom) error("Minigamehelper unloaded, but wasn't in Trivia. Did any temporary voices get left behind?");
 	if(data.shouldVoice){
 		for(let id in data.voices){
-			triviaRoom.send("/roomdeauth " + id);
+			triviaRoom.send(`/roomdeauth ${id}`);
 		}
 		triviaRoom.send("/modchat ac");
 	}
 	for(let id in data.hosts){
-		triviaRoom.send("/roomdeauth " + id);
+		triviaRoom.send(`/roomdeauth ${id}`);
 	}
 	if(data.remindTimer){
 		clearTimeout(data.remindTimer);
@@ -151,7 +152,7 @@ let commands = {
 					added++;
 				}
 			}
-			room.broadcast(user, "Added " + added + " player(s) to the titanomachy regs.", rank);
+			room.broadcast(user, `Added ${added} player(s) to the titanomachy regs.`, rank);
 		}
 	},
 	taa: "titanaddauth",
@@ -166,7 +167,7 @@ let commands = {
 					added++;
 				}
 			}
-			room.broadcast(user, "Added " + added + " player(s) to the titanomachy auth.", rank);
+			room.broadcast(user, `Added ${added} player(s) to the titanomachy auth.`, rank);
 		}
 	},
 	tr: "titanremove",
@@ -184,7 +185,7 @@ let commands = {
 					removed++;
 				}
 			}
-			room.broadcast(user, "Removed " + removed + " player(s) from the titanomachy roster.", rank);
+			room.broadcast(user, `Removed ${removed} player(s) from the titanomachy roster.`, rank);
 		}
 	},
 	pl: "pllist",
@@ -194,14 +195,13 @@ let commands = {
 			room.broadcast(user, "There are no players.", rank);
 		}else if(args.length>0 & AuthManager.rankgeq(commandRank, config.rosterRank) && toId(args[0]) === "html" && room.id === "trivia"){
 			let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Players</th></tr>";
-			message = message + "<tr><td><center>" + parray.join(", ") + "</center></td></tr>";
-			message = message + "</table>"
+			message = message + `<tr><td><center>${parray.join(", ")}</center></td></tr></table>`;
 
 			room.send(message);
 		}else if(args.length > 0 && toId(args[0]) === "nohl"){
-			room.broadcast(user, "The players in the game are " + prettyList(parray.map((p)=>{return "__"+p+"__"})) + ".", rank);
+			room.broadcast(user, `The players in the game are ${prettyList(parray.map((p)=>{return `__${p}__`}))}.`, rank);
 		}else{
-			room.broadcast(user, "The players in the game are " + prettyList(parray.map((p)=>{return p})) + ".", rank);
+			room.broadcast(user, `The players in the game are ${prettyList(parray.map((p)=>{return p}))}.`, rank);
 		}
 	},
 	plshuffle: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -209,7 +209,7 @@ let commands = {
 		if(!plist || plist.length==0){
 			room.broadcast(user, "There are no players.", rank);
 		}else if(args.length > 0 && toId(args[0]) === "nohl"){
-			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return "__"+item.displayName+"__"})), rank);
+			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return `__${item.displayName}__`})), rank);
 		}else{
 			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return item.displayName})), rank);
 		}
@@ -222,9 +222,9 @@ let commands = {
 			if(!plist || plist.length==0){
 				room.broadcast(user, "There are no players.", rank);
 			}else if(args.length > 0 && toId(args[0]) === "nohl"){
-				room.broadcast(user, "I randomly picked: __" + plist[Math.floor(Math.random()*plist.length)].displayName + "__", rank);
+				room.broadcast(user, `I randomly picked: __${plist[Math.floor(Math.random()*plist.length)].displayName}__`, rank);
 			}else{
-				room.broadcast(user, "I randomly picked: " + plist[Math.floor(Math.random()*plist.length)].displayName, rank);
+				room.broadcast(user, `I randomly picked: ${plist[Math.floor(Math.random()*plist.length)].displayName}`, rank);
 			}
 		}
 	},
@@ -242,14 +242,14 @@ let commands = {
 			if(toId(args[0]) === "html" && room.id === "trivia"){
 				let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916\" border=1><tr style=\"background-color: #209331\"><th>Regs</th><th>Auth</th></tr>";
 				for(let i=0;i<Math.max(rarray.length, aarray.length);i++){
-					message = message + "<tr><td>" + (rarray[i] || "") + "</td><td>" + (aarray[i] || "") + "</td></tr>";
+					message = message + `<tr><td>${rarray[i] || ""}</td><td>${aarray[i] || ""}</td></tr>`;
 				}
 				message = message + "</table>"
 
 				room.send(message);
 			}else{
-				room.broadcast(user, "Regs: " + prettyList(rarray.map((p)=>{return "__"+p+"__"})) + ".", rank);
-				room.broadcast(user, "Auth: " + prettyList(aarray.map((p)=>{return "__"+p+"__"})) + ".", rank);
+				room.broadcast(user, `Regs: ${prettyList(rarray.map((p)=>{return `__${p}__`}))}.`, rank);
+				room.broadcast(user, `Auth: ${prettyList(aarray.map((p)=>{return `__${p}__`}))}.`, rank);
 			}
 		}
 	},
@@ -260,7 +260,7 @@ let commands = {
 			data.scores = {};
 			if(data.shouldVoice){
 				for(let id in data.voices){
-					commandRoom.send("/roomdeauth " + id);
+					commandRoom.send(`/roomdeauth ${id}`);
 				}
 			}
 			data.voices = {};
@@ -288,7 +288,7 @@ let commands = {
 			}else{
 				data.scores[id] = {name: args[0], score: points};
 			}
-			room.broadcast(user, data.scores[id].name + "'s score is now " + data.scores[id].score + ".", rank);
+			room.broadcast(user, `${data.scores[id].name}'s score is now ${data.scores[id].score}.`, rank);
 		}
 	},
 	showmghpoints: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -296,9 +296,9 @@ let commands = {
 		if(id){
 			let entry = data.scores[id];
 			if(entry){
-				room.broadcast(user, entry.name + "'s score is " + entry.score + ".", rank);
+				room.broadcast(user, `${entry.name}'s score is ${entry.score}.`, rank);
 			}else{
-				room.broadcast(user, entry.name + " does not have a score.", rank);
+				room.broadcast(user, `${entry.name} does not have a score.`, rank);
 			}
 		}else{
 			let scores = [];
@@ -309,7 +309,7 @@ let commands = {
 			if(scores.length == 0){
 				room.broadcast(user, "No one has any points.", rank);
 			}else{
-				room.broadcast(user, "The current scores are: " + scores.map(e=>{return "__" + e.name + "__ (" + e.score + ")"}).join(", "), rank);
+				room.broadcast(user, `The current scores are: ${scores.map(e=>{return `__${e.name}__ (${e.score})`}).join(", ")}`, rank);
 			}
 		}
 	},
@@ -335,7 +335,7 @@ let commands = {
 			room.broadcast(user, "I'm not in Trivia currently.", rank);
 		}else{
 			data.hosts[host.id] = host;
-			commandRoom.send("/roomvoice " + host.id);
+			commandRoom.send(`/roomvoice ${host.id}`);
 			room.broadcast(user, "Successfully added the host.", rank);
 		}
 	},
@@ -344,7 +344,7 @@ let commands = {
 			room.broadcast(user, "Your rank is not high enough to end a reghost.", rank);
 		}else{
 			for(let host in data.hosts){
-				commandRoom.send("/roomdeauth " + data.hosts[host].id);
+				commandRoom.send(`/roomdeauth ${data.hosts[host].id}`);
 				data.hosts[host].rank = " ";
 				data.hosts[host].trueRank = " ";
 			}
@@ -365,7 +365,7 @@ let commands = {
 				}else{
 					data.shouldVoice = true;
 					for(let id in data.voices){
-						commandRoom.send("/roomvoice " + id);
+						commandRoom.send(`/roomvoice ${id}`);
 					}
 					commandRoom.send("/modchat +");
 				}
@@ -375,7 +375,7 @@ let commands = {
 				}else{
 					data.shouldVoice = false;
 					for(let id in data.voices){
-						commandRoom.send("/roomdeauth " + id);
+						commandRoom.send(`/roomdeauth ${id}`);
 						data.voices[id].rank = " ";
 						data.voices[id].trueRank = " ";
 					}
@@ -411,7 +411,7 @@ let commands = {
 	},
 	next: function(message, args, user, rank, room, commandRank, commandRoom){
 		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
-		let response = "The next official is (theoretically) in " + millisToTime(timeDiff) + ".";
+		let response = `The next official is (theoretically) in ${millisToTime(timeDiff)}.`;
 		room.broadcast(user, response, rank, true);
 	},
 };
@@ -425,9 +425,9 @@ let millisToTime = function(millis){
 	let minutes = Math.floor((seconds-hours*3600)/60);
 	let response;
 	if(hours>0){
-		response = hours + " hour" + (hours === 1 ? "" : "s") + " and " + minutes + " minute" + (minutes === 1 ? "" : "s");
+		response = `${hours} hour${hours === 1 ? "" : "s"} and ${minutes} minute${minutes === 1 ? "" : "s"}`;
 	}else{
-		response = minutes + " minute" + (minutes === 1 ? "" : "s");
+		response = `${minutes} minute${minutes === 1 ? "" : "s"}`;
 	}
 	return response;
 };
@@ -457,7 +457,7 @@ let addPlayers = function(names, room){
 		}
 	}
 	let n = plist.length;
-	return "Player list updated. There " + (n==1?"is":"are") + " now " + n + " player" + (n==1?"":"s") + "."
+	return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
 }
 
 let removePlayers = function(names){
@@ -468,7 +468,7 @@ let removePlayers = function(names){
 		let userId = toId(names[i]);
 		if(data.voices[userId]){
 			if(data.shouldVoice && triviaRoom){
-				triviaRoom.send("/roomdeauth " + userId);
+				triviaRoom.send(`/roomdeauth ${userId}`);
 				data.voices[userId].rank = " ";
 			}
 			delete data.voices[userId];
@@ -477,7 +477,7 @@ let removePlayers = function(names){
 		data.plist = data.plist.filter(item=>{return item.id !== userId});
 	}
 	let n = data.plist.length;
-	return "Player list updated. There " + (n==1?"is":"are") + " now " + n + " player" + (n==1?"":"s") + "."
+	return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
 }
 
 let officialReminder = function(){
@@ -489,7 +489,7 @@ let officialReminder = function(){
 		data.remindTimer = null;
 		officialReminder();
 	}, timeDiff);
-	info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+	info(`Set the reminder for ${timeDiff/1000/60} minutes`);
 }
 
 // When TT games are rewritten to be objects, this no longer be needed

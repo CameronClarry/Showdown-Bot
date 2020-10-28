@@ -33,8 +33,8 @@ let logToFile = function(text){
 		let year = now.getUTCFullYear();
 		let month = now.getUTCMonth()+1;
 		let date = now.getUTCDate();
-		let filename = "logs/" + year + "-" + (month < 10 ? "0" : "") + month + "-" + (date < 10 ? "0" : "") + date + ".txt";
-		fs.appendFile(filename, "\n[" + new Date().toUTCString() + "]" + text,(err) => {
+		let filename = `logs/${year}-${month < 10 ? "0" : ""}${month}-${date < 10 ? "0" : ""}${date}.txt`;
+		fs.appendFile(filename, `\n[${new Date().toUTCString()}]${text}`,(err) => {
 		  if (err) throw err;
 		});
 	}catch(err){
@@ -43,22 +43,22 @@ let logToFile = function(text){
 };
 
 global.info = function (text) {
-	logToFile("[INFO] " + text);
+	logToFile(`[INFO] ${text}`);
 	console.log('info'.cyan + '  ' + text);
 };
 
 global.recv = function (text) {
-	logToFile("[RECEIVE] " + text);
+	logToFile(`[RECEIVE] ${text}`);
 	console.log("recv".grey + "  " + text);
 };
 
 global.dsend = function (text) {
-	logToFile("[SEND] " + text);
+	logToFile(`[SEND] ${text}`);
 	console.log("send".grey + " " + text);
 };
 
 global.error = function (text) {
-	logToFile("[ERROR] " + text);
+	logToFile(`[ERROR] ${text}`);
 	console.log("Error: ".red + text);
 };
 
@@ -67,13 +67,13 @@ global.logIfError = function (text) {
 }
 
 global.ok = function (text) {
-	logToFile("[OK] " + text);
+	logToFile(`[OK] ${text}`);
 	console.log(text.green);
 };
 
 global.loadConfig = function(name, defaults){
 	name = toId(name);
-	let path = "config/" + name + "_config.json";
+	let path = `config/${name}_config.json`;
 	let newConfig = {};
 	if(modules[name] || name === "main"){
 		let shouldSave = false;
@@ -111,26 +111,26 @@ global.loadConfig = function(name, defaults){
 };
 
 global.saveConfig = function(name){
-	let filename = "config/" + name + "_config.json";
+	let path = `config/${name}_config.json`;
 	if((modules[name] && modules[name].getConfig) || name === "main"){
 		try{
-			let configFile = fs.openSync(filename,"w");
+			let configFile = fs.openSync(path,"w");
 			let config = name === "main" ? mainConfig : modules[name].getConfig();
 			fs.writeSync(configFile,JSON.stringify(config, null, "\t"));
 			fs.closeSync(configFile);
 		}catch(e){
 			error(e.message);
-			info("Could not save the config file " + filename);
+			info(`Could not save the config file ${path}`);
 		}
 	}else{
-		info("Tried to save the config for the non-existant module " + name);
+		info(`Tried to save the config for the non-existant module ${name}`);
 	}
 };
 
 //Manages the bot modules
 global.modules = {};
 global.loadModule = function(name, loadData){
-	let path = "./bot_modules/" + name;
+	let path = `./bot_modules/${name}`;
 	try{
 		delete require.cache[require.resolve(path)];
 		let requiredBy = [];
@@ -159,14 +159,14 @@ global.loadModule = function(name, loadData){
 		return true;
 	}catch(e){
 		error(e.message);
-		info("Could not load the module " + name);
+		info(`Could not load the module ${name}`);
 	}
 	delete modules[name];
 	return false;
 };
 global.unloadModule = function(name){
 	if(modules[name]){
-		let path = "./bot_modules/" + name;
+		let path = `./bot_modules/${name}`;
 		delete require.cache[require.resolve(path)];
 		let requiredBy = modules[name].requiredBy;
 		if(modules[name].onUnload){
@@ -206,7 +206,7 @@ stdin.addListener("data", function(d) {
 
 
 let request = require("request");
-let WebSocketClient = require('websocket').client;
+let WebSocketClient = require("websocket").client;
 let Connection = null;
 
 let connect = function (retry, delay) {
@@ -217,9 +217,9 @@ let connect = function (retry, delay) {
 	let ws = new WebSocketClient();
 
 	ws.on('connectFailed', function (err) {
-		error('Could not connect');
+		error("Could not connect");
 		error(err)
-		info('Retrying in ' + (delay/1000) + ' seconds');
+		info(`Retrying in ${delay/1000} seconds`);
 
 		setTimeout(()=>{
 			connect(true, delay*2);
@@ -235,7 +235,7 @@ let connect = function (retry, delay) {
 
 
 		con.on('error', function (err) {
-			error('Connection error: ' + err.stack);
+			error(`Connection error: ${err.stack}`);
 			con.drop();
 		});
 
@@ -243,8 +243,8 @@ let connect = function (retry, delay) {
 			// Set Connection to null so everything knows we lost connection
 			Connection = null;
 
-			error('Connection closed: ' + reason + ' (' + code + ')');
-			info('Retrying in ' + (delay/1000) + ' seconds.');
+			error(`Connection closed: ${reason} (${code})`);
+			info(`Retrying in ${(delay/1000)} seconds.`);
 
 			setTimeout(()=>{
 				connect(true, delay*2);
@@ -273,7 +273,7 @@ let connect = function (retry, delay) {
 
 	// The connection itself
 
-	info("Connecting to " + mainConfig.connection);
+	info(`Connecting to ${mainConfig.connection}`);
 	ws.connect(mainConfig.connection);
 };
 
@@ -352,7 +352,7 @@ function handle(message){
 						data = JSON.parse(body);
 					}
 					if(data && data.curuser && data.curuser.loggedin){
-						send("|/trn " + mainConfig.user + ",0," + data.assertion);
+						send(`|/trn ${mainConfig.user},0,${data.assertion}`);
 					}else{
 						// We couldn't log in for some reason
 						error("Error logging in...");
@@ -391,7 +391,7 @@ function handle(message){
 						if(module.processJoin) module.processJoin(room, user);
 					}catch(e){
 						error(e.message);
-						info("Exception when sending join update to " + modulename);
+						info(`Exception when sending join update to ${modulename}`);
 					}
 				}
 			}else if(args[1]==="l"||args[1]==="leave"||args[1]==="L"){
@@ -404,6 +404,7 @@ function handle(message){
 					}catch(e){
 						error(e.message);
 						info("Exception when sending leave update to " + modulename);
+						info(`Exception when sending leave update to ${modulename}`);
 					}
 				}
 			}else if(args[1]==="n"||args[1]==="name"||args[1]==="N"){
@@ -418,7 +419,7 @@ function handle(message){
 						if(module.processName) module.processName(room, user);
 					}catch(e){
 						error(e.message);
-						info("Exception when sending name update to " + modulename);
+						info(`Exception when sending name update to ${modulename}`);
 					}
 				}
 			}else if(args[1]==="c"||args[1]==="chat"||args[1]==="c:"||args[1]==="pm"){
@@ -462,7 +463,7 @@ function handle(message){
 							}
 						}catch(e){
 							error(e.message);
-							info("Exception while trying command from " + modulename + "(command: " + command + ")");
+							info(`Exception while trying command from ${modulename} (command: ${command})`);
 						}
 					}
 				}else{
@@ -474,7 +475,7 @@ function handle(message){
 								module.chathooks[hookname](room, user, message);
 							}catch(e){
 								error(e.message);
-								info("Exception while trying chat hook from " + modulename + "(hook: " + hookname + ")");
+								info(`Exception while trying chat hook from ${modulename} (hook: ${hookname})`);
 							}
 						}
 					}
@@ -584,7 +585,7 @@ global.MD5 = function(f){function i(b,c){var d,e,f,g,h;f=b&2147483648;g=c&214748
 //onSuccess takes one argument (the link to the text), and onError takes one argument (the string failure reason)
 // TODO make this have just one callback
 global.uploadText = function(text, onSuccess, onError){
-	let filename = MD5(text.substr(0,10)+Date.now()) + ".txt";
+	let filename = `${MD5(text.substr(0,10)+Date.now())}.txt`;
 	try{
 		let textFile = fs.openSync(mainConfig.text_directory + filename,"w");
 		fs.writeSync(textFile,text,null,'utf8');

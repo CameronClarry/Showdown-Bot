@@ -63,7 +63,7 @@ let commands = {
 					when: new Date().toUTCString()
 				});
 				saveData();
-				room.broadcast(user, "Added this to the news list: " + url, rank);
+				room.broadcast(user, `Added this to the news list: ${url}`, rank);
 			}
 		}else{
 			if(message.room !== "scholastic" && message.room !== ""){
@@ -83,11 +83,11 @@ let commands = {
 			}else{
 				data.qotd.question = args[0];
 				data.qotd.submissions = {};
-				room.broadcast(user, "Set the current question to be " + args[0] + ".", rank);
+				room.broadcast(user, `Set the current question to be ${args[0]}.`, rank);
 				saveData();
 			}
 		}else if(data.qotd.question){
-			room.broadcast(user, "Here is the question: " + data.qotd.question + ". To submit your answer, PM me ~submit followed by your answer, either as text or a link to a picture/pastebin/etc.", rank);
+			room.broadcast(user, `Here is the question: ${data.qotd.question}. To submit your answer, PM me ~submit followed by your answer, either as text or a link to a picture/pastebin/etc.`, rank);
 		}else{
 			room.broadcast(user, "There is no question currently.", rank);
 		}
@@ -116,12 +116,12 @@ let commands = {
 			if(AuthManager.rankgeq(commandRank,"@")){
 				data.qotd.solution = args[0];
 				saveData();
-				room.broadcast(user, "Set the current solution to be " + args[0] + ".", rank);
+				room.broadcast(user, `Set the current solution to be ${args[0]}.`, rank);
 			}else{
 				room.broadcast(user, "Your rank is not high enough to change the solution.", rank);
 			}
 		}else if(data.qotd.question){
-			room.broadcast(user, "Here is the solution to the previous question: " + data.qotd.solution + ".", rank);
+			room.broadcast(user, `Here is the solution to the previous question: ${data.qotd.solution}.`, rank);
 		}
 	},
 	discq: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -145,7 +145,7 @@ let commands = {
 			uploadText(text, (link)=>{
 				user.send(link);
 			}, (err)=>{
-				user.send("There was an error: " + err);
+				user.send(`Error: ${err}`);
 			});
 		}
 	},
@@ -170,7 +170,7 @@ let commands = {
 				}else{
 					data.philqs = questions;
 					saveData();
-					user.send("Set the question list, there are now " + questions.length + " questions.");
+					user.send(`Set the question list, there are now ${questions.length} questions.`);
 				}
 			});
 		}else{

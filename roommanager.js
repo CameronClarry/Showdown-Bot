@@ -109,7 +109,7 @@ class Room{
     }
     
     send(message){
-        send(this.id + "|" + message);
+        send(`${this.id}|${message}`);
     }
 
     //if toUser is at least the broadcast rank for toRoom, send the message to the room. Otherwise, send the message to the user.
@@ -163,6 +163,6 @@ class User{
     }
 
     send(message){
-        send("|/pm " + this.id + "," + message);
+        send(`|/pm ${this.id},${message}`);
     }
 }

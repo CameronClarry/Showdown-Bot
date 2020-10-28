@@ -83,7 +83,7 @@ let gitCommands = {
 			return repository.getBranchCommit('origin/HEAD');
 		})
 		.done(function(originHeadCommit) {
-			room.broadcast(user, "This is the latest commit (" + originHeadCommit.date().toUTCString() + "): " + originHeadCommit.summary(), rank);
+			room.broadcast(user, `This is the latest commit (${originHeadCommit.date().toUTCString()}): ${originHeadCommit.summary()}`, rank);
 		});
 	},
 	diff: function(message, args, user, rank, room, commandRank, commandRoom){

@@ -84,7 +84,7 @@ let achievementCommands = {
 			pgclient.runSql(INSERT_ACHIEVEMENT_SQL, [name, id, desc, points], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
@@ -102,14 +102,14 @@ let achievementCommands = {
 			pgclient.runSql(DELETE_ACHIEVEMENT_BY_NAME_SQL, [id], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
 				pgclient.runSql(DELETE_ACHIEVEMENT_SQL, [id], (err, res2)=>{
 					if(err){
 						error(err);
-						room.broadcast(user, "Error: " + err);
+						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
@@ -127,13 +127,13 @@ let achievementCommands = {
 		pgclient.runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (err, res)=>{
 			if(err){
 				error(JSON.stringify(err));
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
-			let output="ACHIEVEMENT LIST\n################\n\n"+res.rows.map((row)=>{return "Name: " + row.name + ", Description: \n" + row.description;}).join("\n\n");
+			let output=`ACHIEVEMENT LIST\n################\n\n${res.rows.map((row)=>{return `Name: ${row.name}, Description: \n${row.description}`;}).join("\n\n")}`;
 			uploadText(output, (address)=>{
-				room.broadcast(user, "Here are the achievements: " + address, rank);
+				room.broadcast(user, `Here are the achievements: ${address}`, rank);
 			}, (error)=>{
 				room.broadcast(user, "There was an error while saving the file.", rank);
 			});
@@ -148,11 +148,11 @@ let achievementCommands = {
 			awardAchievement(args[0], args[1], (err, username, achievement)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
-				room.broadcast(user, username + " has earned the achievement '" + achievement + "'!")
+				room.broadcast(user, `${username} has earned the achievement '${achievement}'!`);
 			});
 		}
 	},
@@ -167,7 +167,7 @@ let achievementCommands = {
 			pgclient.getUser(username, false, (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
@@ -178,7 +178,7 @@ let achievementCommands = {
 				pgclient.runSql(GET_ACHIEVEMENT_BY_NAME_SQL, [achievement], (err, res2)=>{
 					if(err){
 						error(err);
-						room.broadcast(user, "Error: " + err);
+						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
@@ -189,12 +189,12 @@ let achievementCommands = {
 						pgclient.runSql(DELETE_PLAYER_ACHIEVEMENT_SQL, [res.id, achievementId], (err, res3)=>{
 							if(err){
 								error(err);
-								room.broadcast(user, "Error: " + err);
+								room.broadcast(user, `Error: ${err}`);
 								return;
 							}
 
 							if(res3.rowCount===0){
-								room.broadcast(user, res.display_name + " doesn't have that achievement.", rank);
+								room.broadcast(user, `${res.display_name} doesn't have that achievement.`, rank);
 							}else{
 								room.broadcast(user, "Successfully removed the achievement.", rank);
 							}
@@ -209,23 +209,23 @@ let achievementCommands = {
 		pgclient.getUser(username, false, (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
 			if(!res){
-				room.broadcast(user, "The user " + username + " doesn't exist.", rank);
+				room.broadcast(user, `The user ${username} doesn't exist.`, rank);
 			}else{
 				pgclient.runSql(GET_PLAYER_ACHIEVEMENTS_SQL, [res.id], (err, res2)=>{
 					if(err){
 						error(err);
-						room.broadcast(user, "Error: " + err);
+						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
-					let output = res.display_name + "'s achievements:\n" + res2.rows.map((row)=>{return row.name;}).join("\n");
+					let output = `${res.display_name}'s achievements:\n${res2.rows.map((row)=>{return row.name;}).join("\n")}`;
 					uploadText(output, (address)=>{
-						room.broadcast(user, "Here are " + res.display_name + "'s achievements: " + address, rank);
+						room.broadcast(user, `Here are ${res.display_name}'s achievements: ${address}`, rank);
 					}, (error)=>{
 						room.broadcast(user, "There was an error while saving the file.", rank);
 					});
@@ -248,7 +248,7 @@ let awardAchievement = function(username, achievement, callback){
 
 			let achEntry = res.rows[0];
 			if(!achEntry){
-				callback("Tried to give " + username + " the achievement " + achievementId + ", but it doesn't exist.");
+				callback(`Tried to give ${username} the achievement ${achievementId}, but it doesn't exist.`);
 			}else{
 				pgclient.runSql(INSERT_PLAYER_ACHIEVEMENT_SQL, [user.id, achEntry.id], (err, res)=>{
 					if(err){
@@ -272,7 +272,7 @@ let achievementsOnScoreUpdate = function(username, leaderboard, oldScore, newSco
 			return;
 		}
 
-		if(triviaRoom) triviaRoom.send(username + " has earned the achievement '" + achievement + "'!");
+		if(triviaRoom) triviaRoom.send(`${username} has earned the achievement '${achievement}'!`);
 	}
 	if(leaderboard === "main"){
 		if(oldScore<250 && newScore >= 250){
