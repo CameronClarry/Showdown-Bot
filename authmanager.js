@@ -52,8 +52,8 @@ exports.AuthManager = class{
     }
 
     loadAuth(path){
+		let ownerId = toId(mainConfig.owner);
         try{
-            let ownerId = toId(mainConfig.owner);
             let userAuth = JSON.parse(fs.readFileSync(path, "utf8"));
             if(!userAuth[ownerId]||userAuth[ownerId].Global!=="~"){
                 userAuth[ownerId] = {
@@ -63,6 +63,12 @@ exports.AuthManager = class{
             this.userAuth = this.userAuth
         }catch(e){
             error(e.message);
+			this.userAuth = {};
+			this.userAuth[ownerId] = { Global: "~" };
+			if(e.code === 'ENOENT'){
+				info("Auth file did not exist, saving a new one...");
+				this.saveAuth(path);
+			}
         }
     }
 
