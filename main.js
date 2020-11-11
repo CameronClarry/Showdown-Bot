@@ -403,7 +403,6 @@ function handle(message){
 						if(module.processLeave) module.processLeave(room, user);
 					}catch(e){
 						error(e.message);
-						info("Exception when sending leave update to " + modulename);
 						info(`Exception when sending leave update to ${modulename}`);
 					}
 				}
@@ -467,7 +466,7 @@ function handle(message){
 						}
 					}
 				}else{
-					//Pass to message listeners
+					//Pass to chat listeners
 					for(let modulename in modules){
 						let module = modules[modulename];
 						for(let hookname in module.chathooks){
@@ -481,6 +480,21 @@ function handle(message){
 					}
 				}
 				
+			}else{
+				//Not a chat message, so it goes to the message hooks
+				for(let modulename in modules){
+					let module = modules[modulename];
+					if(module.messagehooks){
+						for(let hookname in module.messagehooks){
+							try{
+								module.messagehooks[hookname](room, args);
+							}catch(e){
+								error(e.message);
+								info(`Exception while trying message hook from ${modulename} (hook: ${hookname})`);
+							}
+						}
+					}
+				}
 			}
 		}
 	}
