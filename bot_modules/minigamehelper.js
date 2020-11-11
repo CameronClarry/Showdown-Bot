@@ -71,6 +71,29 @@ exports.onLoad = function(module, loadData, oldData){
 			}
 		},
 	};
+
+	self.messagehooks = {
+		messagehook: function(room, args){
+			// When there is no game: |error|There is no game of trivia in progress.
+			// When the number of players is checked: |html|<div class="infobox">There is a trivia game in progress, and it is in its signups phase.<br />Mode: Timer | Category: All | Score cap: 50<br />Players: </div>
+			if(data.shouldStart && room.id === 'trivia' && args.length > 2 && args[1] == 'html'){
+				if(args[2].match(/in its signups phase/)){
+					let matches = args[args.length-1].match(/<br \/>Players: (.*)<\/div>/);
+					if(!matches) return;
+					if(matches[1].length === 0){
+						//info("No players");
+					}else{
+						//info(`${matches[1].split(',').length} players`);
+						let num = matches[1].split(',').length;
+						info(num);
+						if(num > 2){
+							startOfficial(room);
+						}
+					}
+				}
+			}
+		}
+	};
 };
 exports.onUnload = function(){
 	let triviaRoom = RoomManager.getRoom("trivia");
@@ -399,14 +422,17 @@ let commands = {
 			}
 		}
 	},
+	starttrivia: "triviastart",
+	tst: "triviastart",
 	triviastart: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, "+")){
 			room.broadcast(user, "Your rank is not high enough to start an official game.", rank);
 		}else if(!commandRoom){
 			room.broadcast(user, "I'm not in Trivia currently.", rank);
 		}else{
-			commandRoom.send("/trivia start");
-			commandRoom.send("**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
+			send("trivia|/trivia");
+			data.shouldStart = true;
+			setTimeout(()=>{data.shouldStart = false;}, 1000);
 		}
 	},
 	next: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -491,6 +517,13 @@ let officialReminder = function(){
 	}, timeDiff);
 	info(`Set the reminder for ${timeDiff/1000/60} minutes`);
 }
+
+let startOfficial = function(room){
+	room.send("/trivia start");
+	room.send("**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
+	data.shouldStart = false;
+}
+
 
 // When TT games are rewritten to be objects, this no longer be needed
 let clearTimers = function(game, clearAll){
