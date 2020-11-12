@@ -194,6 +194,7 @@ let transferAllPoints = function(fromDbId, toDbId, callback, client){
 		
 		if(entriesToTransfer === 0){
 			callback();
+			return;
 		}
 
 		pgclient.runSql(GET_LB_ENTRIES_SQL, [toDbId], (err, res2)=>{
@@ -415,9 +416,12 @@ let commands = {
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, config.manageBpRank)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
-		let roomId = !shouldUndo && hasRank && args[1] ? toRoomId(args[1]) : room.id;
+		//let roomId = !shouldUndo && hasRank && args[1] ? toRoomId(args[1]) : room.id;
+		let roomId = room.id;
 		let game = data.games[roomId];
-		if(!game){
+		if(!roomId){
+			user.send("Not for use in PMs.");
+		}else if(!game){
 			room.broadcast(user, `There is no trivia game in ${roomId}.`);
 		}else if(!toId(args[0])){
 			room.broadcast(user, "You must specify a player.");
@@ -435,10 +439,13 @@ let commands = {
 	nah: "no",
 	nope: "no",
 	no: function(message, args, user, rank, room, commandRank, commandRoom){
-		let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
+		//let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
+		let roomId = room.id;
 		let number = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0],10) : 1;
 		let game = data.games[roomId];
-		if(!game){
+		if(!roomId){
+			user.send("Not for use in PMs.");
+		}else if(!game){
 			room.broadcast(user, `There is no trivia game in ${roomId}.`);
 		}else{
 			let reason = game.cantNo(user, rank, number);
@@ -515,10 +522,10 @@ let commands = {
 	},
 	openbp: "bpopen",
 	bpopen: function(message, args, user, rank, room, commandRank, commandRoom){
-		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let roomId = room && room.id; // ? room.id : toRoomId(args[0]);
 		let game = data.games[roomId];
 		if(!roomId){
-			user.send("You must specify a room.");
+			user.send("Not for use in PMs.");
 		}else if(!game){
 			room.broadcast(user, `There is no game in ${roomId}.`);
 		}else{
@@ -534,10 +541,10 @@ let commands = {
 	},
 	closebp: "bpclose",
 	bpclose: function(message, args, user, rank, room, commandRank, commandRoom){
-		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let roomId = room && room.id; // ? room.id : toRoomId(args[0]);
 		let game = data.games[roomId];
 		if(!roomId){
-			user.send("You must specify a room.");
+			user.send("Not for use in PMs.");
 		}else if(!game){
 			room.broadcast(user, `There is no game in ${roomId}.`);
 		}else{
