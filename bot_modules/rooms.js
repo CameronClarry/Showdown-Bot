@@ -1,134 +1,115 @@
 let fs = require("fs");
-let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let data = {};
-let config = defaultConfigs;
-const GOVERNING_ROOM = "";
-exports.GOVERNING_ROOM = GOVERNING_ROOM;
-
-exports.onLoad = function(module, loadData, oldData){
-	self = module;
-	refreshDependencies();
-	if(oldData) data = oldData;
-	leaveAllRooms();
-	if(loadData){
-		data = {roomlist: []};
-		loadRoomlist();
-	}
-	joinAllRooms();
-};
-exports.onUnload = function(){
-	leaveAllRooms();
-};
-let refreshDependencies = function(){
-};
-exports.refreshDependencies = refreshDependencies;
-exports.onConnect = function(){
-	joinAllRooms();
-};
-exports.getData = function(){
-	return data;
-}
-exports.getConfig = function(){
-	return config;
-}
-exports.setConfig = function(newConfig){
-	config = newConfig;
-}
 
 let commands = {
 	join: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, this.config.joinRoomRank.value)) return;
+		if(!args.length || !toRoomId(args[0])){
+			room.broadcast(user, "You must specify a room to join.");
+			return;
+		}
+
+		let roomId = toRoomId(args[0]);
 		info("JOIN COMMAND");
 		info(JSON.stringify(args));
-		if(args.length>0){
-			let roomId = toRoomId(args[0]);
-			if(AuthManager.rankgeq(commandRank,"#")){
-				send("|/join " + roomId);
-				if(data.roomlist.indexOf(roomId) === -1){
-					data.roomlist.add(roomId);
-					saveRoomlist();
-				}
-			}
+		send(`|/join ${roomId}`);
+		if(this.roomList.indexOf(roomId) === -1){
+			this.roomList.push(roomId);
+			this.saveRoomList();
 		}
 	},
 	leave: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(args.length>0){
-			let roomId = toRoomId(args[0]);
-			if(AuthManager.rankgeq(commandRank,"#")){
-				send("|/leave " + roomId);
-				if(data.roomlist.indexOf(roomId) !== -1){
-					data.roomlist.remove(roomId);
-					saveRoomlist();
-				}
-			}
+		if(!AuthManager.rankgeq(commandRank, this.config.joinRoomRank.value)) return;
+		if(!args.length || !toRoomId(args[0])){
+			room.broadcast(user, "You must specify a room to join.");
+			return;
+		}
+
+		let roomId = toRoomId(args[0]);
+		send(`|/leave ${roomId}`);
+		if(this.roomList.indexOf(roomId) !== -1){
+			this.roomList.remove(roomId);
+			this.saveRoomList();
 		}
 	},
 	check: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(AuthManager.rankgeq(commandRank,"#")){
-			let roomId = toRoomId(args[0]);
-			info("Checking '" + roomId + "'.");
-			let room = RoomManager.getRoom(roomId);
-			info(JSON.stringify(room,null,"\t"));
-		}
+		if(!AuthManager.rankgeq(commandRank, this.config.joinRoomRank.value)) return;
+
+		let roomId = toRoomId(args[0]);
+		info(`Checking '${roomId}'.`);
+		let r = RoomManager.getRoom(roomId);
+		info(JSON.stringify(r,null,"\t"));
 	}
 };
-exports.commands = commands;
 
-let loadRoomlist = function(){
-		try{
-			let filename = "data/roomlist.json";
-			if(fs.existsSync(filename)){
-				data.roomlist = JSON.parse(fs.readFileSync(filename, "utf8"));
-				ok("Successfully loaded the room list.");
-			}else{
-				data.roomlist = [];
-				let roomFile = fs.openSync(filename,"w");
-				fs.writeSync(roomFile,JSON.stringify(data.roomlist, null, "\t"));
-				fs.closeSync(roomFile);
-				error("No room list found, saved a new one.");
+class Rooms extends BaseModule{
+	constructor(){
+		super();
+		this.room = Rooms.room;
+		this.config = {
+			joinRoomRank: new ConfigRank("#")
+		};
+		this.commands = commands;
+	}
+
+	onLoad(){
+		this.loadRoomList();
+	}
+
+	onUnload(){
+		this.leaveAllRooms();
+	}
+
+	onConnect(){
+		this.joinAllRooms();
+	}
+
+	recover(oldModule){
+		this.roomList = oldModule.roomList;
+	}
+
+	loadRoomList(){
+			try{
+				let path = "data/roomlist.json";
+				if(fs.existsSync(path)){
+					this.roomList = JSON.parse(fs.readFileSync(path, "utf8"));
+					ok("Successfully loaded the room list.");
+				}else{
+					this.roomList = [];
+					let roomFile = fs.openSync(path,"w");
+					fs.writeSync(roomFile,JSON.stringify(this.roomList, null, "\t"));
+					fs.closeSync(roomFile);
+					error("No room list found, saved a new one.");
+				}
+			}catch(e){
+				error(e.message);
+				error("Could not load the room list.");
 			}
+	}
+
+	saveRoomList(){
+		try{
+			let path = "data/roomlist.json";
+			let roomFile = fs.openSync(path,"w");
+			fs.writeSync(roomFile,JSON.stringify(this.roomList, null, "\t"));
+			fs.closeSync(roomFile);
+			ok("Saved the room list.");
 		}catch(e){
 			error(e.message);
-			error("Could not load the room list.");
-		}
-};
-
-let saveRoomlist = function(){
-	try{
-		let filename = "data/roomlist.json";
-		let roomFile = fs.openSync(filename,"w");
-		fs.writeSync(roomFile,JSON.stringify(data.roomlist, null, "\t"));
-		fs.closeSync(roomFile);
-		ok("Saved the room list.");
-	}catch(e){
-		error(e.message);
-		error("Could not save the room list.");
-	}
-};
-
-let joinAllRooms = function(){
-	info("Joining all rooms");
-	info(JSON.stringify(data.roomlist));
-	for(let i=0;i<data.roomlist.length;i++){
-		send("|/join " + data.roomlist[i]);
-	}
-};
-
-let leaveAllRooms = function(){
-	if(data&&data.roomlist){
-		for(let i=0;i<data.roomlist.length;i++){
-			send("|/leave " + data.roomlist[i]);
+			error("Could not save the room list.");
 		}
 	}
-};
 
-let defaultConfigs = {
-	joinRoomRank: "#"
-};
+	joinAllRooms(){
+		for(let i=0;i<this.roomList.length;i++){
+			send(`|/join ${this.roomList[i]}`);
+		}
+	}
 
-exports.defaultConfigs = defaultConfigs;
+	leaveAllRooms(){
+		for(let i=0;i<this.roomList.length;i++){
+			send(`|/leave ${this.roomList[i]}`);
+		}
+	}
+}
 
-let configTypes = {
-	joinRoomRank: "rank"
-};
-
-exports.configTypes = configTypes;
+exports.Module = Rooms;
