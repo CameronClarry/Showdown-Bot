@@ -1,51 +1,13 @@
-let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let data = {};
-let config = defaultConfigs;
-const GOVERNING_ROOM = "";
-exports.GOVERNING_ROOM = GOVERNING_ROOM;
-
-exports.onLoad = function(module, loadData, oldData){
-	self = module;
-	refreshDependencies();
-	if(oldData) data = oldData;
-	if(loadData){
-		data = {
-			askToRestart: null
-		};
-	}
-};
-
-exports.onUnload = function(){
-
-};
-
-let refreshDependencies = function(){
-};
-exports.refreshDependencies = refreshDependencies;
-
-exports.onConnect = function(){
-
-};
-exports.getData = function(){
-	return data;
-}
-exports.getConfig = function(){
-	return config;
-}
-exports.setConfig = function(newConfig){
-	config = newConfig;
-}
-
 let commands = {
 	color: "colour",
 	colour: function(message, args, user, rank, room, commandRank, commandRoom){
 		room.broadcast(user, hashColour(toId(args[0])), rank);
 	},
 	restart: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(user.id === toId(mainConfig.owner)){
-			if(!data.askToRestart){
+		if(user.id === toId(bot.config.owner.value)){
+			if(!this.askToRestart){
 				room.broadcast(user, "WARNING: All this really does is crash the bot and let the system restart the program if it is set up to do so. This should only be used when the main file must be reloaded, and there is a system in place to restart the bot. Use the command again to confirm.", rank);
-				data.askToRestart = true;
+				this.askToRestart = true;
 			}else{
 				room.broadcast(user, "Restarting (crashing)...", rank);
 				setTimeout(()=>{
@@ -55,9 +17,6 @@ let commands = {
 		}
 	}
 };
-
-self.commands = commands;
-exports.commands = commands;
 
 // MD5 and hashColour taken from PS code
 
@@ -129,14 +88,22 @@ let hslToHex = function(h, s, l) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-let defaultConfigs = {
-	room: ""
-};
+class Utils extends BaseModule{
+	constructor(){
+		super();
+		this.room = Utils.room;
+		this.config = {
+			room: new ConfigString('')
+		};
+		this.commands = commands;
+		this.askToRestart = null;
+	}
 
-exports.defaultConfigs = defaultConfigs;
+	recover(oldModule){
+		this.askToRestart = oldModule.askToRestart;
+	}
 
-let configTypes = {
-	room: "string"
-};
 
-exports.configTypes = configTypes;
+}
+
+exports.Module = Utils;
