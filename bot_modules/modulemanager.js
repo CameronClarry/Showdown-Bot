@@ -1,144 +1,10 @@
 let fs = require("fs");
 let request = require("request");
-let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let data = {};
-let config = defaultConfigs;
-let ranks = [" ", "+", "%", "@", "*", "&", "#", "~"];
-
-const GOVERNING_ROOM = "";
-exports.GOVERNING_ROOM = GOVERNING_ROOM;
-
-exports.onLoad = function(module, loadData, oldData){
-	self = module;
-	refreshDependencies();
-	if(oldData) data = oldData;
-	if(loadData){
-		data = {modulesToLoad: []};
-		loadModuleList();
-		loadAllModules();
-	}
-
-};
-exports.onUnload = function(){
-
-};
-
-
-let refreshDependencies = function(){
-}; 
-exports.refreshDependencies = refreshDependencies;
-exports.onConnect = function(){
-
-};
-exports.getData = function(){
-	return data;
-}
-exports.getConfig = function(){
-	return config;
-}
-exports.setConfig = function(newConfig){
-	config = newConfig;
-}
 
 let commands = {
-	load: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to load modules.", rank);
-		}else if(!args.length){
-			room.broadcast(user, "You must specify the module to be loaded.", rank);
-		}else{
-			room.broadcast(user, managerFuncs.load(args[0]), rank);
-		}
-	},
-	reload: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to load modules.", rank);
-		}else if(!args.length){
-			room.broadcast(user, "You must specify the module to reload.", rank);
-		}else{
-			room.broadcast(user, managerFuncs.reload(args[0]), rank);
-		}
-	},
-	unload: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to unload modules.", rank);
-		}else if(!args.length){
-			room.broadcast(user, "You must specify the module to be unloaded.", rank);
-		}else{
-			room.broadcast(user, managerFuncs.unload(args[0]), rank);
-		}
-	},
-	config: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to manage configs.", rank);
-		}else if(args.length < 2){
-			room.broadcast(user, "You must give a config command and a module name.", rank);
-		}else{
-			let command = args[0].toLowerCase();
-			if(configFuncs[command]){
-				configFuncs[command](message, args, user, rank, room, commandRank, commandRoom);
-			}else{
-				room.broadcast(user, "That config command was unrecognized.", rank);
-			}
-		}
-	}
 };
 
-self.commands = commands;
-exports.commands = commands;
-
 let managerFuncs = {
-	load: function(name){
-		let moduleName = toId(name);
-		let result = loadModule(moduleName,true);
-		let response = "Something is wrong if you see this.";
-		if(result && moduleName !== "modulemanager"){
-			if(data.modulesToLoad.indexOf(moduleName) === -1){
-				data.modulesToLoad.add(moduleName);
-				saveModuleList();
-				response = "Successfully loaded the module " + name + ".";
-			}else{
-				response = "Successfully reloaded the module " + name + " and its data.";
-			}
-		}else if(result){
-			response = "Successfully loaded the module manager.";
-		}else{
-			response = "Could not load the module " + name + ".";
-		}
-		return response;
-	},
-	reload: function(name){
-		let moduleName = toId(name);
-		let response = "Could not reload the module " + name + ".";
-		if(!modules[moduleName] || (data.modulesToLoad.indexOf(moduleName) === -1 && moduleName !== "modulemanager")){
-			response = managerFuncs.load(moduleName);
-		}else{
-			let result = loadModule(moduleName,false);
-			if(result && moduleName !== "modulemanager"){
-				response = "Successfully reloaded the module " + name + ".";
-			}else if(result){
-				response = "Successfully reloaded the module manager.";
-			}
-		}
-		return response;
-	},
-	unload: function(name){
-		let moduleName = toId(name);
-		let result = unloadModule(moduleName);
-		let response = "Could not unload the module " + name + ".";
-		if(result){
-			response = "Successfully unloaded the module " + name + ".";
-			let index = data.modulesToLoad.indexOf(moduleName);
-			// info(data.modulesToLoad);
-			// info(moduleName);
-			// info(index);
-			if(index !== -1){
-				data.modulesToLoad.splice(index,1);
-				saveModuleList();
-			}
-		}
-		return response;
-	},
 	config: function(name){
 		let result = loadConfig(name);
 		let response = "Could not reload the config for " + name + ".";
@@ -250,78 +116,155 @@ let configFuncs = {
 	}
 };
 
-let loadModuleList = function(){
+class ModuleManager extends BaseModule{
+	constructor(){
+		super();
+		this.room = ModuleManager.room;
+		this.config = {
+			loadModuleRank: new ConfigRank("#")
+		};
+		this.commands = {
+			load: function(message, args, user, rank, room, commandRank, commandRoom){
+				if(!AuthManager.rankgeq(commandRank,"#")){
+					room.broadcast(user, "Your rank is not high enough to load modules.", rank);
+				}else if(!args.length){
+					room.broadcast(user, "You must specify the module to be loaded.", rank);
+				}else{
+					room.broadcast(user, this.loadModule.call(this, toId(args[0])), rank);
+				}
+			},
+			reload: function(message, args, user, rank, room, commandRank, commandRoom){
+				if(!AuthManager.rankgeq(commandRank,"#")){
+					room.broadcast(user, "Your rank is not high enough to load modules.", rank);
+				}else if(!args.length){
+					room.broadcast(user, "You must specify the module to reload.", rank);
+				}else{
+					room.broadcast(user, this.reloadModule.call(this,toId(args[0])), rank);
+				}
+			},
+			unload: function(message, args, user, rank, room, commandRank, commandRoom){
+				if(!AuthManager.rankgeq(commandRank,"#")){
+					room.broadcast(user, "Your rank is not high enough to unload modules.", rank);
+				}else if(!args.length){
+					room.broadcast(user, "You must specify the module to be unloaded.", rank);
+				}else{
+					room.broadcast(user, this.unloadModule.call(this,toId(args[0])), rank);
+				}
+			},
+			config: function(message, args, user, rank, room, commandRank, commandRoom){
+				if(!AuthManager.rankgeq(commandRank,"#")){
+					room.broadcast(user, "Your rank is not high enough to manage configs.", rank);
+				}else if(args.length < 2){
+					room.broadcast(user, "You must give a config command and a module name.", rank);
+				}else{
+					let command = args[0].toLowerCase();
+					if(configFuncs[command]){
+						configFuncs[command](message, args, user, rank, room, commandRank, commandRoom);
+					}else{
+						room.broadcast(user, "That config command was unrecognized.", rank);
+					}
+				}
+			}
+		};
+	}
+
+	onLoad(){
+		this.loadModuleList();
+		this.loadAllModules();
+	}
+
+	loadModuleList(){
 		try{
-			let filename = "data/modules.json";
-			if(fs.existsSync(filename)){
-				data.modulesToLoad = JSON.parse(fs.readFileSync(filename, "utf8"));
+			let path = "data/modules.json";
+			if(fs.existsSync(path)){
+				this.modulesToLoad = JSON.parse(fs.readFileSync(path, "utf8"));
 				ok("Successfully loaded the module list.");
 			}else{
-				data.modulesToLoad = [];
-				let moduleFile = fs.openSync(filename,"w");
-				fs.writeSync(moduleFile,JSON.stringify(data.modulesToLoad, null, "\t"));
-				fs.closeSync(moduleFile);
-				error("No module list found, saved a new one.")
+				this.modulesToLoad = [];
+				error("No module list found, saving a new one.");
+				this.saveModuleList();
 			}
 		}catch(e){
 			error(e.message);
-			error("Could not load the module list.")
+			error("Could not load the module list.");
+			this.modulesToLoad = [];
 		}
-};
-
-let saveModuleList = function(){
-	try{
-		let filename = "data/modules.json";
-		let moduleFile = fs.openSync(filename,"w");
-		fs.writeSync(moduleFile,JSON.stringify(data.modulesToLoad, null, "\t"));
-		fs.closeSync(moduleFile);
-		ok("Saved the module list.");
-	}catch(e){
-		error(e.message);
-		error("Could not save the module list.");
 	}
-};
 
-let loadAllModules = function(){
-	for(let i=0;i<data.modulesToLoad.length;i++){
-		let moduleName = data.modulesToLoad[i];
-		let result = loadModule(moduleName, true);
-		if(!result){
-			data.modulesToLoad.splice(i,1);
-			i--;
-			error("Could not load the module '" + moduleName + "'.");
-			continue;
+	saveModuleList(){
+		try{
+			let filename = "data/modules.json";
+			let moduleFile = fs.openSync(filename,"w");
+			fs.writeSync(moduleFile,JSON.stringify(this.modulesToLoad, null, "\t"));
+			fs.closeSync(moduleFile);
+			ok("Saved the module list.");
+		}catch(e){
+			error(e.message);
+			error("Could not save the module list.");
 		}
-		ok("Loaded the module '" + moduleName + "'.");
 	}
-};
 
-let getProperty = function(valueStr, type){
-	if(type === "string"){
-		return valueStr;
-	}else if(type === "int"){
-		return /^[0-9]+$/.test(valueStr) ? parseInt(valueStr) : null;
-	}else if(type === "rank"){
-		if(ranks.indexOf(valueStr) !== -1){
-			return valueStr;
-		}else if(!valueStr){
-			return " ";
+	loadAllModules(){
+		for(let i=0;i<this.modulesToLoad.length;i++){
+			let moduleName = this.modulesToLoad[i];
+			let result = loadModule(moduleName, true);
+			if(!result){
+				this.modulesToLoad.splice(i,1);
+				i--;
+				error(`Could not load the module '${moduleName}'.`);
+				continue;
+			}
+			ok(`Loaded the module '${moduleName}'.`);
+		}
+	}
+
+	loadModule(id){
+		let result = loadModule(id, true);
+		if(result && id !== "modulemanager"){
+			if(this.modulesToLoad.indexOf(id) === -1){
+				this.modulesToLoad.push(id);
+				this.saveModuleList();
+				return "Successfully loaded the module " + id + ".";
+			}else{
+				return `Successfully reloaded the module ${id} and its data.`;
+			}
+		}else if(result){
+			return "Successfully loaded the module manager.";
+		}
+
+		return `Could not load the module ${id}.`;
+	}
+
+	reloadModule(id){
+		if(!modules[id] || (this.modulesToLoad.indexOf(id) === -1 && id !== "modulemanager")){
+			return this.loadModule(id);
 		}else{
-			return null;
+			let result = loadModule(id,false);
+			if(result && id !== "modulemanager"){
+				return `Successfully reloaded the module ${id}.`;
+			}else if(result){
+				return "Successfully reloaded the module manager.";
+			}
 		}
-	}else{
-		return null;
+		return `Could not reload the module ${id}.`
+	}
+
+	unloadModule(id){
+		let result = unloadModule(id);
+		if(result){
+			let index = this.modulesToLoad.indexOf(id);
+			if(index !== -1){
+				this.modulesToLoad.splice(index,1);
+				this.saveModuleList();
+			}
+			return `Successfully unloaded the module ${id}.`;
+		}
+		return `Could not unload the module ${id}.`;
+	}
+
+	recover(oldModule){
+		this.modulesToLoad = oldModule.modulesToLoad;
 	}
 }
 
-let defaultConfigs = {
-	loadModuleRank: "#"
-};
-
-exports.defaultConfigs = defaultConfigs;
-
-let configTypes = {
-	loadModuleRank: "rank"
-};
-
-exports.configTypes = configTypes;
+exports.Module = ModuleManager;

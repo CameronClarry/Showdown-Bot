@@ -1,8 +1,8 @@
 "use strict";
 console.log("Starting the bot");
-require('babel/register')({loose: 'all'});
-require('sugar');
 let fs = require("fs");
+
+let moduleInfo = {};
 
 
 //Various logging commands for output to the console
@@ -71,7 +71,7 @@ global.ok = function (text) {
 	console.log(text.green);
 };
 
-global.loadConfig = function(name, defaults){
+global.loadConfig2 = function(name, defaults){
 	name = toId(name);
 	let path = "config/" + name + "_config.json";
 	let newConfig = {};
@@ -110,7 +110,7 @@ global.loadConfig = function(name, defaults){
 	}
 };
 
-global.saveConfig = function(name){
+global.saveConfig2 = function(name){
 	let filename = "config/" + name + "_config.json";
 	if((modules[name] && modules[name].getConfig) || name === "main"){
 		try{
@@ -127,9 +127,47 @@ global.saveConfig = function(name){
 	}
 };
 
+// NEW  load function
+global.loadConfig = function(id, moduleObj){
+	if(!moduleObj) return false;
+
+	let path = `config/${id}_config.json`;
+	let newConfig = {};
+	let shouldSave = false;
+
+	if(fs.existsSync(path)){
+		newConfig = JSON.parse(fs.readFileSync(path, "utf8"));
+	}
+
+	for(let option in moduleObj.config){
+		if(newConfig[option]){
+			if(!moduleObj.config[option].parse(newConfig[option])) error(`Failed to load option ${option} for ${id}.`);
+		}else{
+			newConfig[option] = moduleObj.config[option].value;
+			shouldSave = true;
+		}
+	}
+
+	if(shouldSave) saveConfig(id, newConfig);
+
+	return true;
+};
+// NEW  save function
+global.saveConfig = function(id, configList){
+	let path = `config/${id}_config.json`;
+	try{
+		let configFile = fs.openSync(path,"w");
+		fs.writeSync(configFile,JSON.stringify(configList, null, "\t"));
+		fs.closeSync(configFile);
+	}catch(e){
+		error(e.message);
+		info(`Could not save the config file ${path}`);
+	}
+};
+
 //Manages the bot modules
 global.modules = {};
-global.loadModule = function(name, loadData){
+global.loadModule2 = function(name, loadData){
 	let path = "./bot_modules/" + name;
 	try{
 		delete require.cache[require.resolve(path)];
@@ -164,7 +202,7 @@ global.loadModule = function(name, loadData){
 	delete modules[name];
 	return false;
 };
-global.unloadModule = function(name){
+global.unloadModule2 = function(name){
 	if(modules[name]){
 		let path = "./bot_modules/" + name;
 		delete require.cache[require.resolve(path)];
@@ -186,7 +224,7 @@ global.unloadModule = function(name){
 	return false;
 
 };
-global.getModuleForDependency = function(name, from){
+global.getModuleForDependency2 = function(name, from){
 	let module = modules[name];
 	if(module){
 		if(module.requiredBy.indexOf(from)===-1){
@@ -196,6 +234,93 @@ global.getModuleForDependency = function(name, from){
 		modules[name] = {requiredBy:[from]};
 	}
 	return modules[name];
+};
+
+// NEW load function
+global.loadModule = function(name, loadData){
+	let id = toId(name);
+	let path = `./bot_modules/${id}`;
+	try{
+		delete require.cache[require.resolve(path)];
+		let oldModule = modules[id];
+		module = require(path);
+
+		if(!moduleInfo[id]){
+			moduleInfo[id] = {room: module.Module.room, children: []};
+		}else{
+			moduleInfo[id].room = module.Module.room;
+		}
+
+		let moduleObj = new module.Module();
+
+		for(let i=0;i<moduleObj.dependencies.length;i++){
+			let dependency = moduleObj.dependencies[i];
+			if(!moduleInfo[dependency]) moduleInfo[dependency] = {children: []};
+			if(!moduleInfo[dependency].children.contains(id)) moduleInfo[dependency].push(id);
+			moduleObj[dependency] = modules[dependency];
+		}
+
+		for(let i=0;i<moduleInfo[id].children.length;i++){
+			let child = moduleInfo[id].children[i];
+			if(modules[child]) modules[child][id] = moduleObj;
+		}
+
+		loadConfig(id, moduleObj);
+
+		if(oldModule && loadData){
+			oldModule.onUnload();
+		}else if(oldModule){
+			moduleObj.recover(oldModule);
+		}else if(!loadData){
+			// no oldModule, but we wanted to use its data
+			return false;
+		}
+
+		if(loadData){
+			moduleObj.onLoad();
+			moduleObj.onConnect();
+		}
+
+		modules[id] = moduleObj;
+
+		return true;
+	}catch(e){
+		error(e.message);
+		info("Could not load the module " + name);
+	}
+	delete modules[name];
+	return false;
+};
+// NEW unload function
+global.unloadModule = function(name){
+	let id = toId(name);
+	let path = `./bot_modules/${id}`;
+
+	if(!modules[name]) return false;
+
+	delete require.cache[require.resolve(path)];
+
+	modules[id].onUnload();
+
+	for(let parent in moduleInfo){
+		let children = moduleInfo[parent].children;
+		let index = children.indexOf(id);
+		if(index > -1){
+			modules[id][parent] = null;
+			children.splice(index, 1);
+		}
+	}
+
+	let children = moduleInfo[id].children;
+	for(let i=0;i<children.length;i++){
+		let child = children[i];
+		if(modules[child]){
+			modules[child][id] = null;
+		}
+	}
+
+	delete modules[id];
+	return true;
 };
 
 let stdin = process.openStdin();
@@ -258,7 +383,7 @@ let connect = function (retry, delay) {
 					return false;
 				}
 				let message = response.utf8Data;
-				if(mainConfig.log_receive){
+				if(bot.config.log_receive.value){
 					recv(message);
 				}
 				handle(message);
@@ -273,8 +398,8 @@ let connect = function (retry, delay) {
 
 	// The connection itself
 
-	info("Connecting to " + mainConfig.connection);
-	ws.connect(mainConfig.connection);
+	info("Connecting to " + bot.config.connection.value);
+	ws.connect(bot.config.connection.value);
 };
 
 let trySendMessage = function(){
@@ -286,7 +411,7 @@ let trySendMessage = function(){
 		try{
 			lastMessageTime = Date.now();
 			Connection.send(messageQueue[0]);
-			if(mainConfig.log_send){
+			if(bot.config.log_send.value){
 				dsend(messageQueue[0]);
 			}
 			messageQueue.shift();
@@ -334,8 +459,8 @@ function handle(message){
 					url : "http://play.pokemonshowdown.com/action.php",
 					formData : {
 						act: "login",
-						name: mainConfig.user,
-						pass: mainConfig.pass,
+						name: bot.config.user.value,
+						pass: bot.config.pass.value,
 						challengekeyid: args[2],
 						challenge: args[3]
 					}
@@ -352,14 +477,14 @@ function handle(message){
 						data = JSON.parse(body);
 					}
 					if(data && data.curuser && data.curuser.loggedin){
-						send("|/trn " + mainConfig.user + ",0," + data.assertion);
+						send("|/trn " + bot.config.user.value + ",0," + data.assertion);
 					}else{
 						// We couldn't log in for some reason
 						error("Error logging in...");
 						process.exit(1);
 					}
 			});
-		}else if(args[1]=="updateuser"&&toId(args[2].substr(1).split("@")[0])==toId(mainConfig.user)){
+		}else if(args[1]=="updateuser"&&toId(args[2].substr(1).split("@")[0])==toId(bot.config.user.value)){
 			send("|/avatar 162");
 			for(let modulename in modules){
 				let module = modules[modulename];
@@ -452,13 +577,13 @@ function handle(message){
 					for(let modulename in modules){
 						let module = modules[modulename];
 						try{
-							if(module.commands[command]){
+							if(module.commands && module.commands[command]){
 								// info("Running command from " + modulename);
-								let commandRoom = RoomManager.getRoom(module.GOVERNING_ROOM);
+								let commandRoom = RoomManager.getRoom(module.room);
 								let commandRank = AuthManager.getRank(user, commandRoom);
 								let rank = AuthManager.getRank(user, room);
 								let commandFunc = typeof module.commands[command] == "string" ? module.commands[module.commands[command]] : module.commands[command];
-								commandFunc(message, chatArgs, user, rank, room, commandRank, commandRoom);
+								commandFunc.call(module, message, chatArgs, user, rank, room, commandRank, commandRoom);
 							}
 						}catch(e){
 							error(e.message);
@@ -586,10 +711,10 @@ global.MD5 = function(f){function i(b,c){var d,e,f,g,h;f=b&2147483648;g=c&214748
 global.uploadText = function(text, onSuccess, onError){
 	let filename = MD5(text.substr(0,10)+Date.now()) + ".txt";
 	try{
-		let textFile = fs.openSync(mainConfig.text_directory + filename,"w");
+		let textFile = fs.openSync(bot.config.text_directory.value + filename,"w");
 		fs.writeSync(textFile,text,null,'utf8');
 		fs.closeSync(textFile);
-		if(onSuccess) onSuccess(mainConfig.text_web_directory + filename);
+		if(onSuccess) onSuccess(bot.config.text_web_directory.value + filename);
 	}catch(e){
 		error(e.message);
 		if(onError) onError("Could not save the text file.");
@@ -617,8 +742,13 @@ if (!fs.existsSync("./backups")){
 	fs.mkdirSync("./backups");
 }
 
-global.mainConfig = main_defaults;
-loadConfig("main",mainConfig);
+let bm = require('./basemodule');
+loadModule('bot', true);
+global.bot = modules['bot'];
+if(!bot.config.user.value || !bot.config.userId.value || !bot.config.pass.value){
+	error("The main config file is missing login information. Please fill it in and re-run the bot.");
+	process.exit(0);
+}
 
 let rm = require('./roommanager');
 global.RoomManager = new rm.RoomManager();
