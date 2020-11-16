@@ -1135,7 +1135,6 @@ let commands = {
 		if(!data.leaderboard.nominations[id]){
 			room.broadcast(user, `${useArg ? "They" : "You"} do not have a nomination.`);
 		}else{
-			room.broadcast(user, (useArg ? "Their" : "Your") + " nomination is \"" + data.leaderboard.nominations[id].question + "\"");
 			room.broadcast(user, `${useArg ? "Their" : "Your"} nomination is "${data.leaderboard.nominations[id].question}"`);
 		}
 	},
