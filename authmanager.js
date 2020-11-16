@@ -5,7 +5,7 @@ let ranks = ["‽", "!", " ", "★", "+", "%", "@", "*", "&", "#", "~"];
 exports.AuthManager = class{
 	constructor(){
 		this.userAuth = {};
-		this.userAuth[toId(mainConfig.owner)] = {Global:"~"};
+		this.userAuth[toId(bot.config.owner.value)] = {Global:"~"};
 	}
 
 	//returns true iff rank1 and rank2 are valid ranks, and rank1>=rank2
@@ -35,12 +35,20 @@ exports.AuthManager = class{
 
 	//Gets a user's rank, combining actual site ranks with the internal rank list
 	getRank(user, room){
-		if(!user || !room) return " ";
-		let userId = user.id;
+		if(!user) return " ";
+
+		let userId = user.id || toId(user);
+		let internalGlobalRank = this.userAuth[userId] ? this.userAuth[userId].Global : " ";
+		
+		if(!room) return internalGlobalRank;
+
+		let roomId = room.id || toRoomId(room);
+		let internalRoomRank = this.userAuth[userId] ? this.userAuth[userId][roomId] : " ";
+
+		if(!room.id) return this.getTopRank([internalRoomRank, internalGlobalRank]);
+
 		user = room.getUserData(userId);
 		let serverRank = user ? user.rank : " ";
-		let internalRoomRank = this.userAuth[userId] ? this.userAuth[userId][room.id] : " ";
-		let internalGlobalRank = this.userAuth[userId] ? this.userAuth[userId].Global : " ";
 		return this.getTopRank([serverRank, internalRoomRank, internalGlobalRank]);
 	}
 
@@ -51,8 +59,13 @@ exports.AuthManager = class{
 		return user ? user.rank : " ";
 	}
 
+	//Checks if the given string is a rank
+	isRank(rankStr){
+		return ranks.includes(rankStr);
+	}
+
 	loadAuth(path){
-		let ownerId = toId(mainConfig.owner);
+		let ownerId = toId(bot.config.owner.value);
 		try{
 			let userAuth = JSON.parse(fs.readFileSync(path, "utf8"));
 			if(!userAuth[ownerId]||userAuth[ownerId].Global!=="~"){
@@ -77,7 +90,9 @@ exports.AuthManager = class{
 			let authFile = fs.openSync(path,"w");
 			fs.writeSync(authFile,JSON.stringify(this.userAuth, null, "\t"));
 			fs.closeSync(authFile);
+			return true;
 		}catch(e){
+			return false;
 			error(e.message);
 		}
 	}
