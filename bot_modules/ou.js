@@ -1,11 +1,7 @@
-let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let chat;
-let auth;
 let choices = ["Alakazam-Mega", "Buzzwole", "Celesteela", "Chansey", "Charizard-Mega-X", "Charizard-Mega-Y", "Dugtrio", "Excadrill", "Ferrothorn", "Garchomp", "Greninja", "Gyarados-Mega", "Heatran", "Hoopa-Unbound", "Jirachi", "Kartana", "Landorus-Therian", "Latios", "Magearna", "Magnezone", "Mamoswine", "Manaphy", "Marowak-Alola", "Metagross-Mega", "Mimikyu", "Muk-Alola", "Nihilego", "Pelipper", "Pheromosa", "Pinsir-Mega", "Rotom-Wash", "Sableye-Mega", "Salamence", "Scizor-Mega", "Scolipede", "Skarmory", "Tangrowth", "Tapu Bulu", "Tapu Fini", "Tapu Koko", "Tapu Lele", "Toxapex", "Tyranitar", "Venusaur-Mega", "Volcarona", "Xurkitree", "Zapdos", "Zygarde"];
 const END_SECONDS = 7;
 const DEFAULT_BID = 200;
 const STARTING_CASH = 25000;
-const ROOM = "ou";
 
 // auction: {
 // 	items: [],
@@ -19,107 +15,55 @@ const ROOM = "ou";
 // 	endTimer: null
 // }
 
-exports.onLoad = function(module, loadData){
-	self = module;
-	self.js.refreshDependencies();
-	if(loadData){
-		self.data = {
-			auction:{
-				items: [],
-				players: {},
-				price: 0,
-				winner: null,
-				active: false,
-				endTimer: null
-			}};
-	}
-	self.chathooks = {
-		chathook: function(m){
-			if(m && !m.isInit){
-				let text = m.message;
-				if(text[0]==="."){
-					let command = text.split(" ")[0].trim().toLowerCase().substr(1);
-					let argText = text.substring(command.length+2, text.length);
-					let chatArgs = argText === "" ? [] : argText.split(",");
-					for(let i = 0;i<chatArgs.length;i++){
-						chatArgs[i] = chatArgs[i].trim();
-					}
-					if(commands[command]&&auth&&auth.js&&chat&&chat.js){
-						let rank = auth.js.getEffectiveRoomRank(m, "ou");
-						let commandToRun = commands[command];
-						if(typeof commandToRun === "string"){
-							commandToRun = commands[commandToRun];
-						}
-						commandToRun(m, chatArgs, rank);
-					}
-				}
-			}
-		}
-	};
-};
-
-exports.onUnload = function(){
-
-};
-
-exports.refreshDependencies = function(){
-	chat = getModuleForDependency("chat", "ou");
-	auth = getModuleForDependency("auth", "ou");
-};
-
-exports.onConnect = function(){
-
-};
-
 let commands = {
-	randomize: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "%")){
-			chat.js.reply(message, "Your rank is not high enough to use that command.");
+	randomize: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(rank, '%')){
+			this.ouRoom.broadcast(user, "Your rank is not high enough to use that command.");
 			return;
 		}
 		let arg = toId(args[0]);
-		if(arg && arg === "on" || !arg && !self.data.ouOn){
-			if(!self.data.ouOn){
-				self.data.ouOn = true;
-				self.data.ouTimer = setTimeout(sayPokes, 20000);
-				chat.js.say(self.config.room, "You should have bid more.");
+		if(arg === 'on' || !arg && !this.ouOn){
+			if(!this.ouOn){
+				this.ouOn = true;
+				this.ouTimer = setTimeout(this.sayPokes, 20000);
+				this.ouRoom.send("You should have bid more.");
 			}else{
-				chat.js.reply(message, "It's already on.");
+				this.ouRoom.broadcast(user, "It's already on.");
 			}
-		}else if(arg && arg === "off" || !arg && self.data.ouOn){
-			if(self.data.ouOn){
-				self.data.ouOn = false;
-				if(self.data.ouTimer){
-					clearTimeout(self.data.ouTimer);
-					self.data.ouTimer = null;
+		}else if(arg === 'off' || !arg && this.ouOn){
+			if(this.ouOn){
+				this.ouOn = false;
+				if(this.ouTimer){
+					clearTimeout(this.ouTimer);
+					this.ouTimer = null;
 				}
-				chat.js.say(self.config.room, "Time's up!");
+				this.ouRoom.send("Time's up!");
 			}else{
-				chat.js.reply(message, "It's already off.");
+				this.ouRoom.broadcast(user, "It's already off.");
 			}
 		}
 	},
-	setprizes: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "%")){
-			chat.js.reply(message, "Your rank is not high enough to use that command.");
+	setprizes: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(rank, '%')){
+			this.ouRoom.broadcast(user, "Your rank is not high enough to use that command.");
 		}else{
 			if(!args.length){
-				chat.js.reply(message, "You must give at least one item.");
+				this.ouRoom.broadcast(user, "You must give at least one item.");
 			}else{
-				let auction = self.data.auction;
+				let auction = this.auction;
 				auction.items = args;
-				chat.js.reply(message, "Set the items to be actioned.");
+				this.ouRoom.broadcast(user, "Set the items to be actioned.");
 			}
 		}
 	},
-	setplayers: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "%")){
-			chat.js.reply(message, "Your rank is not high enough to use that command.");
+	setplayers: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, '%')){
+			this.ouRoom.broadcast(user, "Your rank is not high enough to use that command.");
 		}else{
 			if(args.length < 2){
-				chat.js.reply(message, "You must give at least two players.");
+				this.ouRoom.broadcast(user, "You must give at least two players.");
 			}else{
-				let auction = self.data.auction;
+				let auction = this.auction;
 				auction.players = {};
 				for(let i=0;i<args.length;i++){
 					auction.players[toId(args[i])] = {
@@ -128,52 +72,52 @@ let commands = {
 						displayName: args[i]
 					}
 				}
-				chat.js.reply(message, "Set the players participating in the auction.");
+				this.ouRoom.broadcast(user, "Set the players participating in the auction.");
 			}
 		}
 	},
-	nextitem: function(message, args, rank){
-		let auction = self.data.auction;
+	nextitem: function(message, args, user, rank, room, commandRank, commandRoom){
+		let auction = this.auction;
 		if(!auction || !auction.items || !auction.items.length){
-			chat.js.reply(message, "There are no items up for auction.");
+			this.ouRoom.broadcast(user, "There are no items up for auction.");
 		}else{
-			chat.js.reply(message, "The next item for auction is " + auction.items[0] + ".");
+			this.ouRoom.broadcast(user, `The next item for auction is ${auction.items[0]}.`);
 		}
 	},
-	startauction: function(message, args, rank){
-		if(!auth.js.rankgeq(rank, "%")){
-			chat.js.reply(message, "Your rank is not high enough to use that command.");
+	startauction: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, '%')){
+			this.ouRoom.broadcast(user, "Your rank is not high enough to use that command.");
 		}else{
-			let auction = self.data.auction;
+			let auction = this.auction;
 			if(auction.active){
-				chat.js.reply(message, "The auction has already started.");
+				this.ouRoom.broadcast(user, "The auction has already started.");
 			}else if(!auction.items || !auction.items.length){
-				chat.js.reply(message, "There are no items available to auction.");
+				this.ouRoom.broadcast(user, "There are no items available to auction.");
 			}else{
 				auction.active = true;
-				chat.js.say(self.config.room, "The auction has started. It will end " + END_SECONDS + " seconds after the last bid.");
+				this.ouRoom.send(`The auction has started. It will end ${END_SECONDS} seconds after the last bid.`);
 			}
 		}
 	},
-	bid: function(message, args, rank){
-		let id = toId(message.user);
-		let auction = self.data.auction;
+	bid: function(message, args, user, rank, room, commandRank, commandRoom){
+		let id = user.id;
+		let auction = this.auction;
 		let players = auction && auction.players || [];
-		let amountStr = args[0] || "" + DEFAULT_BID;
+		let amountStr = args[0] || DEFAULT_BID.toString();
 		if(!auction || !auction.active){
-			chat.js.reply(message, "Bidding is not open right now.");
+			this.ouRoom.broadcast(user, "Bidding is not open right now.");
 		}else if(!players[id]){
-			chat.js.reply(message, "You are not in the auction.");
+			this.ouRoom.broadcast(user, "You are not in the auction.");
 		}else if(!/^\d+$/.test(amountStr) || parseInt(amountStr)%DEFAULT_BID !== 0){
-			chat.js.reply(message, "You must give a multiple of " + DEFAULT_BID + ".");
+			this.ouRoom.broadcast(user, `You must give a multiple of ${DEFAULT_BID}.`);
 		}else{
 			let amount = parseInt(amountStr) || DEFAULT_BID;
 			if(players[id].money < auction.price + amount){
-				chat.js.reply(message, "You don't have enough left to make that bid.");
+				this.ouRoom.broadcast(user, "You don't have enough left to make that bid.");
 			}else{
 				auction.price += amount;
-				auction.winner = message.user;
-				chat.js.say(self.config.room, message.user + " has bid $" + auction.price + ".");
+				auction.winner = user.name;
+				this.ouRoom.send(`${user.name} has bid $${auction.price}.`);
 				if(auction.endTimer){
 					clearTimeout(auction.endTimer);
 				}
@@ -184,12 +128,12 @@ let commands = {
 };
 
 let endAuction = function(){
-	let auction = self.data.auction;
+	let auction = this.auction;
 	let winner = auction.winner;
 	let id = toId(winner);
 	let player = auction.players[id];
 	if(!id){
-		chat.js.say(self.config.room, "No on bidded on the item.");
+		this.ouRoom.send("No one bid on the item.");
 		auction.active = false;
 		auction.winner = null;
 		auction.price = 0;
@@ -206,31 +150,42 @@ let endAuction = function(){
 		for(let id in auction.players){
 			pArray.push(auction.players[id].displayName + ": $" + auction.players[id].money);
 		}
-		chat.js.say(self.config.room, "The auction is over, " + winner + " won " + prize + ". Here is how much money each player has left: " + pArray.join(", ") + ".");
-
+		this.ouRoom.send(`The auction is over, ${winner} won ${prize}. Here is how much money each player has left: ${pArray.join(', ')}.`);
 	}
 };
 
-let sayPokes = function(){
-	let tempArray = choices.slice(0);
-	let num = Math.floor(Math.random()*tempArray.length);
-	let item1 = tempArray.splice(num, 1)[0];
-	num = Math.floor(Math.random()*tempArray.length);
-	let item2 = tempArray.splice(num, 1)[0];
-	num = Math.floor(Math.random()*tempArray.length);
-	let item3 = tempArray.splice(num, 1)[0];
-	chat.js.say(self.config.room, "Here are your three options: " + item1 + ", " + item2 + ", " + item3);
-	self.data.ouTimer = setTimeout(sayPokes, 20000);
-};
+class OU extends BaseModule{
+	constructor(){
+		super();
+		this.room = OU.room;
+		this.config = {};
+		this.commands = commands;
+		this.ouRoom = RoomManager.getRoom(this.room);
+	}
 
-let defaultConfigs = {
-	room: "ou"
-};
+	onLoad(){
+		this.auction = {
+			items: [],
+			players: {},
+			price: 0,
+			winner: null,
+			active: false,
+			endTimer: null
+		};
+	}
 
-exports.defaultConfigs = defaultConfigs;
+	sayPokes(){
+		let tempArray = choices.slice(0);
+		let num = Math.floor(Math.random()*tempArray.length);
+		let item1 = tempArray.splice(num, 1)[0];
+		num = Math.floor(Math.random()*tempArray.length);
+		let item2 = tempArray.splice(num, 1)[0];
+		num = Math.floor(Math.random()*tempArray.length);
+		let item3 = tempArray.splice(num, 1)[0];
+		this.ouRoom.send(`Here are your three options: ${item1}, ${item2}, ${item3}`);
+		this.ouTimer = setTimeout(this.sayPokes, 20000);
+	};
+}
+OU.room = 'overused';
 
-let configTypes = {
-	room: "string"
-};
-
-exports.configTypes = configTypes;
+exports.Module = OU;
