@@ -1,12 +1,4 @@
-const {Pool} = require('pg');
-const pool = new Pool();
-let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let data = {};
-let config = defaultConfigs;
-let achievements = null;
-
-const GOVERNING_ROOM = "trivia"
-exports.GOVERNING_ROOM = GOVERNING_ROOM
+const {Pool, Client} = require('pg');
 
 const GET_USER_SQL = "SELECT users.id, users.username, users.display_name FROM alts INNER JOIN users ON alts.main_id = users.id WHERE alts.username = $1 FETCH FIRST 1 ROWS ONLY;";
 const INSERT_USER_SQL = "INSERT INTO users (username, display_name) VALUES ($1, $2);";
@@ -20,269 +12,245 @@ const INSERT_LB_ENTRY_SQL = "INSERT INTO tt_points VALUES ($1, $2, $3);";
 const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND leaderboard = $2;";
 
 const conInfo = {
-	user: mainConfig.dbuser,
-	password: mainConfig.dbpassword,
-	database: mainConfig.dbname,
-	host: mainConfig.dbhost,
-	port: mainConfig.dbport,
+	user: bot.config.dbuser.value,
+	password: bot.config.dbpassword.value,
+	database: bot.config.dbname.value,
+	host: bot.config.dbhost.value,
+	port: bot.config.dbport.value,
 	max: 1
 };
 
-//TODO this should no be dealing with rooms, users, and ranks. simply a callback.
-let pgReconnect = function(callback){
-	try{
-		if(data && data.pool){
-			data.pool.end();
+let commands = {
+	reconnect: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(AuthManager.rankgeq(commandRank, '@')){
+			this.pgReconnect(room, user, rank);
 		}
-		data.connected = false;
-	}catch(e){
-		error(e.message);
-	}
-
-	try{
-		data.pool = new Pool(conInfo);
-		//data.pool.connect((err)=>{
-			//if(err){
-				//callback(err);
-				//return;
-			//}
-			//ok("Client is connected");
-			//data.connected = true;
-			//callback();
-		//});
-		data.pool.on('error',(e)=>{
-			error(e.message);
-		});
-		data.pool.on('end',()=>{
-			data.connected = false;
-			error("Client connection ended");
-		});
-		//data.pool.on('connect',()=>{
-			//ok("Client is connected");
-		//});
-	}catch(e){
-		callback(e);
 	}
 };
 
-//This runs a postgres query, handles errors, etc.
-let runSql = function(statement, args, callback, client){
-	if(!callback){
-		callback = (err) => {if (err) error(err);};
+class PGClient extends BaseModule{
+	constructor(){
+		super();
+		this.room = PGClient.room;
+		this.config = {};
+		this.commands = commands;
+		this.dependencies = ['achievements'];
 	}
-	//if(!data.connected){
-		//callback("The bot is not connected to the database.");
-	//}
-	try{
-		let queryConfig = {
-			text: statement,
-			values: args
-		};
-		if(client){
-			client.query(queryConfig, callback);
-		}else{
-			data.pool.query(queryConfig, callback);
-		}
-	}catch(err){
-		callback(err);
+
+	onLoad(){
+		this.pgReconnect(logIfError);
 	}
-};
-exports.runSql = runSql;
 
-
-
-let runSqlAsArray = function(statement, args, callback, client){
-	if(!callback){
-		callback = (err) => {if (err) error(err);};
+	onUnload(){
+		if(this.pool) this.pool.end();
 	}
-	if(!data.connected){
-		callback("The bot is not connected to the database.");
-		return;
+
+	recover(oldModule){
+		this.pool = oldModule.pool;
+		this.connected = oldModule.connected;
 	}
-	try{
-		let queryConfig = {
-			text: statement,
-			values: args,
-			rowMode: 'array'
-		};
-		let query = data.client.query(queryConfig, callback);
-	}catch(err){
-		callback(err);
-	}
-};
-exports.runSqlAsArray = runSqlAsArray
 
-// callback(err, client, done)
-let checkout = function(callback){
-	data.pool.connect(callback);
-};
-exports.checkout = checkout;
-
-//Takes a username, returns their entry in the users table if it exists. Can also add missing users to the database.
-// TODO find all references to this, and make the callback something more descriptive than 'res'
-let getUser = function(username, createNewEntry, callback, client){
-	let newCallback = (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-		if(res.rowCount === 0 && createNewEntry){
-			let newEntryCallback = (err, res)=>{
-				if(err){
-					callback(err, res);
-					return;
-				}
-				getUser(username, createNewEntry, callback, client);
-			};
-			runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], (err, res)=>{
-				if(err){
-					callback(err);
-					return;
-				}
-				runSql(INSERT_ALT_SQL, [toId(username)], newEntryCallback, client);
-			}, client);
-		}else{
-			callback(null, res.rows[0]);
-		}
-	}
-	runSql(GET_USER_SQL, [toId(username)], newCallback, client);
-}
-exports.getUser = getUser
-
-// the second arg of callback is an array with two elements
-let getMains = function(username1, username2, createNewEntry, callback, client){
-	getUser(username1, createNewEntry, (err, user1)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-		getUser(username2, createNewEntry, (err, user2)=>{
-			callback(err, [user1, user2]);
-		}, client);
-	}, client);
-}
-exports.getMains = getMains
-
-let getPoints = function(id, leaderboards, callback, client){
-	if(leaderboards === 'all'){
-		runSql(GET_ALL_POINTS_SQL, [id], callback, client);
-	}else if(leaderboards === 'enabled'){
-		runSql(GET_ENABLED_POINTS_SQL, [id], callback, client);
-	}else if(leaderboards.length){
-		runSql(GET_SPECIFIC_POINTS_SQL, [id, leaderboards], callback, client);
-	}else{
-		callback("Invalid format for leaderboards given.");
-	}
-};
-exports.getPoints = getPoints;
-
-let updatePointsByDbId = function(dbId, name, updateFunc, leaderboards, callback, client){
-	getPoints(dbId, leaderboards, (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-		let pendingCalls = res.rows.length;
-		let totalError = null;
-
-		let sharedCallback = (err, res2)=>{
-			totalError = totalError || err;
-			pendingCalls--;
-			if(err) error(err);
-			// TODO decide whether to return failed updates
-			if(pendingCalls === 0) callback(totalError, name, res.rows.length, res);
-		};
-
-		for(let i=0;i<res.rows.length;i++){
-			let curPoints = res.rows[i].points || 0;
-			let leaderboardId = res.rows[i].id;
-			if(res.rows[i].points !== null){
-				runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
-			}else{
-				runSql(INSERT_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
+	pgReconnect(callback){
+		try{
+			if(this.pool){
+				this.pool.end();
 			}
-			achievements.achievementsOnScoreUpdate(name, leaderboardId, curPoints, updateFunc(curPoints, leaderboardId));
+			this.connected = false;
+		}catch(e){
+			error(e.message);
 		}
-	}, client);
-}
-exports.updatePointsByDbId = updatePointsByDbId;
 
-// TODO move the checkout to the dbId function. Only checkout if no client is given
-let updatePointsByPsId = function(psId, name, updateFunc, leaderboards, callback, client){
-	checkout((err, client, done)=>{
-		if(err){
-			client.end();
-			done();
+		try{
+			let pool = new Pool(conInfo);
+			this.pool = new Pool(conInfo);
+			pool.query('SELECT NOW()', (err, res) => {
+				console.log(err, res)
+				pool.end()
+			});
+			//this.pool.connect((err)=>{
+				//if(err){
+					//callback(err);
+					//return;
+				//}
+				//ok("Client is connected");
+				//this.connected = true;
+				//callback();
+			//});
+			this.pool.on('error',(e)=>{
+				error(e.message);
+			});
+			this.pool.on('end',()=>{
+				this.connected = false;
+				error("Client connection ended");
+			});
+			//this.pool.on('connect',()=>{
+				//ok("Client is connected");
+			//});
+		}catch(e){
+			callback(e);
+		}
+	};
+
+	checkout(callback){
+		this.pool.connect(callback);
+	}
+
+	runSql(statement, args, callback, client){
+		if(!callback){
+			callback = (err) => {if (err) error(err);};
+		}
+		//if(!data.connected){
+			//callback("The bot is not connected to the database.");
+		//}
+		try{
+			let queryConfig = {
+				text: statement,
+				values: args
+			};
+			if(client){
+				client.query(queryConfig, callback);
+			}else{
+				this.pool.query(queryConfig, callback);
+			}
+		}catch(err){
 			callback(err);
+		}
+	};
+
+	runSqlAsArray(statement, args, callback, client){
+		if(!callback){
+			callback = (err) => {if (err) error(err);};
+		}
+		if(!data.connected){
+			callback("The bot is not connected to the database.");
 			return;
 		}
+		try{
+			let queryConfig = {
+				text: statement,
+				values: args,
+				rowMode: 'array'
+			};
+			if(client){
+				client.query(queryConfig, callback);
+			}else{
+				this.pool.query(queryConfig, callback);
+			}
+		}catch(err){
+			callback(err);
+		}
+	};
 
-		let newCallback = (err, username, affected, failed)=>{
-			done();
-			callback(err, username, affected, failed);
-		};
-
-		getUser(name, true, (err, res)=>{
+	//Takes a username, returns their entry in the users table if it exists. Can also add missing users to the database.
+	// TODO find all references to this, and make the callback something more descriptive than 'res'
+	getUser(username, createNewEntry, callback, client){
+		let newCallback = (err, res)=>{
 			if(err){
-				done()
+				callback(err);
+				return;
+			}
+			if(res.rowCount === 0 && createNewEntry){
+				let newEntryCallback = (err, res)=>{
+					if(err){
+						callback(err, res);
+						return;
+					}
+					this.getUser(username, createNewEntry, callback, client);
+				};
+				this.runSql(INSERT_USER_SQL, [toId(username), removeRank(username)], (err, res)=>{
+					if(err){
+						callback(err);
+						return;
+					}
+					this.runSql(INSERT_ALT_SQL, [toId(username)], newEntryCallback, client);
+				}, client);
+			}else{
+				callback(null, res.rows[0]);
+			}
+		}
+		this.runSql(GET_USER_SQL, [toId(username)], newCallback, client);
+	}
+
+	getMains(username1, username2, createNewEntry, callback, client){
+		this.getUser(username1, createNewEntry, (err, user1)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+			this.getUser(username2, createNewEntry, (err, user2)=>{
+				callback(err, [user1, user2]);
+			}, client);
+		}, client);
+	}
+
+	getPoints(id, leaderboards, callback, client){
+		if(leaderboards === 'all'){
+			this.runSql(GET_ALL_POINTS_SQL, [id], callback, client);
+		}else if(leaderboards === 'enabled'){
+			this.runSql(GET_ENABLED_POINTS_SQL, [id], callback, client);
+		}else if(leaderboards.length){
+			this.runSql(GET_SPECIFIC_POINTS_SQL, [id, leaderboards], callback, client);
+		}else{
+			callback("Invalid format for leaderboards given.");
+		}
+	}
+
+	updatePointsByDbId(dbId, name, updateFunc, leaderboards, callback, client){
+		this.getPoints(dbId, leaderboards, (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+			let pendingCalls = res.rows.length;
+			let totalError = null;
+
+			let sharedCallback = (err, res2)=>{
+				totalError = totalError || err;
+				pendingCalls--;
+				if(err) error(err);
+				// TODO decide whether to return failed updates
+				if(pendingCalls === 0) callback(totalError, name, res.rows.length, res);
+			};
+
+			for(let i=0;i<res.rows.length;i++){
+				let curPoints = res.rows[i].points || 0;
+				let leaderboardId = res.rows[i].id;
+				if(res.rows[i].points !== null){
+					runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
+				}else{
+					runSql(INSERT_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
+				}
+				this.achievements.achievementsOnScoreUpdate(name, leaderboardId, curPoints, updateFunc(curPoints, leaderboardId));
+			}
+		}, client);
+	}
+
+	// TODO move the checkout to the dbId function. Only checkout if no client is given
+	updatePointsByPsId(psId, name, updateFunc, leaderboards, callback, client){
+		this.checkout((err, client, done)=>{
+			if(err){
+				client.end();
+				done();
 				callback(err);
 				return;
 			}
 
-			updatePointsByDbId(res.id, name, updateFunc, leaderboards, newCallback, client);
-		}, client);
-	});
-}
-exports.updatePointsByPsId = updatePointsByPsId;
+			let newCallback = (err, username, affected, failed)=>{
+				done();
+				callback(err, username, affected, failed);
+			};
 
-exports.onLoad = function(module, loadData, oldData){
-	self = module;
-	refreshDependencies();
-	if(oldData) data = oldData;
-	if(loadData){
-		data = {};
-		pgReconnect(logIfError);
+			this.getUser(name, true, (err, res)=>{
+				if(err){
+					done()
+					callback(err);
+					return;
+				}
+
+				this.updatePointsByDbId(res.id, name, updateFunc, leaderboards, newCallback, client);
+			}, client);
+		})
 	}
-};
-exports.onUnload = function(){
-	if(data && data.pool){
-		pool.end();
-	}
-};
-exports.getData = function(){
-	return data;
-}
-exports.getConfig = function(){
-	return config;
-}
-exports.setConfig = function(newConfig){
-	config = newConfig;
 }
 
-let refreshDependencies = function(){
-	achievements = getModuleForDependency("achievements", "pgclient");
-};
-exports.refreshDependencies = refreshDependencies;
-
-let commands = {
-	reconnect: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(AuthManager.rankgeq(commandRank,"@")){
-			pgReconnect(room, user, rank);
-		}
-	}
-};
-
-self.commands = commands;
-exports.commands = commands;
-
-let defaultConfigs = {
-	room: ""
-};
-
-exports.defaultConfigs = defaultConfigs;
-
-let configTypes = {
-	room: "string"
-};
-
-exports.configTypes = configTypes;
+exports.Module = PGClient;
