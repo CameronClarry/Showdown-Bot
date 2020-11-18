@@ -1,58 +1,19 @@
-let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let data = {};
-let config = defaultConfigs;
 let git = require("nodegit");
-
-const GOVERNING_ROOM = "trivia"
-exports.GOVERNING_ROOM = GOVERNING_ROOM
-
-exports.onLoad = function(module, loadData, oldData){
-	self = module;
-	refreshDependencies();
-	if(oldData) data = oldData;
-	if(loadData){
-		data = {};
-	}
-};
-
-exports.onUnload = function(){
-
-};
-
-let refreshDependencies = function(){
-};
-exports.refreshDependencies = refreshDependencies;
-
-exports.onConnect = function(){
-
-};
-exports.getData = function(){
-	return data;
-}
-exports.getConfig = function(){
-	return config;
-}
-exports.setConfig = function(newConfig){
-	config = newConfig;
-}
 
 let commands = {
 	git: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(AuthManager.rankgeq(commandRank, "#")){
-			if(args.length>0){
-				let command = args[0].toLowerCase();
-				if(gitCommands[command]){
-					gitCommands[command](message, args, user, rank, room, commandRank, commandRoom);
-				}
-			}
-		}else{
+		if(!AuthManager.rankgeq(commandRank, '#')){
 			room.broadcast(user, "Your rank is not high enough to use that command.", rank);
+		}else if(args.length === 0){
+
+		}else{
+			let command = args[0].toLowerCase();
+			if(gitCommands[command]){
+				gitCommands[command].call(this, message, args, user, rank, room, commandRank, commandRoom);
+			}
 		}
 	}
 }
-
-self.commands = commands;
-exports.commands = commands;
 
 let gitCommands = {
 	reset: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -129,12 +90,13 @@ let gitCommands = {
 	}
 };
 
-let defaultConfigs = {
-};
+class Git extends BaseModule{
+	constructor(){
+		super();
+		this.room = Git.room;
+		this.config = {};
+		this.commands = commands;
+	}
+}
 
-exports.defaultConfigs = defaultConfigs;
-
-let configTypes = {
-};
-
-exports.configTypes = configTypes;
+exports.Module = Git;
