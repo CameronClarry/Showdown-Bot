@@ -256,7 +256,7 @@ global.loadModule = function(name, loadData){
 		for(let i=0;i<moduleObj.dependencies.length;i++){
 			let dependency = moduleObj.dependencies[i];
 			if(!moduleInfo[dependency]) moduleInfo[dependency] = {children: []};
-			if(!moduleInfo[dependency].children.contains(id)) moduleInfo[dependency].push(id);
+			if(!moduleInfo[dependency].children.includes(id)) moduleInfo[dependency].children.push(id);
 			moduleObj[dependency] = modules[dependency];
 		}
 
@@ -591,7 +591,7 @@ function handle(message){
 						}
 					}
 				}else{
-					//Pass to message listeners
+					//Pass to chat listeners
 					for(let modulename in modules){
 						let module = modules[modulename];
 						for(let hookname in module.chathooks){
@@ -605,6 +605,21 @@ function handle(message){
 					}
 				}
 				
+			}else{
+				//Not a chat message, so it goes to the message hooks
+				for(let modulename in modules){
+					let module = modules[modulename];
+					if(module.messagehooks){
+						for(let hookname in module.messagehooks){
+							try{
+								module.messagehooks[hookname](room, args);
+							}catch(e){
+								error(e.message);
+								info(`Exception while trying message hook from ${modulename} (hook: ${hookname})`);
+							}
+						}
+					}
+				}
 			}
 		}
 	}
