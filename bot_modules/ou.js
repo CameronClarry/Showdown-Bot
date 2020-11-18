@@ -17,7 +17,7 @@ const STARTING_CASH = 25000;
 
 let commands = {
 	randomize: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(rank, '%')){
+		if(!AuthManager.rankgeq(commandRank, '%')){
 			this.ouRoom.broadcast(user, "Your rank is not high enough to use that command.");
 			return;
 		}
@@ -44,7 +44,7 @@ let commands = {
 		}
 	},
 	setprizes: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(rank, '%')){
+		if(!AuthManager.rankgeq(commandRank, '%')){
 			this.ouRoom.broadcast(user, "Your rank is not high enough to use that command.");
 		}else{
 			if(!args.length){
