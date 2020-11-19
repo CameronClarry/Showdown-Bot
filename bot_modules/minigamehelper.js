@@ -332,7 +332,7 @@ class MinigameHelper extends BaseModule{
 			officialReminders: new ConfigBoolean(true)
 		};
 		this.commands = commands;
-		this.chathooks = [this.onChat];
+		this.chathooks = {a: this.onChat};
 		this.dependencies = ['tt'];
 	}
 
