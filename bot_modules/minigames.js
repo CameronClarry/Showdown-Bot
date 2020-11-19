@@ -1,49 +1,10 @@
-let pgclient = require("./pgclient");
-let achievements = require("./achievements");
-
 const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND leaderboard = $2;";
-
-let updatePointsByDbId = function(dbId, name, updateFunc, leaderboards, callback){
-	pgclient.getPoints(dbId, leaderboards, (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-		let pendingCalls = res.rows.length;
-		let totalError = null;
-
-		let sharedCallback = (err, res2)=>{
-			totalError = totalError || err;
-			pendingCalls--;
-			if(err) error(err);
-			if(pendingCalls === 0) callback(totalError, res);
-		};
-
-		for(let i=0;i<res.rows.length;i++){
-			let curPoints = res.rows[i].points || 0;
-			let leaderboardId = res.rows[i].leaderboard;
-			pgclient.runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints)], sharedCallback);
-			achievements.achievementsOnScoreUpdate(name, leaderboardId, curPoints, updateFunc(curPoints));
-		}
-	});
-}
-
-let updatePointsByPsId = function(psId, name, updateFunc, leaderboards, callback){
-	pgclient.getUser(name, true, (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		pgclient.updatePointsByDbId(res.id, name, updateFunc, leaderboards, callback);
-	});
-}
 
 class TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
 	/// room: the room that the game should be started in
 	/// config: config settings for the tt module
-	constructor(user, room, config, blacklistManager, customBp){
+	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
 		this.room = room;
 		this.host = user;
 		this.config = config;
@@ -51,6 +12,8 @@ class TriviaTrackerGame{
 		this.history = [this.curHist];
 		this.maxHistLength = 10;
 		this.blacklistManager = blacklistManager;
+		this.pgclient = pgclient;
+		this.achievements = achievements;
 		this.timers = {};
 		this.chatCommands = {};
 		this.scores = {};
@@ -86,7 +49,7 @@ class TriviaTrackerGame{
 	/// nextUser: the user who got the question correct:
 	givePoints(prevUser, nextUser){
 		if(this.askPoints){
-			pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
+			this.pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
 			if(this.scores[prevUser.id]){
 				this.scores[prevUser.id].score = this.scores[prevUser.id].score + this.askPoints;
 			}else{
@@ -94,7 +57,7 @@ class TriviaTrackerGame{
 			}
 		}
 		if(this.answerPoints){
-			pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
+			this.pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
 			if(this.scores[nextUser.id]){
 				this.scores[nextUser.id].score = this.scores[nextUser.id].score + this.answerPoints;
 			}else{
@@ -106,7 +69,7 @@ class TriviaTrackerGame{
 	makeUndoFunc(id, name, points, leaderboards){
 		if(!points) return ()=>{};
 		return ()=>{
-			pgclient.updatePointsByPsId(id, name, (p)=>{return p - points}, leaderboards, logIfError);
+			this.pgclient.updatePointsByPsId(id, name, (p)=>{return p - points}, leaderboards, logIfError);
 			if(this.scores[id]){
 				this.scores[id].score = Math.max(0,this.scores[id].score - points);
 			}
@@ -212,7 +175,7 @@ class TriviaTrackerGame{
 			if(shouldSendMessage) this.room.send("**BP is now unlocked. Since " + this.curHist.active.name + " is muted or locked, BP is now open.**");
 		}else if(shouldSendMessage){
 			this.room.send("**BP is now unlocked. It is " + this.curHist.active.name + "'s turn to ask a question.**");
-			this.setRemindTimer(this.config.remindTime*1000);
+			this.setRemindTimer(this.config.remindTime.value*1000);
 		}
 	}
 
@@ -309,7 +272,7 @@ class TriviaTrackerGame{
 			this.doOpenBp('auth', false);
 		}else{
 			this.room.send("**Undid " + i + " action(s). It is now " + newActive.name + "'s turn to ask a question.**");
-			this.setRemindTimer(this.config.remindTime*1000);
+			this.setRemindTimer(this.config.remindTime.value*1000);
 		}
 	}
 
@@ -341,7 +304,7 @@ class TriviaTrackerGame{
 		if(this.history.length > this.maxHistLength) this.history.shift();
 		this.clearTimers();
 		this.bpOpen = false;
-		this.setRemindTimer(this.config.remindTime*1000);
+		this.setRemindTimer(this.config.remindTime.value*1000);
 	}
 
 	makeHistory(user1, user2){
@@ -408,16 +371,16 @@ class TriviaTrackerGame{
 		this.clearTimer('remind');
 		if(this.curHist.active){
 			let rank = AuthManager.getRank(this.curHist.active, this.room);
-			let hasManageRank = AuthManager.rankgeq(rank, this.config.manageBpRank);
+			let hasManageRank = AuthManager.rankgeq(rank, this.config.manageBpRank.value);
 			if(!this.bpOpen && !this.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
 				if(hasManageRank){
-					this.curHist.active.send("You have " + (this.config.openTime) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
+					this.curHist.active.send("You have " + (this.config.openTime.valu) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
 				}else{
-					this.curHist.active.send("You have " + (this.config.openTime) + " seconds to ask a question.");
+					this.curHist.active.send("You have " + (this.config.openTime.value) + " seconds to ask a question.");
 				}
 
 			}
-			this.setOpenTimer(this.config.openTime*1000)
+			this.setOpenTimer(this.config.openTime.value*1000)
 		}
 	}
 
@@ -447,7 +410,7 @@ class TriviaTrackerGame{
 		if(this.curHist.hasAsked){
 			this.curHist.hasAsked = false;
 			this.clearTimers();
-			this.setRemindTimer(this.config.remindTime*1000/2);
+			this.setRemindTimer(this.config.remindTime.value*1000/2);
 		}
 
 		if(vetoee.id !== vetoer.id){
@@ -472,11 +435,11 @@ class TriviaTrackerGame{
 					// Could potentially PM the user here, but it is probably unnecessary
 				}else{
 					this.doBp(this.curHist.active, user.id);
-					this.setRemindTimer(this.config.remindTime*1000/2);
+					this.setRemindTimer(this.config.remindTime.value*1000/2);
 					this.bpOpen = false;
 				}
 			}
-		}else if((AuthManager.rankgeq(rank, this.config.manageBpRank) || user.id === this.curHist.active.id) && this.checkVeto(message) && user.id !== mainConfig.userId){
+		}else if((AuthManager.rankgeq(rank, this.config.manageBpRank.value) || user.id === this.curHist.active.id) && this.checkVeto(message) && user.id !== bot.config.userId.value){
 			this.onVeto(this.curHist.active, user, message);
 		}else if(user.id === this.curHist.active.id && this.checkBold(message)){
 			this.onBold(user, message);
@@ -492,7 +455,7 @@ class TriviaTrackerGame{
 
 	onLeave(user){
 		if(!this.bpOpen && !this.bpLock && user.id === this.curHist.active.id){
-			this.setLeaveTimer(this.config.leaveGraceTime*1000);
+			this.setLeaveTimer(this.config.leaveGraceTime.value*1000);
 		}
 	}
 
@@ -514,9 +477,10 @@ exports.TriviaTrackerGame = TriviaTrackerGame;
 
 class Blitz extends TriviaTrackerGame{
 	
-	constructor(user, room, config, blacklistManager, customBp){
-		super(user, room, config, blacklistManager, customBp);
+	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
+		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
 		this.remindTime = 60;
+		// TODO this should be simpler using .call
 		this.chatCommands['finals'] = (user, rank)=>{this.doFinals(user, rank)};
 		this.chatCommands['hyperfinals'] = (user, rank)=>{this.doHyperFinals(user, rank)};
 	}
@@ -566,7 +530,7 @@ class Blitz extends TriviaTrackerGame{
 		if(this.curHist.hasAsked){
 			this.curHist.hasAsked = false;
 			this.clearTimers();
-			this.setRemindTimer(this.config.remindTime*1000/2);
+			this.setRemindTimer(this.config.remindTime.value*1000/2);
 		}
 
 		if(vetoee.id !== vetoer.id){
@@ -605,8 +569,8 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
 	/// room: the room that the game should be started in
 	/// config: config settings for the tt module
-	constructor(user, room, config, blacklistManager, customBp){
-		super(user, room, config, blacklistManager, customBp);
+	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
+		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
 	}
 
 	setupData(){
@@ -845,8 +809,8 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 
 class PictureTrivia extends TriviaTrackerSingleAsker{
 
-	constructor(user, room, config, blacklistManager, customBp){
-		super(user, room, config, blacklistManager, customBp);
+	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
+		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
 	}
 
 	setupData(){
@@ -872,10 +836,3 @@ let gameTypes = {
 };
 
 exports.gameTypes = gameTypes;
-
-
-let refreshDependencies = function(){
-	pgclient = require("./pgclient");
-	achievements = require("./achievements");
-}
-exports.refreshDependencies = refreshDependencies;
