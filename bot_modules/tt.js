@@ -1,17 +1,9 @@
 let fs = require("fs");
 let path = "./minigames";
 delete require.cache[require.resolve(path)];
-let minigames = require("./minigames");
-let self = {js:{},data:{},requiredBy:[],hooks:{},config:{}};
-let data = {};
-let config = defaultConfigs;
-let pgclient = null;
-let achievements = null;
+let minigames = require(path);
 let request = require("request");
 let spawn = require('child_process').spawn;
-
-const GOVERNING_ROOM = "trivia"
-exports.GOVERNING_ROOM = GOVERNING_ROOM
 
 const DELETE_USER_SQL = "DELETE FROM users WHERE id = $1;";
 const DELETE_ALT_SQL = "DELETE FROM alts WHERE username = $1;";
@@ -51,422 +43,22 @@ const REMOVE_PLAYER_ACH_SQL = "DELETE FROM player_achievements WHERE player_id =
 // TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists 
 // TODO one function for updating sores: 'all' vs 'enabled' vs ['lb1', 'lb2', ...]. make updatefunc take the lb id as well
 
-//args is [dbId, leaderboard]
-let getLeaderboardEntry = function(args, callback){
-	pgclient.runSql(GET_LB_ENTRY_SQL, [args[0], toId(args[1])], (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
 
-		callback(err, res.rows[0]);
-	});
-};
 
-//args is [number of entries to get, leaderboard]
-let listLeaderboardEntries = function(args, callback){
-	pgclient.runSql(LIST_LB_ENTRIES_SQL.replace("_NUMBER_",args[0]), [toId(args[1])], callback);
-};
 
-let getAllLeaderboardEntries = function(leaderboard, callback){
-	pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [toId(leaderboard)], (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		callback(err, res.rows);
-	});
-};
-
-//updateFunc takes the old score, and returns what the new score should be
-//callback takes err, the old row, and new score, and does whatever
-//args is [dbId, leaderboard, display name]
-let updateLeaderboardEntryById = function(args, updateFunc, callback){
-	getLeaderboardEntry(args, (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		let oldPoints = res ? res.points : 0;
-		let newPoints = updateFunc(oldPoints);
-		let newCallback = (err, res2)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			callback(err, res, newPoints);
-			achievementsOnScoreUpdate(args[2], args[1], oldPoints, newPoints, logIfError);
-		};
-
-		if(!res){
-			pgclient.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
-		}else{
-			pgclient.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
-		}
-	});
-};
-
-let updateLeaderboardEntryByUsername = function(args, updateFunc, callback){
-	pgclient.getUser(args[0], true, (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		updateLeaderboardEntryById([res.id, args[1], res.display_name], updateFunc, callback);
-	});
-};
-
-let checkPendingUpdates = function(shouldStart){
-	if(data.pendingUpdates.length === 1 || shouldStart && data.pendingUpdates.length > 0){
-		let entry = data.pendingUpdates[0];
-		updateAllLeaderboardEntriesById(entry.id, entry.username, entry.updateFunc, entry.callback);
-	}
-};
-
-//updateFunc takes the old score, and returns what the new score should be
-//callback takes err, the user id, rows updated, array of events failed
-let updateAllLeaderboardEntriesById = function(id, username, updateFunc, callback){
-	pgclient.runSql(GET_ENABLED_LB_SQL, [], (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		let leaderboards = res.rows.map((row)=>{return row.id;});
-
-		pgclient.runSql(GET_LB_ENTRIES_SQL, [id], (err, res2)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			let entries = {};
-			for(let i=0;i<res2.rows.length;i++){
-				entries[res2.rows[i].leaderboard] = res2.rows[i];
-			}
-			let	pendingEvents = leaderboards.length;
-			let failed = [];
-			let totalError = null;
-
-			let sharedCallbackCreator = (leaderboard)=>{
-				return (err, res)=>{
-					totalError = err || totalError;
-					pendingEvents--;
-					if(err) failed.push(leaderboard);
-					if(pendingEvents === 0){
-						callback(totalError, username, leaderboards.length - failed.length, failed);
-						data.pendingUpdates.shift();
-						checkPendingUpdates(true);
-					}
-				}
-			}
-			if(leaderboards.length === 0) callback(err, id, 0, 0);
-		});
-	});
-}
-
-let updateAllLeaderboardEntriesByUsername = function(username, updateFunc, callback){
-	pgclient.getUser(username, true, (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		data.pendingUpdates.add({
-			id: res.id,
-			username: res.display_name,
-			updateFunc: updateFunc,
-			callback: callback
-		});
-		checkPendingUpdates();
-		// updateAllLeaderboardEntriesById(res.id, res.display_name, updateFunc, (id, affected, failed)=>{
-		// 	if(onEnd) onEnd(res.display_name, affected, failed);
-		// }, onError);
-	});
-}
-
-//args is [id, leaderboard]
-// TODO is this needed?
-let removeLeaderboardEntry = function(args, callback){
-	pgclient.runSql(DELETE_LB_ENTRY_SQL, [args[0], toId(args[1])], ()=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		callback(err, res.rowCount);
-	});
-};
-
-let removeAllLeaderboardEntries = function(dbId, callback, client){
-	pgclient.runSql(DELETE_USER_ENTRIES_SQL, [dbId], callback, client);
-}
-
-let removeUserAch = function(dbId, callback, client){
-	pgclient.runSql(REMOVE_PLAYER_ACH_SQL, [dbId], callback, client)
-}
-
-let transferAllAchievements = function(fromDbId, toDbId, callback, client){
-	pgclient.runSql(GET_PLAYER_ACH_SQL, [fromDbId], (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		let entriesToTransfer = res.rows.length;
-		let fromEntries = {};
-		for(let i=0;i<res.rows.length;i++){
-			fromEntries[res.rows[i].achievement_id] = res.rows[i];
-		}
-		
-		if(entriesToTransfer === 0){
-			callback();
-		}
-
-		pgclient.runSql(GET_PLAYER_ACH_SQL, [toDbId], (err, res2)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			let toEntries = {};
-			for(let i=0;i<res2.rows.length;i++){
-				toEntries[res2.rows[i].achievement_id] = res2.rows[i];
-			}
-
-			let totalError = null;
-			let sharedCallback = (err, res3)=>{
-				totalError = err || totalError;
-				entriesToTransfer--;
-				// This line should call func to remove all ach entries for fromid
-				//if(entriesToTransfer === 0) callback(err);
-				if(entriesToTransfer === 0) removeUserAch(fromDbId, callback, client);
-			}
-
-			for(let event in fromEntries){
-				if(toEntries[event]){
-					// Conflicting achievements, compare and update the date
-					let d1 = fromEntries[event].date_achieved
-					let d2 = toEntries[event].date_achieved
-					let newDate = d1 < d2 ? d1 : d2;
-					pgclient.runSql(UPDATE_ACH_DATE_SQL, [newDate, toDbId, event], sharedCallback, client);
-				}else{
-					// No conflict, update the id
-					pgclient.runSql(UPDATE_ACH_ID_SQL, [toDbId, fromDbId, event], sharedCallback, client);
-				}
-			}
-		}, client);
-	}, client);
-}
-
-let transferAllPoints = function(fromDbId, toDbId, callback, client){
-	pgclient.runSql(GET_LB_ENTRIES_SQL, [fromDbId], (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}
-
-		let entriesToTransfer = res.rows.length;
-		let fromEntries = {};
-		for(let i=0;i<res.rows.length;i++){
-			fromEntries[res.rows[i].leaderboard] = res.rows[i];
-		}
-		
-		if(entriesToTransfer === 0){
-			callback();
-		}
-
-		pgclient.runSql(GET_LB_ENTRIES_SQL, [toDbId], (err, res2)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			let toEntries = {};
-			for(let i=0;i<res2.rows.length;i++){
-				toEntries[res2.rows[i].leaderboard] = res2.rows[i];
-			}
-
-			let totalError = null;
-			let sharedCallback = (err, res3)=>{
-				totalError = err || totalError;
-				entriesToTransfer--;
-				if(entriesToTransfer === 0) callback(err);
-			}
-
-			removeAllLeaderboardEntries(fromDbId, logIfError, client);
-			for(let event in fromEntries){
-				if(toEntries[event]){
-					pgclient.runSql(UPDATE_LB_ENTRY_SQL, [toDbId, event, toEntries[event].points + fromEntries[event].points], sharedCallback, client);
-				}else{
-					pgclient.runSql(INSERT_LB_ENTRY_SQL, [toDbId, event, fromEntries[event].points], sharedCallback, client);
-				}
-			}
-		}, client);
-	}, client);
-};
-
-let changeMains = function(id, newName, callback){
-	pgclient.runSql(UPDATE_USER_SQL, [id, newName, toId(newName)], callback);
-}
-
-// Merges two alts, and their points and achievements
-let mergeAlts = function(fromName, toName, callback, client){
-	pgclient.getMains(fromName, toName, true, (err, res)=>{
-		if(err){
-			callback(err);
-			return;
-		}else if(!res[0] || !res[1]){
-			callback("One or more of those accounts does not exist.");
-			return;
-		}else if(res[0].id === res[1].id){
-			callback("Those two accounts are the same.");
-			return;
-		}
-
-		transferAllPoints(res[0].id, res[1].id, (err)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			transferAllAchievements(res[0].id, res[1].id, (err)=>{
-				if(err){
-					client.end();
-					done();
-					callback(err);
-					return;
-				}
-
-				pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], (err, res2)=>{
-					if(err){
-						callback(err);
-						return;
-					}
-
-					pgclient.runSql(DELETE_USER_SQL, [res[0].id], (err, res3)=>{
-						if(err){
-							callback(err);
-							return;
-						}
-
-						callback();
-					}, client);
-				}, client);
-			}, client);
-		}, client);
-	}, client);
-};
-
-exports.onLoad = function(module, loadData, oldData){
-	self = module;
-	refreshDependencies();
-	if(oldData) data = oldData;
-	if(loadData){
-		data = {
-			games: {},
-			pendingAlts: {},
-			askToReset: "",
-			timers: {},
-			flags: {},
-			pendingUpdates: [],
-			blacklistManager: new BlacklistManager()
-		};
-		loadFacts();
-		loadBatches();
-		loadLeaderboard();
-		data.blacklistManager.load()
-	}
-	self.chathooks = {
-		chathook: function(room, user, message){
-			let game = data.games[room.id];
-			if(!game) return;
-			let triviaRank = AuthManager.getRank(user, RoomManager.getRoom('trivia'));
-
-			game.onRoomMessage(user, triviaRank, message);
-		}
-	};
-};
-
-exports.onUnload = function(){
-	for(let roomid in data.games){
-		data.games[roomid].end();
-	}
-};
 let refreshDependencies = function(){
 	pgclient = getModuleForDependency("pgclient", "tt");
 	achievements = getModuleForDependency("achievements", "tt");
 	minigames.refreshDependencies();
 };
-exports.refreshDependencies = refreshDependencies;
-exports.onConnect = function(){
-
-};
-exports.getData = function(){
-	return data;
-}
-exports.getConfig = function(){
-	return config;
-}
-exports.setConfig = function(newConfig){
-	config = newConfig;
-}
-
-let processJoin = function(room, user){
-	let game = data.games[room.id];
-	if(game) game.onJoin(user);
-}
-self.processJoin = processJoin;
-exports.processJoin = processJoin;
-
-let processLeave = function(room, user){
-	let game = data.games[room.id];
-	if(game){
-		game.onLeave(user);
-	}
-}
-self.processLeave = processLeave;
-exports.processLeave = processLeave;
-
-let processName = function(room, user){
-	let game = data.games[room.id];
-	if(game){
-		if(user.trueRank === '‽'){
-			game.onPunishment(user, 'lock');
-		}else if(user.trueRank === '!'){
-			game.onPunishment(user, 'mute');
-		}
-	}
-}
-self.processName = processName;
-exports.processName = processName;
-
-let processHide = function(room, user){
-	let game = data.games[room.id];
-	if(game && user.id === game.curUser.id && !game.bpLocked){ // can't open BP if it's locked
-		// The user must've done something very bad so opening BP is probably a good idea
-		if(!game.bpOpen){
-			room.send("**BP is now open (say 'me' or 'bp' to claim it).**")
-		}
-		game.bpOpen = "auth";
-	}
-}
-self.processHide = processHide;
-exports.processHide = processHide;
-
 
 let commands = {
-
 	// newgame, endgame
 	tt: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(args.length>0){
 			let command = args[0].toLowerCase();
 			if(ttCommands[command]){
-				ttCommands[command](message, args, user, rank, room, commandRank, commandRoom);
+				ttCommands[command].call(this, message, args, user, rank, room, commandRank, commandRoom);
 			}
 		}
 	},
@@ -476,7 +68,7 @@ let commands = {
 		if(args.length>0){
 			let command = args[0].toLowerCase();
 			if(ttleaderboardCommands[command]){
-				ttleaderboardCommands[command](message, args, user, rank, room, commandRank, commandRoom);
+				ttleaderboardCommands[command].call(this, message, args, user, rank, room, commandRank, commandRoom);
 			}
 		}
 	},
@@ -484,7 +76,7 @@ let commands = {
 		if(args.length>0){
 			let command = args[0].toLowerCase();
 			if(ttleaderboardEventCommands[command]){
-				ttleaderboardEventCommands[command](message, args, user, rank, room, commandRank, commandRoom);
+				ttleaderboardEventCommands[command].call(this, message, args, user, rank, room, commandRank, commandRoom);
 			}
 		}
 	},
@@ -493,13 +85,11 @@ let commands = {
 	oui: "yes", si: "yes", right: "yes",
 	aye: "yes", ya: "yes", ye: "yes", correct: "yes", ja: "yes",
 	indeed: "yes", damnright: "yes",
-	bet: "yes", // Prize for Zimmy D
-	yessir: "yes", // Prize for Sandile1234
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
-		let hasRank = AuthManager.rankgeq(commandRank, config.manageBpRank)
+		let hasRank = AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
 		let roomId = !shouldUndo && hasRank && args[1] ? toRoomId(args[1]) : room.id;
-		let game = data.games[roomId];
+		let game = this.games[roomId];
 		if(!game){
 			room.broadcast(user, "There is no trivia game in " + roomId + ".");
 		}else if(!toId(args[0])){
@@ -518,9 +108,9 @@ let commands = {
 	nah: "no",
 	nope: "no",
 	no: function(message, args, user, rank, room, commandRank, commandRoom){
-		let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
+		let roomId = AuthManager.rankgeq(commandRank, this.config.manageBpRank.value) && args[1] ? toRoomId(args[1]) : room.id;
 		let number = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0],10) : 1;
-		let game = data.games[roomId];
+		let game = this.games[roomId];
 		if(!game){
 			room.broadcast(user, "There is no trivia game in " + roomId + ".");
 		}else{
@@ -535,12 +125,12 @@ let commands = {
 	},
 	bp: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = toRoomId(args[1]) || "trivia";
-		let game = data.games[roomId];
+		let game = this.games[roomId];
 		if(!game){
 			room.broadcast(user, "There is no trivia game in " + roomId + ".");
 		}else{
 			let id = toId(args[0]);
-			if(!id || !AuthManager.rankgeq(commandRank, config.manageBpRank)){
+			if(!id || !AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)){
 				// TODO can this be moved to the minigame side?
 				let curUser = game.curHist.active;
 				// if BP is open or locked, there's no need to HL the user who last had it.
@@ -563,7 +153,7 @@ let commands = {
 	lockbp: "bplock",
 	bplock: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
-		let game = data.games[roomId];
+		let game = this.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
 		}else if(!game){
@@ -581,7 +171,7 @@ let commands = {
 	unlockbp: "bpunlock",
 	bpunlock: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
-		let game = data.games[roomId];
+		let game = this.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
 		}else if(!game){
@@ -599,7 +189,7 @@ let commands = {
 	openbp: "bpopen",
 	bpopen: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
-		let game = data.games[roomId];
+		let game = this.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
 		}else if(!game){
@@ -618,7 +208,7 @@ let commands = {
 	closebp: "bpclose",
 	bpclose: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = room && room.id ? room.id : toRoomId(args[0]);
-		let game = data.games[roomId];
+		let game = this.games[roomId];
 		if(!roomId){
 			user.send("You must specify a room.");
 		}else if(!game){
@@ -636,7 +226,7 @@ let commands = {
 	//~ttblacklist add/remove/check, [user], {duration}, {reason}
 	ttbl: "ttblacklist",
 	ttblacklist: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,config.manageBlRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.manageBlRank.value)){
 			room.broadcast(user, "Your rank is not high enough to use the blacklist command.");
 		}else if(args.length < 2){
 			room.broadcast(user, "Not enough arguments were given for the blacklist command.");
@@ -650,7 +240,7 @@ let commands = {
 			}else if(!blacklistCommands[command]){
 				room.broadcast(user, command + " is not a recognized command.");
 			}else{
-				blacklistCommands[command](args[1], id, duration, reason, user, room, commandRoom);
+				blacklistCommands[command].call(this, args[1], id, duration, reason, user, room, commandRoom);
 			}
 		}
 	},
@@ -664,7 +254,7 @@ let commands = {
 			if(!id){
 				room.broadcast(user, "You must specify a user.");
 			}else{
-				blacklistCommands['add'](args[0], id, duration, reason, user, room, commandRoom);
+				blacklistCommands['add'].call(this, args[0], id, duration, reason, user, room, commandRoom);
 			}
 		}
 	},
@@ -678,7 +268,7 @@ let commands = {
 			if(!id){
 				room.broadcast(user, "You must specify a user.");
 			}else{
-				blacklistCommands['add'](args[0], id, duration, reason, user, room, commandRoom);
+				blacklistCommands['add'].call(this, args[0], id, duration, reason, user, room, commandRoom);
 			}
 		}
 	},
@@ -692,13 +282,13 @@ let commands = {
 			if(!id){
 				room.broadcast(user, "You must specify a user.");
 			}else{
-				blacklistCommands['unmute'](args[0], id, duration, reason, user, room, commandRoom);
+				blacklistCommands['unmute'].call(this, args[0], id, duration, reason, user, room, commandRoom);
 			}
 		}
 	},
 	alts: function(message, args, user, rank, room, commandRank, commandRoom){
 		let target = toId(args[0]) ? args[0] : user.name;
-		pgclient.getMains(user.id, target, false, (err, res)=>{
+		this.pgclient.getMains(user.id, target, false, (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error " + err);
@@ -710,7 +300,7 @@ let commands = {
 			}else if(!res[1]){
 				room.broadcast(user, target + " does not have any alts.");
 			}else{
-				pgclient.runSql(GET_ALTS_SQL, [res[1].id], (err, res2)=>{
+				this.pgclient.runSql(GET_ALTS_SQL, [res[1].id], (err, res2)=>{
 					if(err){
 						error(err);
 						room.broadcast(user, "Error " + err);
@@ -734,14 +324,14 @@ let commands = {
 		});
 	},
 	alt: function(message, args, user, rank, room, commandRank, commandRoom){
-		let pendingAlts = data.pendingAlts;
+		let pendingAlts = this.pendingAlts;
 		if(args.length === 0){
 			room.broadcast(user, "You must specify an alt.");
 		}else{
 			let userId = user.id;
 			let altuser = toId(args[0]);
 			if(pendingAlts[altuser] && pendingAlts[altuser].indexOf(userId)>-1){
-				pgclient.checkout((err, client, done)=>{
+				this.pgclient.checkout((err, client, done)=>{
 					if(err){
 						client.end();
 						done();
@@ -749,7 +339,7 @@ let commands = {
 						return;
 					}
 
-					mergeAlts(altuser, userId, (err)=>{
+					this.mergeAlts(altuser, userId, (err)=>{
 						client.end();
 						done();
 						if(err){
@@ -781,7 +371,7 @@ let commands = {
 		if(args.length===0 || !args[0]){
 			room.broadcast(user, "You must specify an alt.");
 		}else{
-			pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
+			this.pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -801,7 +391,7 @@ let commands = {
 						room.broadcast(user, "You cannot remove your main account.");
 					}
 				}else{
-					pgclient.runSql(DELETE_ALT_SQL, [toId(args[0])], (err, res)=>{
+					this.pgclient.runSql(DELETE_ALT_SQL, [toId(args[0])], (err, res)=>{
 						if(err){
 							error(err);
 							room.broadcast("Error: " + err);
@@ -818,14 +408,13 @@ let commands = {
 		}
 	},
 	main: function(message, args, user, rank, room, commandRank, commandRoom){
-		// 34
 		let canEditOthers = AuthManager.rankgeq(commandRank, "@");
 		if(args.length===0 || !args[0]){
 			room.broadcast(user, "You must specify an alt.");
 		}else if(args[0].length>20){
 			room.broadcast(user, "That name is too long.");
 		}else{
-			pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
+			this.pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -838,7 +427,7 @@ let commands = {
 				}else if(!canEditOthers && res[0].id !== res[1].id){
 					room.broadcast(user, "That account is not one of your alts.");
 				}else{
-					changeMains(res[1].id, removeFormatting(removeRank(args[0])), (err, res2)=>{
+					this.changeMains(res[1].id, removeFormatting(removeRank(args[0])), (err, res2)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, "Error: " + err);
@@ -855,14 +444,13 @@ let commands = {
 		}
 	},
 	removeformatting: function(message, args, user, rank, room, commandRank, commandRoom){
-		// 22
 		if(!AuthManager.rankgeq(commandRank,"@")){
 			user.send("You rank isn't high enough to do that.");
 		}else if (args.length < 1){
 			user.send("You need to give a player to fix.");
 		}else{
 			let id = toId(args[0]);
-			pgclient.getUser(id, false, (err, dbUser)=>{
+			this.pgclient.getUser(id, false, (err, dbUser)=>{
 				if(err){
 					error(err);
 					user.send("Error: " + err);
@@ -872,7 +460,7 @@ let commands = {
 				if(!dbUser){
 					user.send("That user does not have an entry.");
 				}else{
-					changeMains(dbUser.id, dbUser.username, (err, res)=>{
+					this.changeMains(dbUser.id, dbUser.username, (err, res)=>{
 						if(err){
 							error(err);
 							user.send("Error: " + err);
@@ -886,13 +474,13 @@ let commands = {
 	},
 	ttlload: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(AuthManager.rankgeq(commandRank,"@")){
-			loadLeaderboard();
+			this.loadLeaderboard();
 			room.broadcast(user, "Loaded leaderboard.");
 		}
 	},
 	ttlsave: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(AuthManager.rankgeq(commandRank,"@")){
-			saveLeaderboard();
+			this.saveLeaderboard();
 			room.broadcast(user, "Saved leaderboard.");
 		}
 	},
@@ -903,34 +491,34 @@ let commands = {
 		if(arg === "end"){
 			let roomId = toRoomId(args[1]) || room.id;
 			rank = AuthManager.getRank(user, RoomManager.getRoom(roomId));
-			if(!AuthManager.rankgeq(rank, config.timerRank)){
+			if(!AuthManager.rankgeq(rank, this.config.timerRank.value)){
 				user.send("Your rank is not high enough to manage timers.");
 			}else{
 				let timerName = "room:" + roomId;
 				if(!roomId){
 					user.send("You must specify a room.");
-				}else if(!data.timers[timerName]){
+				}else if(!this.timers[timerName]){
 					user.send("There isn't a timer for " + roomId + ".");
 				}else{
-					clearTimeout(data.timers[timerName].timer);
-					delete data.timers[timerName];
+					clearTimeout(this.timers[timerName].timer);
+					delete this.timers[timerName];
 					room.broadcast(user, "Successfully cleared the timer for " + roomId + ".");
 				}
 			}
 		}else if(/^\d+$/.test(arg)){
 			let roomId = toRoomId(args[2]) || room.id;
 			rank = AuthManager.getRank(user, RoomManager.getRoom(roomId));
-			if(!AuthManager.rankgeq(rank, config.timerRank)){
+			if(!AuthManager.rankgeq(rank, this.config.timerRank.value)){
 				user.send("Your rank is not high enough to manage timers.");
 			}else{
 				let timerName = "room:" + roomId;
 				let duration = Math.max(parseInt(arg, 10),1);
 				let endMessage = args[1] ? "/wall " + args[1] : "/wall Timer's up!";
-				if(data.timers[timerName]) clearTimeout(data.timers[timerName].timer);
-				data.timers[timerName] = {
+				if(this.timers[timerName]) clearTimeout(this.timers[timerName].timer);
+				this.timers[timerName] = {
 					room: roomId,
 					timer: setTimeout(()=>{
-						delete data.timers[timerName];
+						delete this.timers[timerName];
 						room = RoomManager.getRoom(roomId);
 						if(room) room.send(endMessage);
 					}, duration*1000)
@@ -950,7 +538,7 @@ let commands = {
 		rank = AuthManager.getRank(user, targetRoom);
 		if(!roomId || !targetRoom){
 			user.send("You must specify a room that I am in.");
-		}else if(!AuthManager.rankgeq(rank, config.timerRank)){
+		}else if(!AuthManager.rankgeq(rank, this.config.timerRank.value)){
 			user.send("Your rank is not high enough to manage timers.");
 		}else if(/^\d+$/.test(arg0) && /^\d+$/.test(arg1)){
 			let timerName = "room:" + roomId;
@@ -958,11 +546,11 @@ let commands = {
 			let maxTime = parseInt(arg1);
 			let duration = Math.max(Math.round(Math.random()*(maxTime-minTime)+minTime),1);
 			let endMessage = args[2] ? "/wall " + args[2] : "/wall Timer's up!";
-			if(data.timers[timerName]) clearTimeout(data.timers[timerName].timer);
-			data.timers[timerName] = {
+			if(this.timers[timerName]) clearTimeout(this.timers[timerName].timer);
+			this.timers[timerName] = {
 				room: roomId,
 				timer: setTimeout(()=>{
-					delete data.timers[timerName];
+					delete this.timers[timerName];
 					targetRoom.send(endMessage);
 				}, duration*1000)
 			};
@@ -972,37 +560,37 @@ let commands = {
 		}
 	},
 	addfact: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,config.factRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to edit facts.");
 		}else if(!args.length){
 			room.broadcast(user, "You need to give a fact to add.");
 		}else{
 			let fact = message.substr(9);
 			let factId = toId(fact);
-			if(data.facts.filter(f=>{return f.id == factId}).length){
+			if(this.facts.filter(f=>{return f.id == factId}).length){
 				room.broadcast(user, "That fact already exists.");
 			}else{
-				data.facts.add({text: fact, id: factId});
-				saveFacts();
+				this.facts.add({text: fact, id: factId});
+				this.saveFacts();
 				room.broadcast(user, "Successfully added the fact.");
 			}
 		}
 	},
 	deletefact: "removefact",
 	removefact: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,config.factRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to edit facts.");
 		}else if(!args.length){
 			room.broadcast(user, "You need to give a fact to remove.");
 		}else{
 			let fact = message.substr(12);
 			let factId = toId(fact);
-			let num = data.facts.length;
-			data.facts = data.facts.filter(f=>{return f.id !== factId});
-			if(data.facts.length === num){
+			let num = this.facts.length;
+			this.facts = this.facts.filter(f=>{return f.id !== factId});
+			if(this.facts.length === num){
 				room.broadcast(user, "That fact does not exist.");
 			}else{
-				saveFacts();
+				this.saveFacts();
 				room.broadcast(user, "Successfully removed the fact.");
 			}
 		}
@@ -1010,20 +598,20 @@ let commands = {
 	randfact: "fact",
 	randomfact: "fact",
 	fact: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.factRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to check facts.");
-		}else if(data.facts.length){
-			room.broadcast(user, "__" + data.facts[Math.floor(Math.random()*data.facts.length)].text + "__");
+		}else if(this.facts.length){
+			room.broadcast(user, "__" + this.facts[Math.floor(Math.random()*this.facts.length)].text + "__");
 		}else{
 			room.broadcast(user, "There are no facts :<");
 		}
 	},
 	facts: "factlist",
 	factlist: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.factRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to manage facts.");
-		}else if(data.facts.length){
-			let text = data.facts.map(f=>{return f.text}).join("\n\n");
+		}else if(this.facts.length){
+			let text = this.facts.map(f=>{return f.text}).join("\n\n");
 			uploadText(text, (link)=>{
 				user.send("Here is a list of all the facts: " + link);
 			}, (err)=>{
@@ -1034,7 +622,7 @@ let commands = {
 		}
 	},
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
-		let game = data.games[room.id];
+		let game = this.games[room.id];
 		let command = toId(args[0]);
 		if(!room.id){
 			room.broadcast(user, "You must use this command in the room that has the minigame in it.");
@@ -1043,7 +631,7 @@ let commands = {
 		}else if(!game.chatCommands[command]){
 			room.broadcast(user, "That command is not recognized.");
 		}else{
-			game.chatCommands[command](user, rank);
+			game.chatCommands[command].call(game, user, rank);
 		}
 	},
 	minigamenew: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1053,12 +641,12 @@ let commands = {
 			room.broadcast(user, "Your rank is not high enough to start minigames.");
 		}else if(!gameRoom || !gameRoom.id){
 			room.broadcast(user, "You must specify a valid room.");
-		}else if(data.games[gameRoom.id]){
+		}else if(this.games[gameRoom.id]){
 			room.broadcast(user, "There already a game in progress.");
 		}else if(!minigames.gameTypes[gameType]){
 			room.broadcast(user, "That game type does not exist.");
 		}else{
-			data.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, config, data.blacklistManager, data.leaderboard.customBp);
+			this.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
 		}
 	},
 	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1067,21 +655,21 @@ let commands = {
 			room.broadcast(user, "Your rank is not high enough to end minigames.");
 		}else if(!gameRoom || !gameRoom.id){
 			room.broadcast(user, "You must specify a valid room.");
-		}else if(!data.games[gameRoom.id]){
+		}else if(!this.games[gameRoom.id]){
 			room.broadcast(user, "There is no game in progress.");
 		}else{
-			data.games[gameRoom.id].end();
-			delete data.games[gameRoom.id];
+			this.games[gameRoom.id].end();
+			delete this.games[gameRoom.id];
 		}
 	},
 	checkhost: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameRoom = args[0] ? RoomManager.getRoom(toRoomId(args[0])) : room;
 		if(!gameRoom || !gameRoom.id){
 			room.broadcast(user, "You must specify a valid room.");
-		}else if(!data.games[gameRoom.id]){
+		}else if(!this.games[gameRoom.id]){
 			room.broadcast(user, "There is no game in that room currently.");
 		}else{
-			room.broadcast(user, "The current host is " + data.games[gameRoom.id].getHost().name + ".");
+			room.broadcast(user, "The current host is " + this.games[gameRoom.id].getHost().name + ".");
 		}
 	},
 	sethost: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1091,12 +679,12 @@ let commands = {
 			room.broadcast(user, "Your rank is not high enough to change the host");
 		}else if(!gameRoom || !gameRoom.id){
 			room.broadcast(user, "You must specify a valid room.");
-		}else if(!data.games[gameRoom.id]){
+		}else if(!this.games[gameRoom.id]){
 			room.broadcast(user, "There is no game in that room currently.");
 		}else if(!newHost){
 			room.broadcast(user, "The user you specify must be in the room and not the current host.");
 		}else{
-			data.games[gameRoom.id].setHost(newHost);
+			this.games[gameRoom.id].setHost(newHost);
 			room.broadcast(user, newHost.name + " is now the host.");
 		}
 	},
@@ -1106,11 +694,11 @@ let commands = {
 		if(!roomId){
 			room.broadcast(user, "You must specify a room.");
 			return;
-		}else if(!data.games[roomId]){
+		}else if(!this.games[roomId]){
 			room.broadcast(user, "There is no game in progress.");
 			return;
 		}
-		let scores = data.games[roomId].scores;
+		let scores = this.games[roomId].scores;
 		if(id){
 			let entry = scores[id];
 			if(entry){
@@ -1133,8 +721,8 @@ let commands = {
 	},
 	nominate: function(message, args, user, rank, room, commandRank, commandRoom){
 		let nominee = toId(args[0]);
-		let entry = data.leaderboard.nominations[user.id];
-		let game = data.games['trivia'];
+		let entry = this.leaderboard.nominations[user.id];
+		let game = this.games['trivia'];
 		let question;
 		let nomineeUser;
 		if(!game){
@@ -1163,20 +751,20 @@ let commands = {
 					entry.timestamp = new Date().toUTCString();
 					delete entry.lastUse;
 					user.send("You have changed your nomination.");
-					saveLeaderboard();
+					this.saveLeaderboard();
 				}else{
 					entry.lastUse = Date.now();
 					user.send("Your current nomination is '" + entry.question + "'. Use ~nominate again to overwrite it.");
 				}
 			}else{
-				data.leaderboard.nominations[user.id] = {
+				this.leaderboard.nominations[user.id] = {
 					nominator: user.id,
 					nominee: nominee,
 					question: question,
 					timestamp: new Date().toUTCString()
 				};
 				user.send("You have nominated " + args[0] + ".");
-				saveLeaderboard();
+				this.saveLeaderboard();
 			}
 		}
 	},
@@ -1184,7 +772,7 @@ let commands = {
 		// For ROs only. Pastes all the nominations as a list
 		if(!AuthManager.rankgeq(commandRank,'@')) return;
 
-		let text = JSON.stringify(data.leaderboard.nominations, null, '\t');
+		let text = JSON.stringify(this.leaderboard.nominations, null, '\t');
 
 		uploadText(text, (link)=>{
 			user.send("Here is a list of all the nominations: " + link);
@@ -1196,8 +784,8 @@ let commands = {
 		// For ROs only. Deletes all nominations and saves the leaderboard.
 		if(!AuthManager.rankgeq(commandRank,'#')) return;
 
-		data.leaderboard.nominations = {};
-		saveLeaderboard();
+		this.leaderboard.nominations = {};
+		this.saveLeaderboard();
 
 		user.send("Successfully cleared all nominations.");
 	},
@@ -1207,10 +795,10 @@ let commands = {
 		let useArg = hasRank && args[0];
 		let id = useArg ? toId(args[0]) : user.id;
 		
-		if(!data.leaderboard.nominations[id]){
+		if(!this.leaderboard.nominations[id]){
 			room.broadcast(user, (useArg ? "They" : "You") + " do not have a nomination.");
 		}else{
-			room.broadcast(user, (useArg ? "Their" : "Your") + " nomination is \"" + data.leaderboard.nominations[id].question + "\"");
+			room.broadcast(user, (useArg ? "Their" : "Your") + " nomination is \"" + this.leaderboard.nominations[id].question + "\"");
 		}
 	},
 	removenomination: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1218,11 +806,11 @@ let commands = {
 		let useArg = hasRank && args[0];
 		let id = useArg ? toId(args[0]) : user.id;
 		
-		if(!data.leaderboard.nominations[id]){
+		if(!this.leaderboard.nominations[id]){
 			room.broadcast(user, (useArg ? "They" : "You") + " do not have a nomination.");
 		}else{
-			delete data.leaderboard.nominations[id];
-			saveLeaderboard();
+			delete this.leaderboard.nominations[id];
+			this.saveLeaderboard();
 			room.broadcast(user, "Successfully deleted " + (useArg ? "their" : "your") + " nomination.");
 		}
 	},
@@ -1236,8 +824,8 @@ let commands = {
 		}else if(!id || !bpMessage){
 			room.broadcast(user, "You must specify a user and a message.");
 		}else{
-			data.leaderboard.customBp[id] = bpMessage;
-			saveLeaderboard();
+			this.leaderboard.customBp[id] = bpMessage;
+			this.saveLeaderboard();
 			room.broadcast(user, "Successfully set their custom BP message.");
 		}
 	},
@@ -1249,11 +837,11 @@ let commands = {
 			room.broadcast(user, "Your rank is not high enough to remove custom BP messages.");
 		}else if(!id){
 			room.broadcast(user, "You must specify a user.");
-		}else if(!data.leaderboard.customBp[id]){
+		}else if(!this.leaderboard.customBp[id]){
 			room.broadcast(user, "They do not have a custom BP message.");
 		}else{
-			delete data.leaderboard.customBp[id];
-			saveLeaderboard();
+			delete this.leaderboard.customBp[id];
+			this.saveLeaderboard();
 			room.broadcast(user, "Successfully removed their custom BP message.");
 		}
 	},
@@ -1279,33 +867,30 @@ let commands = {
 	}
 };
 
-self.commands = commands;
-exports.commands = commands;
-
 let ttCommands = {
 	newgame: function(message, args, user, rank, room, commandRank, commandRoom){
 		let targetRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
 		if(!targetRoom || !targetRoom.id){
 			room.broadcast(user, "You either specified an invalid room, or I am not in that room.");
-		}else if(data.games[targetRoom.id]){
+		}else if(this.games[targetRoom.id]){
 			room.broadcast(user, "There is already a game in " + room.name + ".");
-		}else if(!AuthManager.rankgeq(commandRank, config.startGameRank)){
+		}else if(!AuthManager.rankgeq(commandRank, this.config.startGameRank.value)){
 			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
 		}else{
-			data.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, config, data.blacklistManager, data.leaderboard.customBp);
+			this.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, this.config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
 		}
 	},
 	endgame: function(message, args, user, rank, room, commandRank, commandRoom){
 		let targetRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
 		if(!targetRoom || !targetRoom.id){
 			room.broadcast(user, "You either specified an invalid room, or I am not in that room.");
-		}else if(!data.games[targetRoom.id]){
+		}else if(!this.games[targetRoom.id]){
 			room.broadcast(user, "There is no game of Trivia Tracker in " + targetRoom.name + " to end.");
-		}else if(!AuthManager.rankgeq(commandRank, config.endGameRank)){
+		}else if(!AuthManager.rankgeq(commandRank, this.config.endGameRank.value)){
 			room.broadcast(user, "Your rank is not high enough to end the game of Trivia Tracker.");
 		}else{
-			data.games[targetRoom.id].end();
-			delete data.games[targetRoom.id];
+			this.games[targetRoom.id].end();
+			delete this.games[targetRoom.id];
 		}
 	}
 };
@@ -1315,7 +900,7 @@ let ttleaderboardCommands = {
 		let lb = args[2] || "main";
 		let number = /^[\d]+$/.test(args[1]) ? parseInt(args[1], 10) : 5;
 		let rows = [];
-		listLeaderboardEntries([number, lb], (err, res)=>{
+		this.listLeaderboardEntries([number, lb], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error: " + err);
@@ -1337,7 +922,7 @@ let ttleaderboardCommands = {
 	listall: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, "#")) return;
 		let lb = toId(args[1]) || "main";
-		pgclient.runSql(LIST_ALL_LB_ENTRIES_SQL, [lb], (err, res)=>{
+		this.pgclient.runSql(LIST_ALL_LB_ENTRIES_SQL, [lb], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error: " + err);
@@ -1361,7 +946,7 @@ let ttleaderboardCommands = {
 	check: function(message, args, user, rank, room, commandRank, commandRoom){
 		let username = args[1] || user.name;
 		let boardId = toId(args[2]) || "main";
-		pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
+		this.pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error: " + err);
@@ -1372,7 +957,7 @@ let ttleaderboardCommands = {
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank, true);
 			}else{
 				let boardName = res.rows[0].display_name;
-				pgclient.getUser(username, false, (err, res2)=>{
+				this.pgclient.getUser(username, false, (err, res2)=>{
 					if(err){
 						error(err);
 						room.broadcast(user, "Error " + err);
@@ -1382,7 +967,7 @@ let ttleaderboardCommands = {
 					if(!res2){
 						room.broadcast(user, username + " does not have a score on the " + boardName + " leaderboard.", rank, true);
 					}else{
-						getLeaderboardEntry([res2.id, boardId], (err, entry)=>{
+						this.getLeaderboardEntry([res2.id, boardId], (err, entry)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, "Error " + err);
@@ -1404,7 +989,7 @@ let ttleaderboardCommands = {
 	summary: function(message, args, user, rank, room, commandRank, commandRoom){
 		let lbId = toId(args[1]) || "main";
 		let userId = (AuthManager.rankgeq(commandRank, "%") && toId(args[2])) || user.id;
-		pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
+		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error: " + err);
@@ -1416,7 +1001,7 @@ let ttleaderboardCommands = {
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank);
 			}else{
 				let lbName = lbEntry.display_name;
-				pgclient.getUser(userId, false, (err, res2)=>{
+				this.pgclient.getUser(userId, false, (err, res2)=>{
 					if(err){
 						error(err);
 						room.broadcast(user, "Error " + err);
@@ -1426,7 +1011,7 @@ let ttleaderboardCommands = {
 					if(!res2){
 						room.broadcast(user, "You do not have a score on the " + lbName + " leaderboard.", rank);
 					}else{
-						getLeaderboardEntry([res2.id, lbId], (err, entry)=>{
+						this.getLeaderboardEntry([res2.id, lbId], (err, entry)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, "Error " + err);
@@ -1437,7 +1022,7 @@ let ttleaderboardCommands = {
 								room.broadcast(user, "You do not have a score on the " + lbName + " leaderboard.", rank);
 							}else{
 								let score = entry.points;
-								pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [lbId], (err, res3)=>{
+								this.pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [lbId], (err, res3)=>{
 									if(err){
 										error(err);
 										room.broadcast(user, "Error " + err);
@@ -1471,7 +1056,7 @@ let ttleaderboardCommands = {
 	},
 	stats: function(message, args, user, rank, room, commandRank, commandRoom){
 		let lbId = toId(args[1]) || 'main';
-		pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
+		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error: " + err);
@@ -1484,7 +1069,7 @@ let ttleaderboardCommands = {
 			}else{
 				info(JSON.stringify(lbEntry));
 				let lbName = lbEntry.display_name;
-				pgclient.runSql(GET_STATS, [lbId], (err, res2)=>{
+				this.pgclient.runSql(GET_STATS, [lbId], (err, res2)=>{
 					if(err){
 						error(err);
 						room.broadcast(user, "Error: " + err);
@@ -1504,7 +1089,7 @@ let ttleaderboardCommands = {
 		});
 	},
 	set: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank,config.editScoreRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
 			room.broadcast(user, "Your rank is not high enough to change someone's score.", rank);
 		}else if(args.length<=2 || !toId(args[1])){
 			room.broadcast(user, "You must specify the user's name, and the number of points to add.", rank);
@@ -1514,7 +1099,7 @@ let ttleaderboardCommands = {
 			let username = args[1];
 			let points = parseInt(args[2], 10);
 			let boardId = toId(args[3]) || "main"
-			pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
+			this.pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -1525,7 +1110,7 @@ let ttleaderboardCommands = {
 				if(!boardName){
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
-					pgclient.updatePointsByPsId(toId(username), username , (oldPoints)=>{
+					this.pgclient.updatePointsByPsId(toId(username), username , (oldPoints)=>{
 						return points;
 					}, [boardId], (err, name, num, res)=>{
 						if(err){
@@ -1545,7 +1130,7 @@ let ttleaderboardCommands = {
 		}
 	},
 	add: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.editScoreRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
 			room.broadcast(user, "Your rank is not high enough to change someone's score.", rank);
 		}else if(args.length<=2 || !toId(args[1])){
 			room.broadcast(user, "You must specify the user's name, and the number of points to add.", rank);
@@ -1554,7 +1139,7 @@ let ttleaderboardCommands = {
 		}else{
 			let username = args[1];
 			let points = parseInt(args[2], 10);
-			pgclient.updatePointsByPsId(toId(username), username, (oldPoints)=>{
+			this.pgclient.updatePointsByPsId(toId(username), username, (oldPoints)=>{
 				return Math.max(oldPoints + points, 0);
 			}, 'enabled', (err, username, affected, failed)=>{
 				if(err){
@@ -1572,7 +1157,7 @@ let ttleaderboardCommands = {
 		}
 	},
 	addto: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.editScoreRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
 			room.broadcast(user, "Your rank is not high enough to change someone's score.", rank);
 		}else if(args.length<4 || !toId(args[1]) || !toId(args[3])){
 			room.broadcast(user, "You must specify the user's name, the number of points to add, and the leaderboard.", rank);
@@ -1582,7 +1167,7 @@ let ttleaderboardCommands = {
 			let username = args[1];
 			let points = parseInt(args[2], 10);
 			let boardId = toId(args[3])
-			pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
+			this.pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -1593,7 +1178,7 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
 					let boardName = res.rows[0].display_name;
-					updateLeaderboardEntryByUsername([username, boardId], (oldPoints)=>{
+					this.updateLeaderboardEntryByUsername([username, boardId], (oldPoints)=>{
 						return oldPoints + points;
 					}, (err, res2, newPoints)=>{
 						if(err){
@@ -1615,10 +1200,10 @@ let ttleaderboardCommands = {
 	remove: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!toId(args[1])){
 			room.broadcast(user, "You must specify a user.", rank);
-		}else if(!AuthManager.rankgeq(commandRank, config.editScoreRank)){
+		}else if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
 			room.broadcast(user, "Your rank is not high enough to remove someone's leaderboard entries.", rank);
 		}else{
-			pgclient.getUser(args[1], false, (err, player)=>{
+			this.pgclient.getUser(args[1], false, (err, player)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -1628,7 +1213,7 @@ let ttleaderboardCommands = {
 				if(!player){
 					room.broadcast(user, args[1] + " does not have any leaderboard entries.", rank);
 				}else{
-					removeAllLeaderboardEntries(player.id, (err, res)=>{
+					this.removeAllLeaderboardEntries(player.id, (err, res)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, "Error: " + err);
@@ -1642,13 +1227,13 @@ let ttleaderboardCommands = {
 		}
 	},
 	reset: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.resetLeaderboardRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.resetLeaderboardRank.value)){
 			room.broadcast(user, "Your rank is not high enough to reset the leaderboard.", rank);
 		}else{
-			if(idsMatch(user.id, data.askToReset)){
+			if(idsMatch(user.id, this.askToReset)){
 				try{
 					// TODO can this just be pg_dump > filename?
-					let child = spawn("pg_dump", [mainConfig.dbname]);
+					let child = spawn("pg_dump", [bot.config.dbname.value]);
 					let parts = [];
 					child.stdout.on("data", (data)=>{
 						parts.push(data);
@@ -1662,28 +1247,28 @@ let ttleaderboardCommands = {
 						let filename = "backups/" + new Date().toISOString() + ".dump";
 						fs.writeFile(filename, text, (err)=>{
 							// Now that the database has been written, it's okay to reset
-							getAllLeaderboardEntries("main", (err, rows)=>{
+							this.getAllLeaderboardEntries("main", (err, rows)=>{
 								if(err){
 									error(err);
 									room.broadcast(user, "Error: " + err);
 									return;
 								}
 
-								pgclient.getUser(user.id, true, (err, user)=>{
+								this.pgclient.getUser(user.id, true, (err, user)=>{
 									if(err){
 										error(err);
 										room.broadcast(user, "Error: " + err);
 										return;
 									}
 
-									pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], (err, res)=>{
+									this.pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], (err, res)=>{
 										if(err){
 											error(err);
 											room.broadcast(user, "Error: " + err);
 											return;
 										}
 
-										pgclient.runSql(RESET_MAIN_LB_SQL, [user.id], (err, res2)=>{
+										this.pgclient.runSql(RESET_MAIN_LB_SQL, [user.id], (err, res2)=>{
 											if(err){
 												error(err);
 												room.broadcast(user, "Error: " + err);
@@ -1691,8 +1276,8 @@ let ttleaderboardCommands = {
 											}
 
 											room.broadcast(user, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.", rank);
-											data.askToReset = "";
-											achievementsOnReset("main", rows);
+											this.askToReset = "";
+											this.achievementsOnReset("main", rows);
 										})
 									});
 								});
@@ -1704,7 +1289,7 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "There was an error creating the subprocess responsible for creating the database dump.", rank);
 				}
 			}else{
-				data.askToReset = user.id;
+				this.askToReset = user.id;
 				room.broadcast(user, "Are you sure you want to reset the leaderboard? (Enter the reset command again to confirm)", rank);
 			}
 		}
@@ -1713,7 +1298,7 @@ let ttleaderboardCommands = {
 
 let ttleaderboardEventCommands = {
 	list: function(message, args, user, rank, room, commandRank, commandRoom){
-		pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
+		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error: " + err);
@@ -1729,7 +1314,7 @@ let ttleaderboardEventCommands = {
 		});
 	},
 	add: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.manageEventRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.manageEventRank.value)){
 			room.broadcast(user, "Your rank is not high enough to create a leaderboard.", rank);
 		}else if(args.length<2 || !toId(args[1])){
 			room.broadcast(user, "You must specify the name for the leaderboard.", rank);
@@ -1737,26 +1322,24 @@ let ttleaderboardEventCommands = {
 			room.broadcast(user, "That name is too long.", rank);
 		}else{
 			let boardName = args[1];
-			pgclient.runSql(GET_LB_SQL, [toId(boardName)], (err, res)=>{
+			this.pgclient.runSql(GET_LB_SQL, [toId(boardName)], (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
 					return;
 				}
 
-				info("git here");
-
 				if(res.rowCount){
 					room.broadcast(user, "A leaderboard already exists with the same name.", rank);
 				}else{
-					pgclient.getUser(user.id, true, (error, res)=>{
+					this.pgclient.getUser(user.id, true, (error, res)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, "Error: " + err);
 							return;
 						}
 
-						pgclient.runSql(INSERT_LB_SQL, [toId(boardName), boardName, res.id], (err, res2)=>{
+						this.pgclient.runSql(INSERT_LB_SQL, [toId(boardName), boardName, res.id], (err, res2)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, "Error: " + err);
@@ -1771,7 +1354,7 @@ let ttleaderboardEventCommands = {
 		}
 	},
 	remove: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.manageEventRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.manageEventRank.value)){
 			room.broadcast(user, "Your rank is not high enough to remove a leaderboard.", rank);
 		}else if(args.length<2 || !toId(args[1])){
 			room.broadcast(user, "You must specify the name for the leaderboard.", rank);
@@ -1779,7 +1362,7 @@ let ttleaderboardEventCommands = {
 			room.broadcast(user, "You cannot remove that leaderboard.", rank);
 		}else{
 			let id = toId(args[1]);
-			pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+			this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -1789,14 +1372,14 @@ let ttleaderboardEventCommands = {
 				if(!res.rowCount){
 					room.broadcast(user, "There is no leaderboard with that name.", rank);
 				}else{
-					pgclient.runSql(DELETE_LB_ENTRIES_SQL, [id],(err, res2)=>{
+					this.pgclient.runSql(DELETE_LB_ENTRIES_SQL, [id],(err, res2)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, "Error: " + err);
 							return;
 						}
 
-						pgclient.runSql(DELETE_LB_SQL, [id], (err, res3)=>{
+						this.pgclient.runSql(DELETE_LB_SQL, [id], (err, res3)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, "Error: " + err);
@@ -1812,7 +1395,7 @@ let ttleaderboardEventCommands = {
 	},
 	info: function(message, args, user, rank, room, commandRank, commandRoom){
 		let id = args[1] || "main";
-		pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+		this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, "Error: " + err);
@@ -1830,13 +1413,13 @@ let ttleaderboardEventCommands = {
 		});
 	},
 	enable: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.manageEventRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.manageEventRank.value)){
 			room.broadcast(user, "Your rank is not high enough to enable a leaderboard.", rank);
 		}else if(args.length<2){
 			room.broadcast(user, "You must specify the name for the leaderboard.", rank);
 		}else{
 			let id = toId(args[1]);
-			pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+			this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -1849,7 +1432,7 @@ let ttleaderboardEventCommands = {
 				}else if(lbEntry.enabled){
 					room.broadcast(user, "That leaderboard is already enabled.", rank);
 				}else{
-					pgclient.runSql(UPDATE_LB_SQL, [id, true], (err, res2)=>{
+					this.pgclient.runSql(UPDATE_LB_SQL, [id, true], (err, res2)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, "Error: " + err);
@@ -1863,13 +1446,13 @@ let ttleaderboardEventCommands = {
 		}
 	},
 	disable: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, config.manageEventRank)){
+		if(!AuthManager.rankgeq(commandRank, this.config.manageEventRank.value)){
 			room.broadcast(user, "Your rank is not high enough to disable a leaderboard.", rank);
 		}else if(args.length<2){
 			room.broadcast(user, "You must specify the name for the leaderboard.", rank);
 		}else{
 			let id = toId(args[1]);
-			pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
+			this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, "Error: " + err);
@@ -1882,7 +1465,7 @@ let ttleaderboardEventCommands = {
 				}else if(!lbEntry.enabled){
 					room.broadcast(user, "That leaderboard is already disabled.", rank);
 				}else{
-					pgclient.runSql(UPDATE_LB_SQL, [id, false], (err, res2)=>{
+					this.pgclient.runSql(UPDATE_LB_SQL, [id, false], (err, res2)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, "Error: " + err);
@@ -1981,19 +1564,19 @@ class BlacklistManager{
 // TODO remove this middleman commands and make the chat commands directly reference the manager
 let blacklistCommands = {
 	add: function(username, id, duration, reason, user, room, triviaRoom){
-		let response = data.blacklistManager.addUser(username, duration, reason, user);
+		let response = this.blacklistManager.addUser(username, duration, reason, user);
 		if(response){
 			room.broadcast(user, response);
 		}else{
 			room.broadcast(user, "Added " + username + " to the TT blacklist.");
 		}
-		let game = data.games[triviaRoom.id];
-		for(let roomId in data.games){
-			data.games[roomId].onPunishment(data.games[roomId].room.getUserData(id), 'ttbl');
+		let game = this.games[triviaRoom.id];
+		for(let roomId in this.games){
+			this.games[roomId].onPunishment(this.games[roomId].room.getUserData(id), 'ttbl');
 		}
 	},
 	remove: function(username, id, duration, reason, user, room, triviaRoom){
-		let response = data.blacklistManager.removeUser(username, user);
+		let response = this.blacklistManager.removeUser(username, user);
 		if(response){
 			room.broadcast(user, response);
 		}else{
@@ -2001,7 +1584,7 @@ let blacklistCommands = {
 		}
 	},
 	check: function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = data.blacklistManager.getEntry(id);
+		let entry = this.blacklistManager.getEntry(id);
 		if(entry && !entry.duration){
 			room.broadcast(user, "The user " + entry.displayName + " is permantently on the blacklist. Reason: " + entry.reason + ".");
 		}else if(entry){
@@ -2011,13 +1594,13 @@ let blacklistCommands = {
 		}
 	},
 	unmute:function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = data.blacklistManager.getEntry(id);
+		let entry = this.blacklistManager.getEntry(id);
 		if(!entry){
 			room.broadcast(user, "The user " + username + " is not on the blacklist.");
 		}else if(!entry.duration || entry.duration > 60*60000){
 			room.broadcast(user, "That user is blacklisted for longer than a mute.");
 		}else{
-			data.blacklistManager.removeUser(username, user);
+			this.blacklistManager.removeUser(username, user);
 			room.broadcast(user, "Unmuted " + username + ".");
 		}
 	}
@@ -2033,6 +1616,7 @@ let sayScores = function(scores, lb, room){
 	room.send(message);
 }
 
+// TODO move this to a general helper function file
 let millisToTime = function(millis){
 	let seconds = millis/1000;
 	let hours = Math.floor(seconds/3600);
@@ -2045,167 +1629,6 @@ let millisToTime = function(millis){
 	}
 	return response;
 };
-
-// TODO is the leaderboard file still needed? blacklists are stored elsewhere
-let saveLeaderboard = function(){
-	let path = "data/leaderboard.json";
-	//let file = fs.openSync(path,'w');
-	fs.writeFile(path,JSON.stringify(data.leaderboard, null, "\t"), function(){
-		//fs.closeSync(file);
-	});
-};
-
-let loadLeaderboard = function(){
-	let path = "data/leaderboard.json";
-	if(fs.existsSync(path)){
-		let leaderboard = JSON.parse(fs.readFileSync(path, 'utf8'));
-		if(!leaderboard.blacklist){
-			leaderboard.blacklist = {};
-		}
-		if(!leaderboard.nominations){
-			leaderboard.nominations = {};
-		}
-		if(!leaderboard.customBp){
-			leaderboard.customBp = {};
-		}
-		data.leaderboard = leaderboard;
-		saveLeaderboard();
-	}else{
-		data.leaderboard = {blacklist:{},nominations:{},customBp:{}};
-		saveLeaderboard();
-	}
-};
-
-let saveFacts = function(){
-	try{
-		let filename = "data/facts.json";
-		let factsFile = fs.openSync(filename,"w");
-		fs.writeSync(factsFile,JSON.stringify(data.facts, null, "\t"));
-		fs.closeSync(factsFile);
-	}catch(e){
-		error(e.message);
-	}
-}
-
-let loadFacts = function(){
-	let result = "Could not load the facts.";
-	try{
-		let filename = "data/facts.json";
-		if(fs.existsSync(filename)){
-			data.facts = JSON.parse(fs.readFileSync(filename, "utf8"));
-			result = "Found and loaded the facts.";
-		}else{
-			data.facts = [];
-			let factsFile = fs.openSync(filename,"w");
-			fs.writeSync(factsFile,JSON.stringify(data.facts, null, "\t"));
-			fs.closeSync(factsFile);
-			result = "Could not find the facts file, made a new one.";
-		}
-	}catch(e){
-		error(e.message);
-	}
-};
-
-// TODO should be removed when ~minigame is repurposed
-let saveBatches = function(){
-	try{
-		let filename = "data/batches.json";
-		let batchFile = fs.openSync(filename,"w");
-		fs.writeSync(batchFile,JSON.stringify(data.batches, null, "\t"));
-		fs.closeSync(batchFile);
-	}catch(e){
-		error(e.message);
-	}
-}
-
-// TODO should be removed when ~minigame is repurposed
-let loadBatches = function(){
-	let result = "Could not load the query batches.";
-	try{
-		let filename = "data/batches.json";
-		if(fs.existsSync(filename)){
-			data.batches = JSON.parse(fs.readFileSync(filename, "utf8"));
-			result = "Found and loaded the facts.";
-		}else{
-			data.batches = [];
-			let batchFile = fs.openSync(filename,"w");
-			fs.writeSync(batchFile,JSON.stringify(data.batches, null, "\t"));
-			fs.closeSync(batchFile);
-			result = "Could not find the query batch file, made a new one.";
-		}
-	}catch(e){
-		error(e.message);
-	}
-};
-
-// Achievement crap
-// This is called when a leaderboard is reset.
-// leaderboard is the string id of the leaderboard being reset.
-// scores is an array of {display_name, points}, sorted descending by points.
-// There are achievements for getting first, getting top 5, and getting 6th
-let achievementsOnReset = function(leaderboard, scores){
-	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
-	let callback = (err, username, achievement)=>{
-		if(err){
-			error(err);
-			return;
-		}
-
-		if(triviaRoom) triviaRoom.send(username + " has earned the achievement '" + achievement + "'!");
-	}
-	if(scores.length > 0 && leaderboard === "main" && achievements){ // Awarding achievements
-		let firstPlace = scores.filter((e)=>{return e.points === scores[0].points});
-		for(let i=0;i<firstPlace.length;i++){
-			achievements.awardAchievement(firstPlace[i].display_name, "Hatmor", callback);
-		}
-		let num = firstPlace.length;
-		while(num<5 && num < scores.length){ // Using black magic to find all players in the top 5
-			num += scores.filter((e)=>{return e.points === scores[num].points}).length;
-		}
-		let top5 = scores.slice(firstPlace.length, num);
-		for(let i=0;i<top5.length;i++){
-			achievements.awardAchievement(top5[i].display_name, "Elite", callback);
-		}
-		let message = "Congratulations to " + prettyList(firstPlace.map((e)=>{return e.display_name})) + " for getting first";
-		if(top5.length){
-			message += ", and to " + prettyList(top5.map((e)=>{return e.display_name})) + " for being in the top five!";
-		}else{
-			message += "!"
-		}
-		if(!triviaRoom) return;
-		triviaRoom.send(message);
-		if(num === 5 && scores.length > 5){
-			let consolation = scores.filter((e)=>{return e.points === scores[5].points});
-			for(let i=0;i<consolation.length;i++){
-				achievements.awardAchievement(consolation[i].display_name, "Consolation Prize", callback);
-			} }
-	}
-}
-
-let achievementsOnScoreUpdate = function(user, leaderboard, oldScore, newScore){
-	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
-	let callback = (err, username, achievement)=>{
-		if(err){
-			error(err);
-			return;
-		}
-
-		if(triviaRoom) triviaRoom.send(username + " has earned the achievement '" + achievement + "'!");
-	}
-	if(leaderboard === "main" && achievements){
-		if(oldScore<250 && newScore >= 250){
-			achievements.awardAchievement(user, "Super", callback);
-		} if(oldScore<500 && newScore >= 500){
-			achievements.awardAchievement(user, "Mega", callback);
-		}
-		if(oldScore<750 && newScore >= 750){
-			achievements.awardAchievement(user, "Ultra", callback);
-		}
-		if(oldScore<1000 && newScore >= 1000){
-			achievements.awardAchievement(user, "Hyper", callback);
-		}
-	}
-}
 
 // TODO move this to a general helper function file
 let removeFormatting = function(text){
@@ -2220,44 +1643,457 @@ let removeFormatting = function(text){
 	return text;
 }
 
-let defaultConfigs = {
-	timerRank: "%",
-	factRank: "+",
-	batchRank: "#",
-	startGameRank: "+",
-	endGameRank: "%",
-	manageBpRank: "+",
-	manageBlRank: "@",
-	editScoreRank: "@",
-	resetLeaderboardRank: "#",
-	manageEventRank: "@",
-	voicechatRank: "@",
-	remindTime: 240,
-	openTime: 60,
-	leaveGraceTime: 20,
-	answerPoints: 1,
-	askPoints: 1
-};
+class TT extends BaseModule{
+	constructor(){
+		super();
+		this.room = TT.room;
+		this.config = {
+			timerRank: new ConfigRank('%'),
+			factRank: new ConfigRank('+'),
+			batchRank: new ConfigRank('#'),
+			startGameRank: new ConfigRank('+'),
+			endGameRank: new ConfigRank('%'),
+			manageBpRank: new ConfigRank('+'),
+			manageBlRank: new ConfigRank('@'),
+			editScoreRank: new ConfigRank('@'),
+			resetLeaderboardRank: new ConfigRank('#'),
+			manageEventRank: new ConfigRank('@'),
+			voicechatRank: new ConfigRank('@'),
+			remindTime: new ConfigInt(240),
+			openTime: new ConfigInt(60),
+			leaveGraceTime: new ConfigInt(20),
+			answerPoints: new ConfigInt(1),
+			askPoints: new ConfigInt(1)
+		};
+		this.commands = commands;
+		this.dependencies = ['pgclient', 'achievements'];
+		this.chathooks = {a: this.onChat};
+	}
 
-exports.defaultConfigs = defaultConfigs;
+	onLoad(){
+		this.games = {};
+		this.pendingAlts = {};
+		this.askToReset = '';
+		this.timers = {};
+		this.blacklistManager = new BlacklistManager();
+		this.blacklistManager.load()
+		this.loadFacts();
+		this.loadLeaderboard();
+	}
 
-let configTypes = {
-	timerRank: "rank",
-	factRank: "rank",
-	batchRank: "rank",
-	startGameRank: "rank",
-	endGameRank: "rank",
-	manageBpRank: "rank",
-	manageBlRank: "rank",
-	editScoreRank: "rank",
-	resetLeaderboardRank: "rank",
-	manageEventRank: "rank",
-	voicechatRank: "rank",
-	remindTime: "int",
-	openTime: "int",
-	leaveGraceTime: "int",
-	answerPoints: "int",
-	askPoints: "int"
-};
+	onUnload(){
+		for(let roomid in this.games){
+			this.games[roomid].end();
+		}
+	}
 
-exports.configTypes = configTypes;
+	recover(oldModule){
+		this.games = oldModule.games;
+		this.pendingAlts = oldModule.pendingAlts;
+		this.askToReset = oldModule.askToReset;
+		this.timers = oldModule.timers;
+		this.blacklistManager = oldModule.blacklistManager;
+		this.facts = oldModule.facts;
+		this.leaderboard = oldModule.leaderboard;
+	}
+	
+	onChat(room, user, message){
+		let game = this.games[room.id];
+		if(!game) return;
+		let triviaRank = AuthManager.getRank(user, RoomManager.getRoom('trivia'));
+
+		game.onRoomMessage(user, triviaRank, message);
+	}
+
+	// TODO this should be changed to use the game class commands
+	processHide(room, user){
+		let game = this.games[room.id];
+		if(game && user.id === game.curUser.id && !game.bpLocked){ // can't open BP if it's locked
+			// The user must've done something very bad so opening BP is probably a good idea
+			if(!game.bpOpen){
+				room.send("**BP is now open (say 'me' or 'bp' to claim it).**")
+			}
+			game.bpOpen = "auth";
+		}
+	}
+
+	processName(room, user){
+		let game = this.games[room.id];
+		if(game){
+			if(user.trueRank === '‽'){
+				game.onPunishment(user, 'lock');
+			}else if(user.trueRank === '!'){
+				game.onPunishment(user, 'mute');
+			}
+		}
+	}
+
+	processLeave(room, user){
+		let game = this.games[room.id];
+		if(game){
+			game.onLeave(user);
+		}
+	}
+
+	processJoin(room, user){
+		let game = this.games[room.id];
+		if(game) game.onJoin(user);
+	}
+
+	// TODO these should be moved to the achievements module
+	// Achievement crap
+	// This is called when a leaderboard is reset.
+	// leaderboard is the string id of the leaderboard being reset.
+	// scores is an array of {display_name, points}, sorted descending by points.
+	// There are achievements for getting first, getting top 5, and getting 6th
+	achievementsOnReset(leaderboard, scores){
+		let triviaRoom = RoomManager.getRoom(this.room);
+		let callback = (err, username, achievement)=>{
+			if(err){
+				error(err);
+				return;
+			}
+
+			if(triviaRoom) triviaRoom.send(`${username} has earned the achievement '${achievement}'!`);
+		}
+		if(scores.length > 0 && leaderboard === 'main' && this.achievements){ // Awarding achievements
+			let firstPlace = scores.filter((e)=>{return e.points === scores[0].points});
+			for(let i=0;i<firstPlace.length;i++){
+				this.achievements.awardAchievement(firstPlace[i].display_name, "Hatmor", callback);
+			}
+			let num = firstPlace.length;
+			while(num<5 && num < scores.length){ // Using black magic to find all players in the top 5
+				num += scores.filter((e)=>{return e.points === scores[num].points}).length;
+			}
+			let top5 = scores.slice(firstPlace.length, num);
+			for(let i=0;i<top5.length;i++){
+				this.achievements.awardAchievement(top5[i].display_name, "Elite", callback);
+			}
+			let message = `Congratulations to ${prettyList(firstPlace.map((e)=>{return e.display_name}))} for getting first`;
+			if(top5.length){
+				message += `, and to ${prettyList(top5.map((e)=>{return e.display_name}))} for being in the top five!`;
+			}else{
+				message += "!"
+			}
+			if(!triviaRoom) return;
+			triviaRoom.send(message);
+			if(num === 5 && scores.length > 5){
+				let consolation = scores.filter((e)=>{return e.points === scores[5].points});
+				for(let i=0;i<consolation.length;i++){
+					this.achievements.awardAchievement(consolation[i].display_name, "Consolation Prize", callback);
+				} }
+		}
+	}
+
+	achievementsOnScoreUpdate(user, leaderboard, oldScore, newScore){
+		let triviaRoom = RoomManager.getRoom(this.room);
+		let callback = (err, username, achievement)=>{
+			if(err){
+				error(err);
+				return;
+			}
+
+			if(triviaRoom) triviaRoom.send(username + " has earned the achievement '" + achievement + "'!");
+		}
+		if(leaderboard === "main" && this.achievements){
+			if(oldScore<250 && newScore >= 250){
+				this.achievements.awardAchievement(user, "Super", callback);
+			} if(oldScore<500 && newScore >= 500){
+				this.achievements.awardAchievement(user, "Mega", callback);
+			}
+			if(oldScore<750 && newScore >= 750){
+				this.achievements.awardAchievement(user, "Ultra", callback);
+			}
+			if(oldScore<1000 && newScore >= 1000){
+				this.achievements.awardAchievement(user, "Hyper", callback);
+			}
+		}
+	}
+
+	saveLeaderboard(){
+		let path = "data/leaderboard.json";
+		//let file = fs.openSync(path,'w');
+		fs.writeFile(path,JSON.stringify(this.leaderboard, null, "\t"), function(){
+			//fs.closeSync(file);
+		});
+	};
+
+	loadLeaderboard(){
+		let path = "data/leaderboard.json";
+		if(fs.existsSync(path)){
+			let leaderboard = JSON.parse(fs.readFileSync(path, 'utf8'));
+			if(!leaderboard.nominations){
+				leaderboard.nominations = {};
+			}
+			if(!leaderboard.customBp){
+				leaderboard.customBp = {};
+			}
+			this.leaderboard = leaderboard;
+		}else{
+			this.leaderboard = {blacklist:{},nominations:{},customBp:{}};
+		}
+	};
+
+	saveFacts(){
+		try{
+			let filename = "data/facts.json";
+			let factsFile = fs.openSync(filename,"w");
+			fs.writeSync(factsFile,JSON.stringify(this.facts, null, "\t"));
+			fs.closeSync(factsFile);
+			return true;
+		}catch(e){
+			error(e.message);
+		}
+		return false;
+	}
+
+	loadFacts(){
+		try{
+			let filename = "data/facts.json";
+			if(fs.existsSync(filename)){
+				this.facts = JSON.parse(fs.readFileSync(filename, "utf8"));
+			}else{
+				this.facts = [];
+			}
+			return true;
+		}catch(e){
+			error(e.message);
+		}
+		return false;
+	};
+
+	//args is [dbId, leaderboard]
+	getLeaderboardEntry(args, callback){
+		this.pgclient.runSql(GET_LB_ENTRY_SQL, [args[0], toId(args[1])], (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			callback(err, res.rows[0]);
+		});
+	};
+
+	//args is [number of entries to get, leaderboard]
+	listLeaderboardEntries(args, callback){
+		this.pgclient.runSql(LIST_LB_ENTRIES_SQL.replace("_NUMBER_",args[0]), [toId(args[1])], callback);
+	};
+
+	getAllLeaderboardEntries(leaderboard, callback){
+		this.pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [toId(leaderboard)], (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			callback(err, res.rows);
+		});
+	};
+
+	// TODO replace references to this with the pgclient version
+	//updateFunc takes the old score, and returns what the new score should be
+	//callback takes err, the old row, and new score, and does whatever
+	//args is [dbId, leaderboard, display name]
+	updateLeaderboardEntryById(args, updateFunc, callback){
+		this.getLeaderboardEntry(args, (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			let oldPoints = res ? res.points : 0;
+			let newPoints = updateFunc(oldPoints);
+			let newCallback = (err, res2)=>{
+				if(err){
+					callback(err);
+					return;
+				}
+
+				callback(err, res, newPoints);
+				this.achievementsOnScoreUpdate(args[2], args[1], oldPoints, newPoints, logIfError);
+			};
+
+			if(!res){
+				this.pgclient.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
+			}else{
+				this.pgclient.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
+			}
+		});
+	};
+
+	// TODO replaces references to this with the pgclient version
+	updateLeaderboardEntryByUsername(args, updateFunc, callback){
+		this.pgclient.getUser(args[0], true, (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			this.updateLeaderboardEntryById([res.id, args[1], res.display_name], updateFunc, callback);
+		});
+	};
+
+	removeAllLeaderboardEntries(dbId, callback, client){
+		this.pgclient.runSql(DELETE_USER_ENTRIES_SQL, [dbId], callback, client);
+	}
+
+	removeUserAch(dbId, callback, client){
+		this.pgclient.runSql(REMOVE_PLAYER_ACH_SQL, [dbId], callback, client)
+	}
+
+	// TODO this should be in the achievements module?
+	transferAllAchievements(fromDbId, toDbId, callback, client){
+		this.pgclient.runSql(GET_PLAYER_ACH_SQL, [fromDbId], (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			let entriesToTransfer = res.rows.length;
+			let fromEntries = {};
+			for(let i=0;i<res.rows.length;i++){
+				fromEntries[res.rows[i].achievement_id] = res.rows[i];
+			}
+			
+			if(entriesToTransfer === 0){
+				callback();
+			}
+
+			this.pgclient.runSql(GET_PLAYER_ACH_SQL, [toDbId], (err, res2)=>{
+				if(err){
+					callback(err);
+					return;
+				}
+
+				let toEntries = {};
+				for(let i=0;i<res2.rows.length;i++){
+					toEntries[res2.rows[i].achievement_id] = res2.rows[i];
+				}
+
+				let totalError = null;
+				let sharedCallback = (err, res3)=>{
+					totalError = err || totalError;
+					entriesToTransfer--;
+					// This line should call func to remove all ach entries for fromid
+					//if(entriesToTransfer === 0) callback(err);
+					if(entriesToTransfer === 0) this.removeUserAch(fromDbId, callback, client);
+				}
+
+				for(let event in fromEntries){
+					if(toEntries[event]){
+						// Conflicting achievements, compare and update the date
+						let d1 = fromEntries[event].date_achieved
+						let d2 = toEntries[event].date_achieved
+						let newDate = d1 < d2 ? d1 : d2;
+						this.pgclient.runSql(UPDATE_ACH_DATE_SQL, [newDate, toDbId, event], sharedCallback, client);
+					}else{
+						// No conflict, update the id
+						this.pgclient.runSql(UPDATE_ACH_ID_SQL, [toDbId, fromDbId, event], sharedCallback, client);
+					}
+				}
+			}, client);
+		}, client);
+	}
+
+	transferAllPoints(fromDbId, toDbId, callback, client){
+		this.pgclient.runSql(GET_LB_ENTRIES_SQL, [fromDbId], (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}
+
+			let entriesToTransfer = res.rows.length;
+			let fromEntries = {};
+			for(let i=0;i<res.rows.length;i++){
+				fromEntries[res.rows[i].leaderboard] = res.rows[i];
+			}
+			
+			if(entriesToTransfer === 0){
+				callback();
+			}
+
+			this.pgclient.runSql(GET_LB_ENTRIES_SQL, [toDbId], (err, res2)=>{
+				if(err){
+					callback(err);
+					return;
+				}
+
+				let toEntries = {};
+				for(let i=0;i<res2.rows.length;i++){
+					toEntries[res2.rows[i].leaderboard] = res2.rows[i];
+				}
+
+				let totalError = null;
+				let sharedCallback = (err, res3)=>{
+					totalError = err || totalError;
+					entriesToTransfer--;
+					if(entriesToTransfer === 0) callback(err);
+				}
+
+				this.removeAllLeaderboardEntries(fromDbId, logIfError, client);
+				for(let event in fromEntries){
+					if(toEntries[event]){
+						this.pgclient.runSql(UPDATE_LB_ENTRY_SQL, [toDbId, event, toEntries[event].points + fromEntries[event].points], sharedCallback, client);
+					}else{
+						this.pgclient.runSql(INSERT_LB_ENTRY_SQL, [toDbId, event, fromEntries[event].points], sharedCallback, client);
+					}
+				}
+			}, client);
+		}, client);
+	};
+
+	changeMains(id, newName, callback){
+		this.pgclient.runSql(UPDATE_USER_SQL, [id, newName, toId(newName)], callback);
+	}
+
+	// Merges two alts, and their points and achievements
+	mergeAlts(fromName, toName, callback, client){
+		this.pgclient.getMains(fromName, toName, true, (err, res)=>{
+			if(err){
+				callback(err);
+				return;
+			}else if(!res[0] || !res[1]){
+				callback("One or more of those accounts does not exist.");
+				return;
+			}else if(res[0].id === res[1].id){
+				callback("Those two accounts are the same.");
+				return;
+			}
+
+			this.transferAllPoints(res[0].id, res[1].id, (err)=>{
+				if(err){
+					callback(err);
+					return;
+				}
+
+				this.transferAllAchievements(res[0].id, res[1].id, (err)=>{
+					if(err){
+						client.end();
+						done();
+						callback(err);
+						return;
+					}
+
+					this.pgclient.runSql(UPDATE_MAINS_SQL, [res[0].id, res[1].id], (err, res2)=>{
+						if(err){
+							callback(err);
+							return;
+						}
+
+						this.pgclient.runSql(DELETE_USER_SQL, [res[0].id], (err, res3)=>{
+							if(err){
+								callback(err);
+								return;
+							}
+
+							callback();
+						}, client);
+					}, client);
+				}, client);
+			}, client);
+		}, client);
+	};
+}
+TT.room = 'trivia';
+
+exports.Module = TT;
