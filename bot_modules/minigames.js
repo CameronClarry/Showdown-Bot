@@ -169,12 +169,12 @@ class TriviaTrackerGame{
 		let curUser = this.room.getUserData(this.curHist.active.id);
 		if(!curUser){
 			this.bpOpen = 'auth';
-			if(shouldSendMessage) this.room.send("**BP is now unlocked. Since " + this.curHist.active.name + " is not in the room, BP is now open.**");
+			if(shouldSendMessage) this.room.send(`**BP is now unlocked. Since ${this.curHist.active.name} is not in the room, BP is now open.**`);
 		}else if(curUser.trueRank === '‽' || curUser.trueRank === '!'){
 			this.bpOpen = 'auth';
-			if(shouldSendMessage) this.room.send("**BP is now unlocked. Since " + this.curHist.active.name + " is muted or locked, BP is now open.**");
+			if(shouldSendMessage) this.room.send(`**BP is now unlocked. Since ${this.curHist.active.name} is muted or locked, BP is now open.**`);
 		}else if(shouldSendMessage){
-			this.room.send("**BP is now unlocked. It is " + this.curHist.active.name + "'s turn to ask a question.**");
+			this.room.send(`**BP is now unlocked. It is ${this.curHist.active.name}'s turn to ask a question.**`);
 			this.setRemindTimer(this.config.remindTime.value*1000);
 		}
 	}
@@ -190,8 +190,8 @@ class TriviaTrackerGame{
 
 		// Failure conditions that do not depend on whether user1 is auth
 		if(!user2) return "That player is not in the room.";
-		if(this.curHist.active.id === id2) return "It is already " + this.curHist.active.name + "'s turn to ask a question.";
-		if(user2.trueRank === '‽' || user2.trueRank === '!') return user2.name + " is muted or locked.";
+		if(this.curHist.active.id === id2) return `It is already ${this.curHist.active.name}'s turn to ask a question.`;
+		if(user2.trueRank === '‽' || user2.trueRank === '!') return `${user2.name} is muted or locked.`;
 
 		// At this point, if the user1 is auth they can ~yes
 		if(hasRank) return;
@@ -220,15 +220,15 @@ class TriviaTrackerGame{
 
 	sendGenericBpChange(user){
 		if(this.customBp[user.id]){
-			this.room.send("**" + this.customBp[user.id] + "**");
+			this.room.send(`**${this.customBp[user.id]}**`);
 		}else{
-			this.room.send("**It is now " + user.name + "'s turn to ask a question.**");
+			this.room.send(`**It is now ${user.name}'s turn to ask a question.**`);
 		}
 	}
 
 	sendYes(user1, user2, undoAsker, isBlacklisted){
 		if(isBlacklisted){
-			this.room.send("**" + user2.name + " is on the blacklist, so BP is now open.**");
+			this.room.send(`**${user2.name} is on the blacklist, so BP is now open.**`);
 		}else{
 			this.sendGenericBpChange(user2);
 		}
@@ -239,7 +239,7 @@ class TriviaTrackerGame{
 		
 		if(this.lastNo && Date.now() - this.lastNo < 5000) return "There is a cooldown between uses of ~no, try again in a few seconds.";
 
-		if(number > this.maxHistLength) return "The number you gave is larger than the max history length of " + this.maxHistLength + ".";
+		if(number > this.maxHistLength) return `The number you gave is larger than the max history length of ${this.maxHistLength}.`;
 	}
 
 	doNo(user, number){
@@ -257,7 +257,7 @@ class TriviaTrackerGame{
 			// Make a new history, with just the person who used ~no, and open bp
 			this.curHist = {active: user};
 			this.history.push(this.curHist);
-			this.room.send("**Undid " + i + " action(s). Since the end of the history was reached, BP is now open.**");
+			this.room.send(`**Undid ${i} action(s). Since the end of the history was reached, BP is now open.**`);
 			this.doOpenBp('auth', false);
 			return;
 		}
@@ -265,13 +265,13 @@ class TriviaTrackerGame{
 		let newActive = this.room.getUserData(this.curHist.active.id);
 		this.curHist.hasAsked = false;
 		if(!newActive){
-			this.room.send("**Undid " + i + " action(s). Since " + this.curHist.active.name + " is not in the room, BP is now open.**");
+			this.room.send(`**Undid ${i} action(s). Since ${this.curHist.active.name} is not in the room, BP is now open.**`);
 			this.doOpenBp('auth', false);
 		}else if(newActive.trueRank === '!' || newActive.trueRank === '‽'){
-			this.room.send("**Undid " + i + " action(s). Since " + newActive.name + " is muted or locked, BP is now open.**");
+			this.room.send(`**Undid ${i} action(s). Since ${newActive.name} is muted or locked, BP is now open.**`);
 			this.doOpenBp('auth', false);
 		}else{
-			this.room.send("**Undid " + i + " action(s). It is now " + newActive.name + "'s turn to ask a question.**");
+			this.room.send(`**Undid ${i} action(s). It is now ${newActive.name}'s turn to ask a question.**`);
 			this.setRemindTimer(this.config.remindTime.value*1000);
 		}
 	}
@@ -374,9 +374,9 @@ class TriviaTrackerGame{
 			let hasManageRank = AuthManager.rankgeq(rank, this.config.manageBpRank.value);
 			if(!this.bpOpen && !this.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
 				if(hasManageRank){
-					this.curHist.active.send("You have " + (this.config.openTime.value) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
+					this.curHist.active.send(`You have ${this.config.openTime.value} seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.`);
 				}else{
-					this.curHist.active.send("You have " + (this.config.openTime.value) + " seconds to ask a question.");
+					this.curHist.active.send(`You have ${this.config.openTime.value} seconds to ask a question.`);
 				}
 
 			}
@@ -464,7 +464,7 @@ class TriviaTrackerGame{
 			this.clearTimer('leave');
 		}else if(this.bpOpen === 'leave' && user.id === this.curHist.active.id){
 			this.doCloseBp();
-			this.room.send("**" + user.name + " has rejoined, so BP is no longer open.**");
+			this.room.send(`**${user.name} has rejoined, so BP is no longer open.**`);
 		}
 	}
 
@@ -516,7 +516,7 @@ class Blitz extends TriviaTrackerGame{
 	}
 
 	setRemindTimer(duration){
-		this.room.send("The timer has been set for " + this.remindTime + " seconds.");
+		this.room.send(`The timer has been set for ${this.remindTime} seconds.`);
 		this.setTimer('remind', this.remindTime*1000, ()=>{this.doReminder();});
 	}
 
@@ -624,8 +624,8 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 
 		// Failure conditions that do not depend on whether user1 is auth
 		if(!user2) return "That player is not in the room.";
-		if(this.host.id === id2) return this.host.name + " is the question asker.";
-		if(user2.trueRank === '‽' || user2.trueRank === '!') return user2.name + " is muted or locked.";
+		if(this.host.id === id2) return `${this.host.name} is the question asker.`;
+		if(user2.trueRank === '‽' || user2.trueRank === '!') return `${user2.name} is muted or locked.`;
 
 		// At this point, if the user1 is auth they can ~yes
 		if(hasRank) return;
@@ -645,7 +645,7 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	}
 
 	sendYes(user1, user2, undoAsker){
-		this.room.send(user2.name + " answered correctly. They now have " + this.scores[user2.id].score + " point(s).");
+		this.room.send(`${user2.name} answered correctly. They now have ${this.scores[user2.id].score} point(s).`);
 	}
 
 	cantNo(user, rank, number){
@@ -653,7 +653,7 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		
 		if(this.lastNo && Date.now() - this.lastNo < 5000) return "There is a cooldown between uses of ~no, try again in a few seconds.";
 
-		if(number > this.maxHistLength) return "The number you gave is larger than the max history length of " + this.maxHistLength + ".";
+		if(number > this.maxHistLength) return `The number you gave is larger than the max history length of ${this.maxHistLength}.`;
 	}
 
 	doNo(user, number){
@@ -672,7 +672,7 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 			return;
 		}
 		this.curHist = this.history[this.history.length-1];
-		this.room.send("Undid " + i + "action(s).");
+		this.room.send(`Undid ${i} action(s).`);
 	}
 
 	cantBp(user1, rank1, id2){
@@ -688,7 +688,7 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		let user2 = this.room.getUserData(id2);
 		let historyToAdd = {active: user1, answerer: user2};
 		this.changeBp(user1, user2, historyToAdd);
-		this.room.send(user2.name + " is now the question asker.**");
+		this.room.send(`${user2.name} is now the question asker.**`);
 	}
 
 	/// At this point it is assumed that the baton will be passed.

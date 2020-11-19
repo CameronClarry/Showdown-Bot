@@ -148,7 +148,7 @@ let endAuction = function(){
 		auction.endTimer = null;
 		let pArray = [];
 		for(let id in auction.players){
-			pArray.push(auction.players[id].displayName + ": $" + auction.players[id].money);
+			pArray.push(`${auction.players[id].displayName}: $${auction.players[id].money}`);
 		}
 		this.ouRoom.send(`The auction is over, ${winner} won ${prize}. Here is how much money each player has left: ${pArray.join(', ')}.`);
 	}

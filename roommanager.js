@@ -106,33 +106,33 @@ class Room{
 
 	getUserData(id){
 		return this.users[id];
-	}
+    }
+    
+    send(message){
+        send(`${this.id}|${message}`);
+    }
 
-	send(message){
-		send(this.id + "|" + message);
-	}
-
-	//if toUser is at least the broadcast rank for toRoom, send the message to the room. Otherwise, send the message to the user.
-	//will use the given rank if available, otherwise use the user's rank
-	//toUser must be a user object from this room for the command to work as expected
-	broadcast(toUser, text, rank, suppressPM){
-		if(AuthManager.rankgeq(rank || toUser.rank, this.broadcastRank) && this.id){
-			this.send(text);
-		}else if(!suppressPM || !this.id){
-			toUser.send(text);
-		}else{
-			toUser.send("Please only use that command through PMs.");
-		}
-	}
-	
-	cull(){
-		this.lastCull = Date.now();
-		for(let id in this.secondGarbage){
-			delete this.secondGarbage[id];
-		}
-		this.secondGarbage = this.firstGarbage;
-		this.firstGarbage = {};
-	}
+    //if toUser is at least the broadcast rank for toRoom, send the message to the room. Otherwise, send the message to the user.
+    //will use the given rank if available, otherwise use the user's rank
+    //toUser must be a user object from this room for the command to work as expected
+    broadcast(toUser, text, rank, suppressPM){
+        if(AuthManager.rankgeq(rank || toUser.rank, this.broadcastRank) && this.id){
+            this.send(text);
+        }else if(!suppressPM || !this.id){
+            toUser.send(text);
+        }else{
+            toUser.send("Please only use that command through PMs.");
+        }
+    }
+    
+    cull(){
+        this.lastCull = Date.now();
+        for(let id in this.secondGarbage){
+            delete this.secondGarbage[id];
+        }
+        this.secondGarbage = this.firstGarbage;
+        this.firstGarbage = {};
+    }
 }
 
 // name, id, rank, status, isAway
@@ -162,7 +162,13 @@ class User{
 		return this;
 	}
 
+<<<<<<< ours
 	send(message){
 		send("|/pm " + this.id + "," + message);
 	}
+=======
+    send(message){
+        send(`|/pm ${this.id},${message}`);
+    }
+>>>>>>> theirs
 }

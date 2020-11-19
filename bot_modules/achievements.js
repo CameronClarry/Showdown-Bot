@@ -81,7 +81,6 @@ let achievementCommands = {
 		}
 	},
 	list: function(message, args, user, rank, room, commandRank, commandRoom){
-		info('running list');
 		this.pgclient.runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (err, res)=>{
 			info('in callback');
 			if(err){

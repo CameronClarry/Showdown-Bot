@@ -6,6 +6,7 @@ let commands = {
 	art: 'news',
 	na: 'news',
 	news: function(message, args, user, rank, room, commandRank, commandRoom){
+<<<<<<< ours
 		if(!AuthManager.rankgeq(commandRank, '+') && args.length > 0){
 			room.broadcast(user, "You don't have the required rank in Scholastic to update the news.");
 			return;
@@ -14,6 +15,22 @@ let commands = {
 		if(args.length > 0){
 			if(!this.news){
 				this.news = [];
+=======
+		if(args.length>0){
+			if(!AuthManager.rankgeq(commandRank,"+")){
+				room.broadcast(user, "You don't have the required rank in Scholastic to update the news.", rank);
+			}else{
+				if(!data.news){
+					data.news = [];
+				}
+				data.news.unshift({
+					url: args.join(", "),
+					from: user.name,
+					when: new Date().toUTCString()
+				});
+				saveData();
+				room.broadcast(user, `Added this to the news list: ${url}`, rank);
+>>>>>>> theirs
 			}
 			let url = args.join(', ');
 			this.news.unshift({

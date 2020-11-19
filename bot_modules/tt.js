@@ -88,10 +88,13 @@ let commands = {
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
-		let roomId = !shouldUndo && hasRank && args[1] ? toRoomId(args[1]) : room.id;
+		//let roomId = !shouldUndo && hasRank && args[1] ? toRoomId(args[1]) : room.id;
+		let roomId = room.id;
 		let game = this.games[roomId];
-		if(!game){
-			room.broadcast(user, "There is no trivia game in " + roomId + ".");
+		if(!roomId){
+			user.send("Not for use in PMs.");
+		}else if(!game){
+			room.broadcast(user, `There is no trivia game in ${roomId}.`);
 		}else if(!toId(args[0])){
 			room.broadcast(user, "You must specify a player.");
 		}else{
@@ -108,11 +111,14 @@ let commands = {
 	nah: "no",
 	nope: "no",
 	no: function(message, args, user, rank, room, commandRank, commandRoom){
-		let roomId = AuthManager.rankgeq(commandRank, this.config.manageBpRank.value) && args[1] ? toRoomId(args[1]) : room.id;
+		//let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
+		let roomId = room.id;
 		let number = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0],10) : 1;
 		let game = this.games[roomId];
-		if(!game){
-			room.broadcast(user, "There is no trivia game in " + roomId + ".");
+		if(!roomId){
+			user.send("Not for use in PMs.");
+		}else if(!game){
+			room.broadcast(user, `There is no trivia game in ${roomId}.`);
 		}else{
 			let reason = game.cantNo(user, rank, number);
 			if(reason){
@@ -127,7 +133,7 @@ let commands = {
 		let roomId = toRoomId(args[1]) || "trivia";
 		let game = this.games[roomId];
 		if(!game){
-			room.broadcast(user, "There is no trivia game in " + roomId + ".");
+			room.broadcast(user, `There is no trivia game in ${roomId}.`);
 		}else{
 			let id = toId(args[0]);
 			if(!id || !AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)){
@@ -157,7 +163,7 @@ let commands = {
 		if(!roomId){
 			user.send("You must specify a room.");
 		}else if(!game){
-			room.broadcast(user, "There is no game in " + roomId + ".");
+			room.broadcast(user, `There is no game in ${roomId}.`);
 		}else{
 			let reason = game.cantLockBp(user, rank);
 			if(reason){
@@ -175,7 +181,7 @@ let commands = {
 		if(!roomId){
 			user.send("You must specify a room.");
 		}else if(!game){
-			room.broadcast(user, "There is no game in " + roomId + ".");
+			room.broadcast(user, `There is no game in ${roomId}.`);
 		}else{
 			let reason = game.cantUnlockBp(user, rank);
 			if(reason){
@@ -188,12 +194,12 @@ let commands = {
 	},
 	openbp: "bpopen",
 	bpopen: function(message, args, user, rank, room, commandRank, commandRoom){
-		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let roomId = room && room.id; // ? room.id : toRoomId(args[0]);
 		let game = this.games[roomId];
 		if(!roomId){
-			user.send("You must specify a room.");
+			user.send("Not for use in PMs.");
 		}else if(!game){
-			room.broadcast(user, "There is no game in " + roomId + ".");
+			room.broadcast(user, `There is no game in ${roomId}.`);
 		}else{
 			let type = AuthManager.rankgeq(rank, '+') ? 'auth' : 'user';
 			let reason = game.cantOpenBp(user, rank, type);
@@ -207,12 +213,12 @@ let commands = {
 	},
 	closebp: "bpclose",
 	bpclose: function(message, args, user, rank, room, commandRank, commandRoom){
-		let roomId = room && room.id ? room.id : toRoomId(args[0]);
+		let roomId = room && room.id; // ? room.id : toRoomId(args[0]);
 		let game = this.games[roomId];
 		if(!roomId){
-			user.send("You must specify a room.");
+			user.send("Not for use in PMs.");
 		}else if(!game){
-			room.broadcast(user, "There is not game in " + roomId + ".");
+			room.broadcast(user, `There is no game in ${roomId}.`);
 		}else{
 			let reason = game.cantCloseBp(user, rank);
 			if(reason){
@@ -238,7 +244,7 @@ let commands = {
 			if(!id){
 				room.broadcast(user, "You must specify a user.");
 			}else if(!blacklistCommands[command]){
-				room.broadcast(user, command + " is not a recognized command.");
+				room.broadcast(user, `${command} is not a recognized command.`);
 			}else{
 				blacklistCommands[command].call(this, args[1], id, duration, reason, user, room, commandRoom);
 			}
@@ -291,14 +297,14 @@ let commands = {
 		this.pgclient.getMains(user.id, target, false, (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
 			if(!AuthManager.rankgeq(commandRank, "%") && (!res[0] || !res[1] || (res[0].id !== res[1].id))){
 				room.broadcast(user, "Your rank is not high enough to check other users' alts.")
 			}else if(!res[1]){
-				room.broadcast(user, target + " does not have any alts.");
+				room.broadcast(user, `${target} does not have any alts.`);
 			}else{
 				this.pgclient.runSql(GET_ALTS_SQL, [res[1].id], (err, res2)=>{
 					if(err){
@@ -309,14 +315,15 @@ let commands = {
 					let alts = res2.rows.map((row)=>{return row.username});
 					if(alts.length === 0){
 						room.broadcast(user, target + " does not have any alts");
+						room.broadcast(user, `${target} does not have any alts`);
 					}else if(alts.length < 11){
-						room.broadcast(user, res[1].display_name + "'s alts: " + alts.join(", "));
+						room.broadcast(user, `${res[1].display_name}'s alts: ${alts.join(", ")}`);
 					}else{
 						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
 						uploadText(text, (address)=>{
-							user.send("There were more than 10 alts, so they were put into a text file: " + address);
+							user.send(`There were more than 10 alts, so they were put into a text file: ${address}`);
 						}, (error)=>{
-							user.send("There was an error while saving the file. Here are the first 6 alts of " + alts.length + ": " + alts.slice(0,6).join(", "));
+							user.send(`There was an error while saving the file. Here are the first 6 alts of ${alts.length}: ${alts.slice(0,6).join(", ")}`);
 						});
 					}
 				});
@@ -362,7 +369,7 @@ let commands = {
 				if(pendingAlts[userId].indexOf(altuser) === -1){
 					pendingAlts[userId].push(altuser);
 				}
-				room.broadcast(user, "Now say ``~alt " + user.name + "`` on that account to link them. Make sure all your linked accounts are registered or your points may be at risk.");
+				room.broadcast(user, `Now say \`\`~alt ${user.name}\`\` on that account to link them. Make sure all your linked accounts are registered or your points may be at risk.`);
 			}
 		}
 	},
@@ -374,7 +381,7 @@ let commands = {
 			this.pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
@@ -394,7 +401,7 @@ let commands = {
 					this.pgclient.runSql(DELETE_ALT_SQL, [toId(args[0])], (err, res)=>{
 						if(err){
 							error(err);
-							room.broadcast("Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 						}
 
 						if(res.rowCount === 0){
@@ -417,7 +424,7 @@ let commands = {
 			this.pgclient.getMains(user.id, args[0], idsMatch(args[0], user.id), (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 				}
 
 				if(!res[0] && !canEditOthers){
@@ -430,7 +437,7 @@ let commands = {
 					this.changeMains(res[1].id, removeFormatting(removeRank(args[0])), (err, res2)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 						}
 
 						if(!res[0] || res[0].id !== res[1].id){
@@ -453,7 +460,7 @@ let commands = {
 			this.pgclient.getUser(id, false, (err, dbUser)=>{
 				if(err){
 					error(err);
-					user.send("Error: " + err);
+					user.send(`Error: ${err}`);
 					return;
 				}
 
@@ -463,7 +470,7 @@ let commands = {
 					this.changeMains(dbUser.id, dbUser.username, (err, res)=>{
 						if(err){
 							error(err);
-							user.send("Error: " + err);
+							user.send(`Error: ${err}`);
 							return;
 						}
 						room.broadcast(user, "Successfully reset their main name.");
@@ -498,11 +505,11 @@ let commands = {
 				if(!roomId){
 					user.send("You must specify a room.");
 				}else if(!this.timers[timerName]){
-					user.send("There isn't a timer for " + roomId + ".");
+					user.send(`There isn't a timer for ${roomId}.`);
 				}else{
 					clearTimeout(this.timers[timerName].timer);
 					delete this.timers[timerName];
-					room.broadcast(user, "Successfully cleared the timer for " + roomId + ".");
+					room.broadcast(user, `Successfully cleared the timer for ${roomId}.`);
 				}
 			}
 		}else if(/^\d+$/.test(arg)){
@@ -523,7 +530,7 @@ let commands = {
 						if(room) room.send(endMessage);
 					}, duration*1000)
 				};
-				room.broadcast(user, "Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
+				room.broadcast(user, `Set the timer for ${Math.floor(duration/60)} minute(s) and ${duration%60} second(s).`);
 			}
 		}else{
 			user.send("The first argument must be either 'end' or an integer.");
@@ -554,7 +561,7 @@ let commands = {
 					targetRoom.send(endMessage);
 				}, duration*1000)
 			};
-			user.send("Set the timer for " + Math.floor(duration/60) + " minute(s) and " + (duration%60) + " second(s).");
+			user.send(`Set the timer for ${Math.floor(duration/60)} minute(s) and ${duration%60} second(s).`);
 		}else{
 			user.send("You must give a minimum and a maximum time.");
 		}
@@ -600,8 +607,8 @@ let commands = {
 	fact: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to check facts.");
-		}else if(this.facts.length){
-			room.broadcast(user, "__" + this.facts[Math.floor(Math.random()*this.facts.length)].text + "__");
+		}else if(data.facts.length){
+			room.broadcast(user, `__${this.facts[Math.floor(Math.random()*this.facts.length)].text}__`);
 		}else{
 			room.broadcast(user, "There are no facts :<");
 		}
@@ -613,9 +620,9 @@ let commands = {
 		}else if(this.facts.length){
 			let text = this.facts.map(f=>{return f.text}).join("\n\n");
 			uploadText(text, (link)=>{
-				user.send("Here is a list of all the facts: " + link);
+				user.send(`Here is a list of all the facts: ${link}`);
 			}, (err)=>{
-				user.send("There was an error: " + err);
+				user.send(`Error: ${err}`);
 			});
 		}else{
 			user.send("There are no facts :<");
@@ -669,7 +676,7 @@ let commands = {
 		}else if(!this.games[gameRoom.id]){
 			room.broadcast(user, "There is no game in that room currently.");
 		}else{
-			room.broadcast(user, "The current host is " + this.games[gameRoom.id].getHost().name + ".");
+			room.broadcast(user, `The current host is ${this.games[gameRoom.id].getHost().name}.`);
 		}
 	},
 	sethost: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -685,7 +692,7 @@ let commands = {
 			room.broadcast(user, "The user you specify must be in the room and not the current host.");
 		}else{
 			this.games[gameRoom.id].setHost(newHost);
-			room.broadcast(user, newHost.name + " is now the host.");
+			room.broadcast(user, `${newHost.name} is now the host.`);
 		}
 	},
 	showpoints: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -702,9 +709,9 @@ let commands = {
 		if(id){
 			let entry = scores[id];
 			if(entry){
-				room.broadcast(user, entry.user.name + "'s score is " + entry.score + ".", rank);
+				room.broadcast(user, `${entry.user.name}'s score is ${entry.score}.`, rank);
 			}else{
-				room.broadcast(user, entry.user.name + " does not have a score.", rank);
+				room.broadcast(user, `${entry.user.name} does not have a score.`, rank);
 			}
 		}else{
 			let scoresArray = [];
@@ -715,7 +722,7 @@ let commands = {
 			if(scoresArray.length == 0){
 				room.broadcast(user, "No one has any points.", rank);
 			}else{
-				room.broadcast(user, "The current top scores are: " + scoresArray.slice(0,10).map(e=>{return "__" + e.user.name + "__ (" + e.score + ")"}).join(", "), rank);
+				room.broadcast(user, `The current top scores are: ${scoresArray.slice(0,10).map(e=>{return `__${e.user.name}__ (${e.score})`}).join(", ")}`, rank);
 			}
 		}
 	},
@@ -754,7 +761,7 @@ let commands = {
 					this.saveLeaderboard();
 				}else{
 					entry.lastUse = Date.now();
-					user.send("Your current nomination is '" + entry.question + "'. Use ~nominate again to overwrite it.");
+					user.send(`Your current nomination is '${entry.question}'. Use ~nominate again to overwrite it.`);
 				}
 			}else{
 				this.leaderboard.nominations[user.id] = {
@@ -763,7 +770,7 @@ let commands = {
 					question: question,
 					timestamp: new Date().toUTCString()
 				};
-				user.send("You have nominated " + args[0] + ".");
+				user.send(`You have nominated ${args[0]}.`);
 				this.saveLeaderboard();
 			}
 		}
@@ -775,9 +782,9 @@ let commands = {
 		let text = JSON.stringify(this.leaderboard.nominations, null, '\t');
 
 		uploadText(text, (link)=>{
-			user.send("Here is a list of all the nominations: " + link);
+			user.send(`Here is a list of all the nominations: ${link}`);
 		}, (err)=>{
-			user.send("There was an error: " + err);
+			user.send(`There was an error: ${err}`);
 		});
 	},
 	clearnominations: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -796,9 +803,9 @@ let commands = {
 		let id = useArg ? toId(args[0]) : user.id;
 		
 		if(!this.leaderboard.nominations[id]){
-			room.broadcast(user, (useArg ? "They" : "You") + " do not have a nomination.");
+			room.broadcast(user, `${useArg ? "They" : "You"} do not have a nomination.`);
 		}else{
-			room.broadcast(user, (useArg ? "Their" : "Your") + " nomination is \"" + this.leaderboard.nominations[id].question + "\"");
+			room.broadcast(user, `${useArg ? "Their" : "Your"} nomination is "${this.leaderboard.nominations[id].question}"`);
 		}
 	},
 	removenomination: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -808,10 +815,11 @@ let commands = {
 		
 		if(!this.leaderboard.nominations[id]){
 			room.broadcast(user, (useArg ? "They" : "You") + " do not have a nomination.");
+			room.broadcast(user, `${useArg ? "They" : "You"} do not have a nomination.`);
 		}else{
 			delete this.leaderboard.nominations[id];
 			this.saveLeaderboard();
-			room.broadcast(user, "Successfully deleted " + (useArg ? "their" : "your") + " nomination.");
+			room.broadcast(user, `Successfully deleted ${useArg ? "their" : "your"} nomination.`);
 		}
 	},
 	custbpadd: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -873,8 +881,10 @@ let ttCommands = {
 		if(!targetRoom || !targetRoom.id){
 			room.broadcast(user, "You either specified an invalid room, or I am not in that room.");
 		}else if(this.games[targetRoom.id]){
-			room.broadcast(user, "There is already a game in " + room.name + ".");
+			room.broadcast(user, `There is already a game in ${room.name}.`);
 		}else if(!AuthManager.rankgeq(commandRank, this.config.startGameRank.value)){
+			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
+		}else{
 			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
 		}else{
 			this.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, this.config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
@@ -885,7 +895,7 @@ let ttCommands = {
 		if(!targetRoom || !targetRoom.id){
 			room.broadcast(user, "You either specified an invalid room, or I am not in that room.");
 		}else if(!this.games[targetRoom.id]){
-			room.broadcast(user, "There is no game of Trivia Tracker in " + targetRoom.name + " to end.");
+			room.broadcast(user, `There is no game of Trivia Tracker in ${targetRoom.name} to end.`);
 		}else if(!AuthManager.rankgeq(commandRank, this.config.endGameRank.value)){
 			room.broadcast(user, "Your rank is not high enough to end the game of Trivia Tracker.");
 		}else{
@@ -903,18 +913,18 @@ let ttleaderboardCommands = {
 		this.listLeaderboardEntries([number, lb], (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
 			let rows = res.rows;
 			if(!rows.length){
-				room.broadcast(user, "There are no players on the " + lb + " leaderboard.", rank, true);
+				room.broadcast(user, `There are no players on the ${lb} leaderboard.`, rank, true);
 			}else{
 				if(args[3] &&  AuthManager.rankgeq(commandRank, "%")){
 					sayScores(rows, lb, room);
 				}else{
-					room.broadcast(user, "The top " + rows.length + " score" + (rows.length === 1 ? "" : "s") + " in the " + lb + " leaderboard " + (rows.length === 1 ? "is" : "are") + ": " + rows.map((row)=>{return "__" + (row.display_name || row.id1) + "__: " + row.points}).join(", ") + ".", rank, true);
+					room.broadcast(user, `The top ${rows.length} score${rows.length === 1 ? "" : "s"} on the ${lb} leaderboard ${rows.length === 1 ? "is" : "are"}: ${rows.map((row)=>{return `__${row.display_name || row.id1}__: ${row.points}`}).join(", ")}.`, rank, true);
 				}
 			}
 		});
@@ -925,7 +935,7 @@ let ttleaderboardCommands = {
 		this.pgclient.runSql(LIST_ALL_LB_ENTRIES_SQL, [lb], (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
@@ -933,12 +943,12 @@ let ttleaderboardCommands = {
 			if(!rows.length){
 				user.send("There are no players on the " + lb + " leaderboard.");
 			}else{
-				let text = "Listed here all players with a score of at least 1 on the " + lb + " leaderboard.\n";
-				text = text + "\n" + rows.map((row)=>{return (row.display_name || row.id1) + ": " + row.points}).join("\n");
+				let text = `Listed here all players with a score of at least 1 on the ${lb} leaderboard.\n`;
+				text = text + `\n${rows.map((row)=>{return `${row.display_name || row.id1}: ${row.points}`}).join("\n")}`;
 				uploadText(text, (link)=>{
-					user.send("Here is the full leaderboard: " + link);
+					user.send(`Here is the full leaderboard: ${link}`);
 				}, (err)=>{
-					user.send("There was an error: " + err);
+					user.send(`Error: ${err}`);
 				});
 			}
 		});
@@ -949,7 +959,7 @@ let ttleaderboardCommands = {
 		this.pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
@@ -960,24 +970,24 @@ let ttleaderboardCommands = {
 				this.pgclient.getUser(username, false, (err, res2)=>{
 					if(err){
 						error(err);
-						room.broadcast(user, "Error " + err);
+						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
 					if(!res2){
-						room.broadcast(user, username + " does not have a score on the " + boardName + " leaderboard.", rank, true);
+						room.broadcast(user, `${username} does not have a score on the ${boardName} leaderboard.`, rank, true);
 					}else{
 						this.getLeaderboardEntry([res2.id, boardId], (err, entry)=>{
 							if(err){
 								error(err);
-								room.broadcast(user, "Error " + err);
+								room.broadcast(user, `Error: ${err}`);
 								return;
 							}
 
 							if(!entry){
-								room.broadcast(user, res2.display_name + " does not have a score on the " + boardName + " leaderboard.", rank, true);
+								room.broadcast(user, `${res2.display_name} does not have a score on the ${boardName} leaderboard.`, rank, true);
 							}else{
-								room.broadcast(user, entry.display_name + "'s score on the " + boardName + " leaderboard is " + entry.points + ".", rank, true);
+								room.broadcast(user, `${entry.display_name}'s score on the ${boardName} leaderboard is ${entry.points}.`, rank, true);
 							}
 						});
 					}
@@ -992,7 +1002,7 @@ let ttleaderboardCommands = {
 		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 			
@@ -1004,28 +1014,28 @@ let ttleaderboardCommands = {
 				this.pgclient.getUser(userId, false, (err, res2)=>{
 					if(err){
 						error(err);
-						room.broadcast(user, "Error " + err);
+						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
 					if(!res2){
-						room.broadcast(user, "You do not have a score on the " + lbName + " leaderboard.", rank);
+						room.broadcast(user, `You do not have a score on the ${lbName} leaderboard.`, rank);
 					}else{
 						this.getLeaderboardEntry([res2.id, lbId], (err, entry)=>{
 							if(err){
 								error(err);
-								room.broadcast(user, "Error " + err);
+								room.broadcast(user, `Error: ${err}`);
 								return;
 							}
 
 							if(!entry){
-								room.broadcast(user, "You do not have a score on the " + lbName + " leaderboard.", rank);
+								room.broadcast(user, `You do not have a score on the ${lbName} leaderboard.`, rank);
 							}else{
 								let score = entry.points;
 								this.pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [lbId], (err, res3)=>{
 									if(err){
 										error(err);
-										room.broadcast(user, "Error " + err);
+										room.broadcast(user, `Error: ${err}`);
 										return;
 									}
 
@@ -1033,17 +1043,17 @@ let ttleaderboardCommands = {
 									if(entries.length === 0){
 										room.broadcast(user, "There doesn't seem to be anyone on the leaderboard. Maybe something went wrong.", rank);
 									}else if(entries.length === 1){
-										room.broadcast(user, "You are the only person on the leaderboard (and your score is " + score + ").", rank);
+										room.broadcast(user, `You are the only person on the leaderboard (and your score is ${score}).`, rank);
 									}else if(entries[0].points === score){
 										let nextPlayer = idsMatch(entries[0].display_name, res2.display_name) ? entries[1] : entries[0];
-										let response = "You are first on the leaderboard with " + score + " points."
-										response += " Second place is __" + nextPlayer.display_name + "__ with " + entries[1].points + " points.";
+										let response = `You are first on the leaderboard with ${score} points.`
+										response += ` Second place is __${nextPlayer.display_name}__ with ${entries[1].points} points.`;
 										room.broadcast(user, response, rank);
 									}else{
 										let higherEntries = entries.filter(item=>{return item.points > score});
-										let response = "First place is __" + entries[0].display_name + "__ with " + entries[0].points + " points.";
-										response += " Your rank is " + (higherEntries.length+1) + " with " + score + " points.";
-										response += " The next player above you is __" + higherEntries[higherEntries.length - 1].display_name + "__ with " + higherEntries[higherEntries.length - 1].points + " points.";
+										let response = `First place is __${entries[0].display_name}__ with ${entries[0].points} points.`;
+										response += ` Your rank is ${higherEntries.length+1} with ${score} points.`;
+										response += ` The next player above you is __${higherEntries[higherEntries.length - 1].display_name}__ with ${higherEntries[higherEntries.length - 1].points} points.`;
 										room.broadcast(user, response, rank);
 									}
 								});
@@ -1059,7 +1069,7 @@ let ttleaderboardCommands = {
 		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
@@ -1072,7 +1082,7 @@ let ttleaderboardCommands = {
 				this.pgclient.runSql(GET_STATS, [lbId], (err, res2)=>{
 					if(err){
 						error(err);
-						room.broadcast(user, "Error: " + err);
+						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
@@ -1082,7 +1092,7 @@ let ttleaderboardCommands = {
 						let num = res2.rows[0].num_players;
 						let std = Math.round(res2.rows[0].std_points*100)/100;
 						let avg = Math.round(res2.rows[0].avg_points*10)/10;
-						room.broadcast(user, "There are " + num + " players on the " + lbName + " leaderboard. The average score is " + avg + " and the standard deviation is " + std + ".", rank);
+						room.broadcast(user, `There are ${num} players on the ${lbName} leaderboard. The average score is ${avg} and the standard deviation is ${std}.`, rank);
 					}
 				});
 			}
@@ -1102,7 +1112,7 @@ let ttleaderboardCommands = {
 			this.pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
@@ -1115,14 +1125,14 @@ let ttleaderboardCommands = {
 					}, [boardId], (err, name, num, res)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 
 						if(!res.rows[0].points === null){
-							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + username + " and set their score to " + newPoints + ".", rank);
+							room.broadcast(user, `Created a new ${boardName} leaderboard entry for ${username} and set their score to ${newPoints}.`, rank);
 						}else{
-							room.broadcast(user, "Updated the score for " + name + ". Their " + boardName + " leaderboard score changed from " + res.rows[0].points + " to " + points + ".", rank);
+							room.broadcast(user, `Updated the score for ${name}. Their ${boardName} leaderboard score changed from ${res.rows[0].points} to ${points}.`, rank);
 						}
 					});
 				}
@@ -1144,13 +1154,13 @@ let ttleaderboardCommands = {
 			}, 'enabled', (err, username, affected, failed)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
-				let response = "Updated " + affected + " scores for " + username + ".";
+				let response = `Updated ${affected} scores for ${username}.`;
 				if(failed.length){
-					response += " The following leaderboards failed to update: " + failed.join(", ") + ".";
+					response += ` The following leaderboards failed to update: ${failed.join(", ")}.`;
 				}
 				room.broadcast(user, response, rank);
 			});
@@ -1170,7 +1180,7 @@ let ttleaderboardCommands = {
 			this.pgclient.runSql(GET_LB_SQL, [boardId], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 				
@@ -1184,14 +1194,14 @@ let ttleaderboardCommands = {
 					}, (err, res2, newPoints)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 						
 						if(!res2){
-							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + username + " and set their score to " + newPoints + ".", rank);
+							room.broadcast(user, `Created a new ${boardName} leaderboard entry for ${username} and set their score to ${newPoints}.`, rank);
 						}else{
-							room.broadcast(user, "Updated the score for " + res2.display_name + ". Their " + boardName + " leaderboard score changed from " + res2.points + " to " + newPoints + ".", rank);
+							room.broadcast(user, `Updated the score for ${res2.display_name}. Their ${boardName} leaderboard score changed from ${res2.points} to ${newPoints}.`, rank);
 						}
 					});
 				}
@@ -1207,21 +1217,21 @@ let ttleaderboardCommands = {
 			this.pgclient.getUser(args[1], false, (err, player)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
 				if(!player){
-					room.broadcast(user, args[1] + " does not have any leaderboard entries.", rank);
+					room.broadcast(user, `${args[1]} does not have any leaderboard entries.`, rank);
 				}else{
 					this.removeAllLeaderboardEntries(player.id, (err, res)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 
-						room.broadcast(user, "Removed " + res.rowCount + " leaderboard entries for " + player.display_name + ".", rank);
+						room.broadcast(user, `Removed ${res.rowCount} leaderboard entries for ${player.display_name}.`, rank);
 					});
 				}
 			});
@@ -1245,38 +1255,38 @@ let ttleaderboardCommands = {
 					});
 					child.on("exit", (code, signal)=>{
 						let text = parts.join("");
-						let filename = "backups/" + new Date().toISOString() + ".dump";
+						let filename = `backups/${new Date().toISOString()}.dump`;
 						fs.writeFile(filename, text, (err)=>{
 							// Now that the database has been written, it's okay to reset
 							this.getAllLeaderboardEntries("main", (err, rows)=>{
 								if(err){
 									error(err);
-									room.broadcast(user, "Error: " + err);
+									room.broadcast(user, `Error: ${err}`);
 									return;
 								}
 
 								this.pgclient.getUser(user.id, true, (err, user)=>{
 									if(err){
 										error(err);
-										room.broadcast(user, "Error: " + err);
+										room.broadcast(user, `Error: ${err}`);
 										return;
 									}
 
 									this.pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], (err, res)=>{
 										if(err){
 											error(err);
-											room.broadcast(user, "Error: " + err);
+											room.broadcast(user, `Error: ${err}`);
 											return;
 										}
 
 										this.pgclient.runSql(RESET_MAIN_LB_SQL, [user.id], (err, res2)=>{
 											if(err){
 												error(err);
-												room.broadcast(user, "Error: " + err);
+												room.broadcast(user, `Error: ${err}`);
 												return;
 											}
 
-											room.broadcast(user, "Successfully deleted " + res.rowCount + " score(s) from the main leaderboard.", rank);
+											room.broadcast(user, `Successfully deleted ${res.rowCount} score(s) from the main leaderboard.`, rank);
 											this.askToReset = "";
 											this.achievementsOnReset("main", rows);
 										})
@@ -1302,7 +1312,7 @@ let ttleaderboardEventCommands = {
 		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 
@@ -1310,7 +1320,7 @@ let ttleaderboardEventCommands = {
 				room.broadcast(user, "There are no leaderboards right now.", rank);
 			}else{
 				let leaderboards = res.rows.map((row)=>{return row.display_name;});
-				room.broadcast(user, "These are the current leaderboards: " + leaderboards.join(", "), rank);
+				room.broadcast(user, `These are the current leaderboards: ${leaderboards.join(", ")}`, rank);
 			}
 		});
 	},
@@ -1326,7 +1336,7 @@ let ttleaderboardEventCommands = {
 			this.pgclient.runSql(GET_LB_SQL, [toId(boardName)], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
@@ -1336,14 +1346,14 @@ let ttleaderboardEventCommands = {
 					this.pgclient.getUser(user.id, true, (error, res)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 
 						this.pgclient.runSql(INSERT_LB_SQL, [toId(boardName), boardName, res.id], (err, res2)=>{
 							if(err){
 								error(err);
-								room.broadcast(user, "Error: " + err);
+								room.broadcast(user, `Error: ${err}`);
 								return;
 							}
 
@@ -1366,7 +1376,7 @@ let ttleaderboardEventCommands = {
 			this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
@@ -1376,18 +1386,18 @@ let ttleaderboardEventCommands = {
 					this.pgclient.runSql(DELETE_LB_ENTRIES_SQL, [id],(err, res2)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 
 						this.pgclient.runSql(DELETE_LB_SQL, [id], (err, res3)=>{
 							if(err){
 								error(err);
-								room.broadcast(user, "Error: " + err);
+								room.broadcast(user, `Error: ${err}`);
 								return;
 							}
 
-							room.broadcast(user, "Successfully removed the leaderboard and deleted " + res2.rowCount + " score(s).", rank);
+							room.broadcast(user, `Successfully removed the leaderboard and deleted ${res2.rowCount} score(s).`, rank);
 						});
 					});
 				}
@@ -1399,7 +1409,7 @@ let ttleaderboardEventCommands = {
 		this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 			if(err){
 				error(err);
-				room.broadcast(user, "Error: " + err);
+				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 			
@@ -1407,9 +1417,9 @@ let ttleaderboardEventCommands = {
 			if(!res.rowCount){
 				room.broadcast(user, "The leaderboard you specified doesn't exist.", rank);
 			}else if(id !== "main"){
-				room.broadcast(user, "Leaderboard name: " + lbEntry.display_name + ", created on: " + lbEntry.created_on.toUTCString() + ", created by: " + lbEntry.created_by + ", enabled: " + lbEntry.enabled, rank);
+				room.broadcast(user, `Leaderboard name: ${lbEntry.display_name}, created on: ${lbEntry.created_on.toUTCString()}, created by: ${lbEntry.created_by}, enabled: ${lbEntry.enabled}`, rank);
 			}else{
-				room.broadcast(user, "Leaderboard name: " + lbEntry.display_name + ", last reset: " + lbEntry.created_on.toUTCString() + ", reset by: " + lbEntry.created_by + ", enabled: " + lbEntry.enabled, rank);
+				room.broadcast(user, `Leaderboard name: ${lbEntry.display_name}, last reset: ${lbEntry.created_on.toUTCString()}, reset by: ${lbEntry.created_by}, enabled: ${lbEntry.enabled}`, rank);
 			}
 		});
 	},
@@ -1423,7 +1433,7 @@ let ttleaderboardEventCommands = {
 			this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 			
@@ -1436,11 +1446,11 @@ let ttleaderboardEventCommands = {
 					this.pgclient.runSql(UPDATE_LB_SQL, [id, true], (err, res2)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 					
-						room.broadcast(user, "Successfully enabled the " + lbEntry.display_name + " leaderboard.", rank);
+						room.broadcast(user, `Successfully enabled the ${lbEntry.display_name} leaderboard.`, rank);
 					});
 				}
 			});
@@ -1456,7 +1466,7 @@ let ttleaderboardEventCommands = {
 			this.pgclient.runSql(GET_LB_SQL, [id], (err, res)=>{
 				if(err){
 					error(err);
-					room.broadcast(user, "Error: " + err);
+					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 			
@@ -1469,11 +1479,11 @@ let ttleaderboardEventCommands = {
 					this.pgclient.runSql(UPDATE_LB_SQL, [id, false], (err, res2)=>{
 						if(err){
 							error(err);
-							room.broadcast(user, "Error: " + err);
+							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 				
-						room.broadcast(user, "Successfully disabled the " + lbEntry.display_name + " leaderboard.", rank);
+						room.broadcast(user, `Successfully disabled the ${lbEntry.display_name} leaderboard.`, rank);
 					});
 				}
 			});
@@ -1521,8 +1531,8 @@ class BlacklistManager{
 
 		let triviaRoom = RoomManager.getRoom('trivia');
 		if(triviaRoom){
-			let durationText = duration ? "for " + millisToTime(duration*60000) : "permanently";
-			triviaRoom.send("/modnote " + username + " (" + id + ") was added to the Trivia Tracker blacklist " + durationText + " by " + giver.name + ". (" + reason + ")");
+			let durationText = duration ? `for ${millisToTime(duration*60000)}` : "permanently";
+			triviaRoom.send(`/modnote ${username} (${id}) was added to the Trivia Tracker blacklist ${durationText} by ${giver.name}. (${reason})`);
 		}
 	}
 
@@ -1530,14 +1540,14 @@ class BlacklistManager{
 		let id = toId(username);
 		let entry = this.getEntry(id);
 
-		if(!entry) return "The user " + username + " is not on the TT blacklist.";
+		if(!entry) return `The user ${username} is not on the TT blacklist.`;
 
 		delete this.blacklist[id];
 		this.save()
 		
 		let triviaRoom = RoomManager.getRoom('trivia');
 		if(triviaRoom){
-			triviaRoom.send("/modnote " + username + " was removed from the Trivia Tracker blacklist by " + giver.name);
+			triviaRoom.send(`/modnote ${username} was removed from the Trivia Tracker blacklist by ${giver.name}`);
 		}
 	}
 
@@ -1569,7 +1579,7 @@ let blacklistCommands = {
 		if(response){
 			room.broadcast(user, response);
 		}else{
-			room.broadcast(user, "Added " + username + " to the TT blacklist.");
+			room.broadcast(user, `Added ${username} to the TT blacklist.`);
 		}
 		let game = this.games[triviaRoom.id];
 		for(let roomId in this.games){
@@ -1581,36 +1591,36 @@ let blacklistCommands = {
 		if(response){
 			room.broadcast(user, response);
 		}else{
-			room.broadcast(user, "Removed " + username + " from the TT blacklist.");
+			room.broadcast(user, `Removed ${username} from the TT blacklist.`);
 		}
 	},
 	check: function(username, id, duration, reason, user, room, triviaRoom){
 		let entry = this.blacklistManager.getEntry(id);
 		if(entry && !entry.duration){
-			room.broadcast(user, "The user " + entry.displayName + " is permantently on the blacklist. Reason: " + entry.reason + ".");
+			room.broadcast(user, `The user ${entry.displayName} is permantently on the blacklist. Reason: ${entry.reason}.`);
 		}else if(entry){
-			room.broadcast(user, "The user " + entry.displayName + " is on the blacklist for " + millisToTime(entry.duration - Date.now() + entry.time) + ". Reason: " + entry.reason + ".");
+			room.broadcast(user, `The user ${entry.displayName} is on the blacklist for ${millisToTime(entry.duration - Date.now() + entry.time)}. Reason: ${entry.reason}.`);
 		}else{
-			room.broadcast(user, "The user " + username + " is not on the blacklist.");
+			room.broadcast(user, `The user ${username} is not on the blacklist.`);
 		}
 	},
 	unmute:function(username, id, duration, reason, user, room, triviaRoom){
 		let entry = this.blacklistManager.getEntry(id);
 		if(!entry){
-			room.broadcast(user, "The user " + username + " is not on the blacklist.");
+			room.broadcast(user, `The user ${username} is not on the blacklist.`);
 		}else if(!entry.duration || entry.duration > 60*60000){
 			room.broadcast(user, "That user is blacklisted for longer than a mute.");
 		}else{
 			this.blacklistManager.removeUser(username, user);
-			room.broadcast(user, "Unmuted " + username + ".");
+			room.broadcast(user, `Unmuted ${username}.`);
 		}
 	}
 };
 
 let sayScores = function(scores, lb, room){
-	let message = "/addhtmlbox <table style=\"background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black\" border=1><tr style=\"background-color: #209331\"><th colspan=\"2\">" + lb + "</th></tr><tr style=\"background-color: #209331\"><th style=\"width: 150px\">User</th><th>Score</th></tr>";
+	let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black" border=1><tr style="background-color: #209331"><th colspan="2">${lb}</th></tr><tr style="background-color: #209331"><th style="width: 150px">User</th><th>Score</th></tr>`;
 	for(let i=0;i<scores.length;i++){
-		message = message + "<tr><td>" + (scores[i].display_name || scores[i].id1) + "</td><td>" + scores[i].points + "</td></tr>";
+		message = message + `<tr><td>${scores[i].display_name || scores[i].id1}</td><td>${scores[i].points}</td></tr>`;
 	}
 	message = message + "</table>"
 
@@ -1624,9 +1634,9 @@ let millisToTime = function(millis){
 	let minutes = Math.floor((seconds-hours*3600)/60);
 	let response;
 	if(hours>0){
-		response = hours + " hour" + (hours === 1 ? "" : "s") + " and " + minutes + " minute" + (minutes === 1 ? "" : "s");
+		response = `${hours} hour${hours === 1 ? "" : "s"} and ${minutes} minute${minutes === 1 ? "" : "s"}`;
 	}else{
-		response = minutes + " minute" + (minutes === 1 ? "" : "s");
+		response = `minutes} minute${minutes === 1 ? "" : "s"}`;
 	}
 	return response;
 };
