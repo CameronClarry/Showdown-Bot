@@ -61,12 +61,7 @@ class PGClient extends BaseModule{
 		}
 
 		try{
-			let pool = new Pool(conInfo);
 			this.pool = new Pool(conInfo);
-			pool.query('SELECT NOW()', (err, res) => {
-				console.log(err, res)
-				pool.end()
-			});
 			//this.pool.connect((err)=>{
 				//if(err){
 					//callback(err);
@@ -216,9 +211,9 @@ class PGClient extends BaseModule{
 				let curPoints = res.rows[i].points || 0;
 				let leaderboardId = res.rows[i].id;
 				if(res.rows[i].points !== null){
-					runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
+					this.runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
 				}else{
-					runSql(INSERT_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
+					this.runSql(INSERT_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
 				}
 				this.achievements.achievementsOnScoreUpdate(name, leaderboardId, curPoints, updateFunc(curPoints, leaderboardId));
 			}
