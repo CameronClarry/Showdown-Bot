@@ -596,7 +596,7 @@ function handle(message){
 						let module = modules[modulename];
 						for(let hookname in module.chathooks){
 							try{
-								module.chathooks[hookname](room, user, message);
+								module.chathooks[hookname].call(module, room, user, message);
 							}catch(e){
 								error(e.message);
 								info("Exception while trying chat hook from " + modulename + "(hook: " + hookname + ")");
@@ -612,7 +612,7 @@ function handle(message){
 					if(module.messagehooks){
 						for(let hookname in module.messagehooks){
 							try{
-								module.messagehooks[hookname](room, args);
+								module.messagehooks[hookname].call(module, room, args);
 							}catch(e){
 								error(e.message);
 								info(`Exception while trying message hook from ${modulename} (hook: ${hookname})`);
