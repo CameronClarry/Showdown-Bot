@@ -570,7 +570,7 @@ let commands = {
 			if(this.facts.filter(f=>{return f.id == factId}).length){
 				room.broadcast(user, "That fact already exists.");
 			}else{
-				this.facts.add({text: fact, id: factId});
+				this.facts.push({text: fact, id: factId});
 				this.saveFacts();
 				room.broadcast(user, "Successfully added the fact.");
 			}
@@ -1122,7 +1122,7 @@ let ttleaderboardCommands = {
 						if(!res.rows[0].points === null){
 							room.broadcast(user, "Created a new " + boardName + " leaderboard entry for " + username + " and set their score to " + newPoints + ".", rank);
 						}else{
-							room.broadcast(user, "Updated the score for " + entry.rows[0].display_name + ". Their " + boardName + " leaderboard score changed from " + entry.rows[0].points + " to " + points + ".", rank);
+							room.broadcast(user, "Updated the score for " + name + ". Their " + boardName + " leaderboard score changed from " + res.rows[0].points + " to " + points + ".", rank);
 						}
 					});
 				}
@@ -1178,6 +1178,7 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
 					let boardName = res.rows[0].display_name;
+					// TODO this should use pgclient.updatePointsByPsId
 					this.updateLeaderboardEntryByUsername([username, boardId], (oldPoints)=>{
 						return oldPoints + points;
 					}, (err, res2, newPoints)=>{
@@ -1220,7 +1221,7 @@ let ttleaderboardCommands = {
 							return;
 						}
 
-						room.broadcast(user, "Removed " + res.rowCount + " leaderboard entries for " +	args[1] + ".", rank);
+						room.broadcast(user, "Removed " + res.rowCount + " leaderboard entries for " + player.display_name + ".", rank);
 					});
 				}
 			});
