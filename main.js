@@ -549,7 +549,22 @@ function handle(message){
 					user = room.userJoin(args[2].slice(1), toId(args[2]), "", args[2][0]);
 				}
 
-				if(message[0]==="~"){
+				if(!id){
+					// This is when some special messages are shown, eg the response to /trivia
+					for(let modulename in modules){
+						let module = modules[modulename];
+						if(module.messagehooks){
+							for(let hookname in module.messagehooks){
+								try{
+									module.messagehooks[hookname].call(module, room, args);
+								}catch(e){
+									error(e.message);
+									info(`Exception while trying message hook from ${modulename} (hook: ${hookname})`);
+								}
+							}
+						}
+					}
+				} else if(message[0]==="~"){
 					let command = message.split(" ")[0].slice(1).toLowerCase();
 					let argText = message.substring(command.length+2, message.length);
 					let chatArgs = argText === "" ? [] : argText.split(",");
