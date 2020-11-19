@@ -374,7 +374,7 @@ class TriviaTrackerGame{
 			let hasManageRank = AuthManager.rankgeq(rank, this.config.manageBpRank.value);
 			if(!this.bpOpen && !this.bpLocked){ // don't remind people to ask questions if BP is locked, since they can't ask.
 				if(hasManageRank){
-					this.curHist.active.send("You have " + (this.config.openTime.valu) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
+					this.curHist.active.send("You have " + (this.config.openTime.value) + " seconds to ask a question. If you are holding on to BP for auth purposes, use ~bplock to prevent it from opening.");
 				}else{
 					this.curHist.active.send("You have " + (this.config.openTime.value) + " seconds to ask a question.");
 				}
