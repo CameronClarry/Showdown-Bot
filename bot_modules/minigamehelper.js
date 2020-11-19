@@ -3,12 +3,12 @@ let commands = {
 		let max = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0]) : 0;
 		if(!room){
 			room.broadcast(user, "You cannot use this command through PM.", rank);
-		}else if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || data.voices[user.id]){
+		}else if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
 			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
 		}else if(room.id !== "trivia"){
 			room.broadcast(user, "This command can only be used in Trivia.", rank);
 		}else{
-			data.maxplayers = max;
+			this.maxplayers = max;
 			if(max === 0){
 				room.send("Autojoin has been turned off.");
 			}else{
@@ -181,7 +181,7 @@ let commands = {
 			}else{
 				this.scores[id] = {name: args[0], score: points};
 			}
-			room.broadcast(user, `${this.scores[id].name}'s score is now ${data.scores[id].score}.`, rank);
+			room.broadcast(user, `${this.scores[id].name}'s score is now ${this.scores[id].score}.`, rank);
 		}
 	},
 	showmghpoints: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -333,6 +333,7 @@ class MinigameHelper extends BaseModule{
 		};
 		this.commands = commands;
 		this.chathooks = {a: this.onChat};
+		this.messagehooks = {a: this.onMessage};
 		this.dependencies = ['tt'];
 	}
 
@@ -404,6 +405,29 @@ class MinigameHelper extends BaseModule{
 		}
 	}
 
+	onMessage(room, args){
+		// If there are players:
+		// |c|~|/raw <div class="infobox">There is a trivia game in progress, and it is in its signups phase.<br />Mode: Timer | Category: All | Score cap: 50<br />Players: Struchni (0)</div>
+		// |c|~|/raw <div class="infobox">There is a trivia game in progress, and it is in its signups phase.<br />Mode: Timer | Category: All | Score cap: 50<br />Current score:  | Correct Answers: <br />Players: Struchni (0), Codex Necro (0)</div>
+		if(this.shouldStart && room.id === 'trivia' && args.length > 2 && args[1] == 'c'){
+			if(args[3].match(/in its signups phase/)){
+				let matches = args[args.length-1].match(/<br \/>Players: (.*)<\/div>/);
+				if(!matches) return;
+				if(matches[1].length === 0){
+					//info("No players");
+				}else{
+					//info(`${matches[1].split(',').length} players`);
+					let num = matches[1].split(',').length;
+					info(num);
+					if(num > 2){
+						this.startOfficial(room);
+					}
+				}
+			}
+		}
+
+	}
+
 	onPlayerChange(prevCount, room){
 		if(this.plist.length !== prevCount){
 			if(this.joinTimer){
@@ -427,6 +451,12 @@ class MinigameHelper extends BaseModule{
 			this.officialReminder();
 		}, timeDiff);
 		info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+	}
+
+	startOfficial(room){
+		room.send("/trivia start");
+		room.send("**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
+		this.shouldStart = false;
 	}
 
 	removePlayers(names){
