@@ -11,21 +11,6 @@ let messageQueue = [];
 let lastMessageTime = 0;
 let messageTimeout = null;
 const MESSAGE_THROTTLE = 700;
-const main_defaults = {
-	"user": "",
-	"pass": "",
-	"owner": "",
-	"connection": "ws://sim.smogon.com/showdown/websocket",
-	"log_receive": true,
-	"log_send": true,
-	"dbuser": "",
-	"dbpassword": "",
-	"dbhost": "",
-	"dbport": 0,
-	"dbname": "",
-	"text_directory": "./",
-	"text_web_directory": "www.example.com"
-}
 
 let logToFile = function(text){
 	try{
