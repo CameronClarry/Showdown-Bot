@@ -374,7 +374,6 @@ class MinigameHelper extends BaseModule{
 			this.remindTimer = null;
 		}
 	}
-<<<<<<< ours
 
 	recover(oldModule){
 		this.shouldVoice = oldModule.shouldVoice;
@@ -402,26 +401,9 @@ class MinigameHelper extends BaseModule{
 				let nplayers = this.plist.length;
 				this.removePlayers([user.id], room);
 				this.onPlayerChange(nplayers, room);
-=======
-	let n = plist.length;
-	return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
-}
-
-let removePlayers = function(names){
-	if(names.length==0) return "Player list not updated. You must give at least one player.";
-	if(!data.plist) data.plist = [];
-	let triviaRoom = RoomManager.getRoom("trivia");
-	for(let i=0;i<names.length;i++){
-		let userId = toId(names[i]);
-		if(data.voices[userId]){
-			if(data.shouldVoice && triviaRoom){
-				triviaRoom.send(`/roomdeauth ${userId}`);
-				data.voices[userId].rank = " ";
->>>>>>> theirs
 			}
 		}
 	}
-<<<<<<< ours
 
 	onMessage(room, args){
 		// If there are players:
@@ -443,37 +425,6 @@ let removePlayers = function(names){
 				}
 			}
 		}
-
-=======
-	let n = data.plist.length;
-	return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
-}
-
-let officialReminder = function(){
-	let triviaRoom = RoomManager.getRoom(GOVERNING_ROOM);
-	if(triviaRoom) triviaRoom.send("Time for the next official!");
-	let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
-	if(timeDiff < 1000*60) timeDiff = 14400000;
-	if(config.officialReminders) data.remindTimer = setTimeout(()=>{
-		data.remindTimer = null;
-		officialReminder();
-	}, timeDiff);
-	info(`Set the reminder for ${timeDiff/1000/60} minutes`);
-}
-
-let startOfficial = function(room){
-	room.send("/trivia start");
-	room.send("**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
-	data.shouldStart = false;
-}
-
-
-// When TT games are rewritten to be objects, this no longer be needed
-let clearTimers = function(game, clearAll){
-	if(game.timeout){
-		clearTimeout(game.timeout);
-		game.timeout = null;
->>>>>>> theirs
 	}
 
 	onPlayerChange(prevCount, room){

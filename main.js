@@ -384,7 +384,7 @@ let connect = function (retry, delay) {
 	// The connection itself
 
 	info(`Connecting to ${bot.config.connection.value}`);
-	ws.connect(mainConfig.connection);
+	ws.connect(bot.config.connection.value);
 };
 
 let trySendMessage = function(){
@@ -612,11 +612,7 @@ function handle(message){
 					if(module.messagehooks){
 						for(let hookname in module.messagehooks){
 							try{
-<<<<<<< ours
 								module.messagehooks[hookname].call(module, room, args);
-=======
-								module.messagehooks[hookname](room, args);
->>>>>>> theirs
 							}catch(e){
 								error(e.message);
 								info(`Exception while trying message hook from ${modulename} (hook: ${hookname})`);

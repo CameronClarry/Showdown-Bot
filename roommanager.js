@@ -162,13 +162,7 @@ class User{
 		return this;
 	}
 
-<<<<<<< ours
-	send(message){
-		send("|/pm " + this.id + "," + message);
-	}
-=======
     send(message){
         send(`|/pm ${this.id},${message}`);
     }
->>>>>>> theirs
 }

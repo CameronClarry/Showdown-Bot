@@ -885,8 +885,6 @@ let ttCommands = {
 		}else if(!AuthManager.rankgeq(commandRank, this.config.startGameRank.value)){
 			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
 		}else{
-			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
-		}else{
 			this.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, this.config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
 		}
 	},
