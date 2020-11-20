@@ -607,7 +607,7 @@ let commands = {
 	fact: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to check facts.");
-		}else if(data.facts.length){
+		}else if(this.facts.length){
 			room.broadcast(user, `__${this.facts[Math.floor(Math.random()*this.facts.length)].text}__`);
 		}else{
 			room.broadcast(user, "There are no facts :<");
