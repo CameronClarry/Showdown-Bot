@@ -56,63 +56,6 @@ global.ok = function (text) {
 	console.log(text.green);
 };
 
-global.loadConfig2 = function(name, defaults){
-	name = toId(name);
-	let path = `config/${name}_config.json`;
-	let newConfig = {};
-	if(modules[name] || name === "main"){
-		let shouldSave = false;
-		if(fs.existsSync(path)){
-			newConfig = JSON.parse(fs.readFileSync(path, "utf8"));
-		}
-		for(let setting in defaults){
-			if(typeof defaults[setting] !== typeof newConfig[setting]){
-				shouldSave = true;
-				newConfig[setting] = defaults[setting];
-			}
-		}
-
-		if(name === "main"){
-			mainConfig = newConfig;
-			if(mainConfig.user && !mainConfig.userId){
-				mainConfig.userId = toId(mainConfig.user);
-				saveConfig(name);
-				shouldSave = false;
-			}
-			if(shouldSave) saveConfig(name);
-			if(!mainConfig.user || !mainConfig.pass){
-				error("The main config file is missing login information. Please fill it in and re-run the bot.");
-				process.exit(0);
-			}
-		}else{
-			modules[name].setConfig(newConfig);
-			if(shouldSave) saveConfig(name);
-		}
-		return true;
-	}else{
-		//Tried to load config for non-existant module.
-		return false;
-	}
-};
-
-global.saveConfig2 = function(name){
-	let filename = "config/" + name + "_config.json";
-	if((modules[name] && modules[name].getConfig) || name === "main"){
-		try{
-			let configFile = fs.openSync(path,"w");
-			let config = name === "main" ? mainConfig : modules[name].getConfig();
-			fs.writeSync(configFile,JSON.stringify(config, null, "\t"));
-			fs.closeSync(configFile);
-		}catch(e){
-			error(e.message);
-			info(`Could not save the config file ${path}`);
-		}
-	}else{
-		info(`Tried to save the config for the non-existant module ${name}`);
-	}
-};
-
-// NEW  load function
 global.loadConfig = function(id, moduleObj){
 	if(!moduleObj) return false;
 
@@ -137,7 +80,7 @@ global.loadConfig = function(id, moduleObj){
 
 	return true;
 };
-// NEW  save function
+
 global.saveConfig = function(id, configList){
 	let path = `config/${id}_config.json`;
 	try{
@@ -152,76 +95,7 @@ global.saveConfig = function(id, configList){
 
 //Manages the bot modules
 global.modules = {};
-global.loadModule2 = function(name, loadData){
-	let path = "./bot_modules/" + name;
-	try{
-		delete require.cache[require.resolve(path)];
-		let requiredBy = [];
-		let module = modules[name];
-		let data;
-		if(module){
-			requiredBy = module.requiredBy;
-			if(loadData && module.onUnload){
-				module.onUnload();
-			}else if(!loadData && module.getData){
-				data = module.getData();
-			}
-		}
-		module = require(path);
-		modules[toId(name)] = module;
-		loadConfig(name, module.defaultConfigs || {});
-		module.onLoad(module, loadData, data);
-		module.requiredBy = requiredBy;
 
-		for(let i=0;i<requiredBy.length;i++){
-			let requiredByModule = modules[requiredBy[i]];
-			if(requiredByModule&&requiredByModule.refreshDependencies){
-				requiredByModule.refreshDependencies();
-			}
-		}
-		return true;
-	}catch(e){
-		error(e.message);
-		info(`Could not load the module ${name}`);
-	}
-	delete modules[name];
-	return false;
-};
-global.unloadModule2 = function(name){
-	if(modules[name]){
-		let path = `./bot_modules/${name}`;
-		delete require.cache[require.resolve(path)];
-		let requiredBy = modules[name].requiredBy;
-		if(modules[name].onUnload){
-			modules[name].onUnload();
-		}
-		delete modules[name];
-		if(requiredBy){
-			for(let i=0;i<requiredBy.length;i++){
-				let module = modules[requiredBy[i]];
-				if(module && module.refreshDependencies){
-					module.refreshDependencies();
-				}
-			}
-		}
-		return true;
-	}
-	return false;
-
-};
-global.getModuleForDependency2 = function(name, from){
-	let module = modules[name];
-	if(module){
-		if(module.requiredBy.indexOf(from)===-1){
-			module.requiredBy.add(from);
-		}
-	}else{
-		modules[name] = {requiredBy:[from]};
-	}
-	return modules[name];
-};
-
-// NEW load function
 global.loadModule = function(name, loadData){
 	let id = toId(name);
 	let path = `./bot_modules/${id}`;
@@ -276,7 +150,7 @@ global.loadModule = function(name, loadData){
 	delete modules[name];
 	return false;
 };
-// NEW unload function
+
 global.unloadModule = function(name){
 	let id = toId(name);
 	let path = `./bot_modules/${id}`;
@@ -626,39 +500,6 @@ function handle(message){
 }
 
 //Here are some useful functions for all modules to use
-
-// TODO is this still needed?
-global.getChatInfo = function(room, args, isInit){
-	let messageInfo = null;
-	if(args.length>=4){
-		if(args[1]==="pm"){
-			messageInfo = {
-				room: "",
-				source: "pm",
-				user: args[2].trim(),
-				isInit: isInit,
-				message: args.slice(4,args.length).join("|")
-			};
-		}else if(args[1]==="c:"){
-			messageInfo = {
-				room: room,
-				source: "chat",
-				user: args[3].trim(),
-				isInit: isInit,
-				message: args.slice(4,args.length).join("|")
-			};
-		}else if(args[1]==="c"||args[1]==="chat"){
-			messageInfo = {
-				room: room,
-				source: "chat",
-				user: args[2].trim(),
-				isInit: isInit,
-				message: args.slice(3,args.length).join("|")
-			};
-		}
-	}
-	return messageInfo;
-};
 
 //Removes characters denoting user ranks from the beginning of a name
 global.removeRank = function(text){
