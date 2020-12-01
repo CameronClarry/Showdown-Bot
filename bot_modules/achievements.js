@@ -90,10 +90,12 @@ let achievementCommands = {
 			}
 
 			let output=`ACHIEVEMENT LIST\n################\n\n${res.rows.map((row)=>{return `Name: ${row.name}, Description: \n${row.description}`;}).join('\n\n')}`;
-			uploadText(output, (address)=>{
+			uploadText(output, (err, address)=>{
+				if(err){
+					room.broadcast(user, `Error: ${err}`);
+					return;
+				}
 				room.broadcast(user, `Here are the achievements: ${address}`, rank);
-			}, (error)=>{
-				room.broadcast(user, "There was an error while saving the file.", rank);
 			});
 		});
 	},
@@ -182,10 +184,12 @@ let achievementCommands = {
 					}
 
 					let output = `${res.display_name}'s achievements:\n${res2.rows.map((row)=>{return row.name;}).join('\n')}`;
-					uploadText(output, (address)=>{
+					uploadText(output, (err, address)=>{
+						if(err){
+							room.broadcast(user, `Error: ${err}`);
+							return;
+						}
 						room.broadcast(user, `Here are ${res.display_name}'s achievements: ${address}`, rank);
-					}, (error)=>{
-						room.broadcast(user, "There was an error while saving the file.", rank);
 					});
 				});
 			}

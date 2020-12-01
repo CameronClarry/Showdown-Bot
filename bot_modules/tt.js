@@ -320,10 +320,13 @@ let commands = {
 						room.broadcast(user, `${res[1].display_name}'s alts: ${alts.join(", ")}`);
 					}else{
 						let text = res[1].display_name + "'s alts:\n\n" + alts.join("\n");
-						uploadText(text, (address)=>{
+						uploadText(text, (err, address)=>{
+							if(err){
+								error(err);
+								user.send(`There was an error while saving the file. Here are the first 6 alts of ${alts.length}: ${alts.slice(0,6).join(", ")}`)
+								return;
+							}
 							user.send(`There were more than 10 alts, so they were put into a text file: ${address}`);
-						}, (error)=>{
-							user.send(`There was an error while saving the file. Here are the first 6 alts of ${alts.length}: ${alts.slice(0,6).join(", ")}`);
 						});
 					}
 				});
@@ -619,10 +622,13 @@ let commands = {
 			room.broadcast(user, "Your rank is not high enough to manage facts.");
 		}else if(this.facts.length){
 			let text = this.facts.map(f=>{return f.text}).join("\n\n");
-			uploadText(text, (link)=>{
-				user.send(`Here is a list of all the facts: ${link}`);
-			}, (err)=>{
-				user.send(`Error: ${err}`);
+			uploadText(text, (err, address)=>{
+				if(err){
+					error(err);
+					user.send(`Error: ${err}`);
+					return;
+				}
+				user.send(`Here is a list of all the facts: ${address}`);
 			});
 		}else{
 			user.send("There are no facts :<");
@@ -781,10 +787,13 @@ let commands = {
 
 		let text = JSON.stringify(this.leaderboard.nominations, null, '\t');
 
-		uploadText(text, (link)=>{
-			user.send(`Here is a list of all the nominations: ${link}`);
-		}, (err)=>{
-			user.send(`There was an error: ${err}`);
+		uploadText(text, (err, address)=>{
+			if(err){
+				error(err);
+				user.send(`Error: ${err}`);
+				return;
+			}
+			user.send(`Here is a list of all the nominations: ${address}`);
 		});
 	},
 	clearnominations: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -943,10 +952,13 @@ let ttleaderboardCommands = {
 			}else{
 				let text = `Listed here all players with a score of at least 1 on the ${lb} leaderboard.\n`;
 				text = text + `\n${rows.map((row)=>{return `${row.display_name || row.id1}: ${row.points}`}).join("\n")}`;
-				uploadText(text, (link)=>{
-					user.send(`Here is the full leaderboard: ${link}`);
-				}, (err)=>{
-					user.send(`Error: ${err}`);
+				uploadText(text, (err, address)=>{
+					if(err){
+						error(err);
+						user.send(`Error: ${err}`);
+						return;
+					}
+					user.send(`Here is the full leaderboard: ${address}`);
 				});
 			}
 		});

@@ -109,10 +109,13 @@ let commands = {
 			room.broadcast(user, "There are currently no questions.");
 		}else{
 			let text = this.philqs.join('\n');
-			uploadText(text, (link)=>{
-				user.send(link);
-			}, (err)=>{
-				user.send(`Error: ${err}`);
+			uploadText(text, (err, address)=>{
+				if(err){
+					error(err);
+					user.send(`Error: ${err}`);
+					return;
+				}
+				user.send(address);
 			});
 		}
 	},

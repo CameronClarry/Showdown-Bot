@@ -76,10 +76,13 @@ let configFuncs = {
 				for(let config in moduleConfigs){
 					configs.push(`${config}: ${moduleConfigs[config]}`);
 				}
-				uploadText(configs.join("\n"), (address)=>{
+				uploadText(configs.join("\n"), (err, address)=>{
+					if(err){
+						error(err);
+						room.broadcast(user, `Error: ${err}`);
+						return;
+					}
 					room.broadcast(user, address, rank);
-				}, (error)=>{
-					room.broadcast(user, "There was an error while saving the file.", rank);
 				});
 			}else{
 				room.broadcast(user, "That module does not exist.", rank);
