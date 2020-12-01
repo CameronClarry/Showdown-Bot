@@ -653,7 +653,7 @@ let commands = {
 		}else if(!minigames.gameTypes[gameType]){
 			room.broadcast(user, "That game type does not exist.");
 		}else{
-			this.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
+			this.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, this.config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
 		}
 	},
 	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
