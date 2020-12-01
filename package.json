@@ -4,8 +4,8 @@
 	"dependencies": {
 		"colors": "1.0.3",
 		"pg": "^8.0.3",
-		"request": "2.x",
-		"websocket": "^1.0.28"
+		"request": "^2.88.2",
+		"websocket": "^1.0.32"
 	},
 	"engines": {
 		"node": "> 0.10.1"
