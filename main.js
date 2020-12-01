@@ -310,6 +310,10 @@ function handle(message){
 	room = RoomManager.getRoom(toRoomId(roomName))
 	for(let i=0;i<chunks.length;i++){
 		let args = chunks[i].split("|");
+		if(!roomName && args[1] !== 'pm'){
+			room = RoomManager.getRoom('lobby');
+			roomName = 'lobby';
+		}
 		if(args[1]=="challstr"){
 			info('challstr')
 			request.post(
@@ -355,7 +359,6 @@ function handle(message){
 			if(args[1]==="init"){
 				isInit = true;
 				chunks = chunks.splice(0,4);
-				if(!roomName) room = RoomManager.initRoom('lobby');
 				if(!room) room = RoomManager.initRoom(roomName);
 			}else if(args[1]==="deinit"){
 				isInit = true;
@@ -410,14 +413,12 @@ function handle(message){
 				if(args[1]==="c:"){
 					id = toId(args[3]);
 					message = args.slice(4,args.length).join("|");
-					if(!room || !room.id) room = RoomManager.getRoom('lobby');
 				}else if(args[1]==="pm"){
 					id = toId(args[2]);
 					message = args.slice(4,args.length).join("|");
 				}else{
 					id = toId(args[2]);
 					message = args.slice(3,args.length).join("|");
-					if(!room || !room.id) room = RoomManager.getRoom('lobby');
 				}
 				let user = room.getUserData(id);
 				if(!user && !room.id){
