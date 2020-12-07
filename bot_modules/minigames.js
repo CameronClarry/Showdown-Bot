@@ -832,7 +832,8 @@ class PictureTrivia extends TriviaTrackerSingleAsker{
 let gameTypes = {
 	'triviatracker': TriviaTrackerGame,
 	'picturetrivia': PictureTrivia,
-	'blitz': Blitz
+	'blitz': Blitz,
+	'ttsa': TriviaTrackerSingleAsker
 };
 
 exports.gameTypes = gameTypes;
