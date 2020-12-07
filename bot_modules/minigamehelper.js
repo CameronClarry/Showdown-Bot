@@ -275,6 +275,7 @@ let commands = {
 			}
 		}
 	},
+	tsu: "triviasignups",
 	triviasignups: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, '+')){
 			room.broadcast(user, "Your rank is not high enough to start an official game.", rank);
