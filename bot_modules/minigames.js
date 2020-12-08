@@ -49,7 +49,9 @@ class TriviaTrackerGame{
 	/// nextUser: the user who got the question correct:
 	givePoints(prevUser, nextUser){
 		if(this.askPoints){
-			this.pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
+			if(this.leaderboards.length){
+				this.pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
+			}
 			if(this.scores[prevUser.id]){
 				this.scores[prevUser.id].score = this.scores[prevUser.id].score + this.askPoints;
 			}else{
@@ -57,7 +59,9 @@ class TriviaTrackerGame{
 			}
 		}
 		if(this.answerPoints){
-			this.pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
+			if(this.leaderboards.length){
+				this.pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
+			}
 			if(this.scores[nextUser.id]){
 				this.scores[nextUser.id].score = this.scores[nextUser.id].score + this.answerPoints;
 			}else{
