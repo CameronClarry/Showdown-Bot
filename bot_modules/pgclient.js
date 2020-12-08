@@ -185,6 +185,8 @@ class PGClient extends BaseModule{
 			this.runSql(GET_ENABLED_POINTS_SQL, [id], callback, client);
 		}else if(leaderboards.length){
 			this.runSql(GET_SPECIFIC_POINTS_SQL, [id, leaderboards], callback, client);
+		}else if(leaderboards.length === 0){
+			callback("No leaderboards requested");
 		}else{
 			callback("Invalid format for leaderboards given.");
 		}
@@ -194,6 +196,9 @@ class PGClient extends BaseModule{
 		this.getPoints(dbId, leaderboards, (err, res)=>{
 			if(err){
 				callback(err);
+				return;
+			}else if(res.rows.length == 0){
+				callback("No valid leaderboard specified");
 				return;
 			}
 			let pendingCalls = res.rows.length;
