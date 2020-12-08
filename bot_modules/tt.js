@@ -724,7 +724,7 @@ let commands = {
 			for(let p in scores){
 				scoresArray.push(scores[p]);
 			}
-			scoresArray.sort((e1,e2)=>{return e1.score < e2.score});
+			scoresArray.sort((e1,e2)=>{return e1.score < e2.score ? 1 : -1});
 			if(scoresArray.length == 0){
 				room.broadcast(user, "No one has any points.", rank);
 			}else{
