@@ -634,6 +634,7 @@ let commands = {
 			user.send("There are no facts :<");
 		}
 	},
+	mg: "minigame",
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
 		let command = toId(args[0]);
@@ -1582,7 +1583,7 @@ class BlacklistManager{
 	}
 }
 
-// TODO remove this middleman commands and make the chat commands directly reference the manager
+// TODO remove this middleman command and make the chat commands directly reference the manager
 let blacklistCommands = {
 	add: function(username, id, duration, reason, user, room, triviaRoom){
 		let response = this.blacklistManager.addUser(username, duration, reason, user);
