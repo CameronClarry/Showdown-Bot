@@ -1,5 +1,13 @@
 const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND leaderboard = $2;";
 
+// These are commands that every minigame will have
+let commands = {
+	modchat: function(user, rank){
+		// Check if their rank is high enough
+		// Toggle modchat
+	}
+};
+
 class TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
 	/// room: the room that the game should be started in
@@ -18,6 +26,9 @@ class TriviaTrackerGame{
 		this.chatCommands = {};
 		this.scores = {};
 		this.customBp = customBp;
+		this.plist = {};
+		this.modchat = false;
+		this.usePlist = false;
 		this.setupData();
 		this.sendStart();
 	}
@@ -40,8 +51,13 @@ class TriviaTrackerGame{
 		this.room.send("**A new game of Trivia Tracker has started.**");
 	}
 
-	end(){
+	sendEnd(){
 		this.room.send("The game of Trivia Tracker has ended.");
+	}
+
+	end(){
+		this.clearTimers();
+		this.sendEnd();
 	}
 
 
@@ -80,6 +96,40 @@ class TriviaTrackerGame{
 		};
 	}
 
+	// Player list functionality
+	onPlayerChange(prevCount, room){
+		if(this.plist.length !== prevCount){
+			if(this.joinTimer){
+				clearTimeout(this.joinTimer);
+			}
+			this.joinTimer = setTimeout(()=>{
+				this.joinTimer = null;
+				let numPlayers = this.plist.length;
+				room.send(`There ${numPlayers === 1 ? "is" : "are"} now ${numPlayers} player${numPlayers === 1 ? "" : "s"} in the game.`);
+			}, 5000);
+		}
+	}
+
+	removePlayers(names){
+		if(names.length === 0) return "Player list not updated. You must give at least one player.";
+		let triviaRoom = RoomManager.getRoom(this.room);
+		for(let i=0;i<names.length;i++){
+			let userId = toId(names[i]);
+			if(this.voices[userId]){
+				if(this.shouldVoice && triviaRoom){
+					triviaRoom.send("/roomdeauth " + userId);
+					this.voices[userId].rank = " ";
+				}
+				delete this.voices[userId];
+			}
+			if(this.scores[userId]) delete this.scores[userId]
+			this.plist = this.plist.filter(item=>{return item.id !== userId});
+		}
+		let n = this.plist.length;
+		return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
+	}
+
+	
 	/// Check if a user can open BP. Either they are auth or they have bp.
 	cantOpenBp(user, rank, type){
 		let isCurUser = this.curHist.active.id === user.id;
@@ -358,7 +408,8 @@ class TriviaTrackerGame{
 	}
 
 	checkBold(message){
-		return /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(message);
+		let matches = message.match(/\*\*(([^\s])|([^\s].*[^\s]))\*\*/);
+		return matches && toId(matches[1]);
 	}
 
 	doVetoResponse(vetoMessage){
@@ -471,11 +522,6 @@ class TriviaTrackerGame{
 			this.room.send(`**${user.name} has rejoined, so BP is no longer open.**`);
 		}
 	}
-
-	end(){
-		this.clearTimers();
-		this.room.send("The game of Trivia Tracker has ended.");
-	}
 }
 exports.TriviaTrackerGame = TriviaTrackerGame;
 
@@ -562,8 +608,7 @@ class Blitz extends TriviaTrackerGame{
 		this.room.send("A new game of Blitz is starting! Wait for the host's tossup question.");
 	}
 
-	end(){
-		this.clearTimers();
+	sendEnd(){
 		this.room.send("The game of Blitz has ended.");
 	}
 }
@@ -680,20 +725,10 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	}
 
 	cantBp(user1, rank1, id2){
-		if(!AuthManager.rankgeq(rank1, '+') && user.id !== this.host.id) return "Your rank is not high enough to use that command.";
-
-		let user2 = this.room.getUserData(id2);
-
-		if(!user2) return "That user is not in the room.";
-		if(this.curHist.active.id === id2) return "That user is already the asker.";
+		return "BP cannot be changed in this game type.";
 	}
 
-	doBp(user1, id2){
-		let user2 = this.room.getUserData(id2);
-		let historyToAdd = {active: user1, answerer: user2};
-		this.changeBp(user1, user2, historyToAdd);
-		this.room.send(`${user2.name} is now the question asker.**`);
-	}
+	doBp(user1, id2){}
 
 	/// At this point it is assumed that the baton will be passed.
 	changeBp(user1, user2, historyToAdd, bypassBl){
@@ -714,101 +749,27 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		};
 	}
 
+	setRemindTimer(duration){}
 
-	/// Clears all timers (eg question asking, leaving)
-	clearTimers(){
-		for(let name in this.timers){
-			if(this.timers[name]){
-				clearTimeout(this.timers[name]);
-				delete this.timers[name];
-			}
-		}
-	}
+	setOpenTimer(duration){}
 
-	setRemindTimer(duration){
-
-	}
-
-	setOpenTimer(duration){
-		this.setTimer('open', duration, ()=>{this.doOpen();});
-	}
-
-	setLeaveTimer(duration){
-		this.setTimer('leave', duration, ()=>{this.doLeave();});
-	}
-
-	setTimer(id, time, callback){
-		if(this.timers[id]) clearTimeout(this.timers[id]);
-		this.timers[id] = setTimeout(callback, time);
-	}
-
-	clearTimer(id){
-		if(this.timers[id]){
-			clearTimeout(this.timers[id]);
-			delete this.timers[id];
-		}
-	}
-
-	checkVeto(message){
-		return /\*\*([^\s].*)?veto(.*[^\s])?\*\*/i.test(message) || /^\/announce .*veto.*/i.test(message);
-	}
-
-	checkBold(message){
-		return /\*\*(([^\s])|([^\s].*[^\s]))\*\*/g.test(message);
-	}
-
-	doVetoResponse(vetoMessage){
-		let messageId = toId(vetoMessage);
-
-		if(/boldfail/i.test(messageId)){
-			this.room.send("!rfaq bold");
-		}else if(/vdoc/.test(messageId)){
-			this.room.send("!rfaq vdoc");
-		}
-	}
+	setLeaveTimer(duration){}
 
 	doReminder(){}
 
-	doOpen(){
-		this.clearTimer('open');
-		if(!this.bpOpen && !this.bpLocked){
-			this.doOpenBp('timer', true);
-		}else if( (this.bpOpen == 'leave' || this.bpOpen == 'user') && !this.bpLocked ){
-			this.doOpenBp('timer', false);
-		}
-	}
+	doOpen(){}
 
-	doLeave(){
-		this.clearTimer('leave');
-		if(!this.bpOpen && !this.bpLock){
-			this.doOpenBp('leave', true);
-		}
-	}
+	doLeave(){}
 
 	cantClaimBp(user){
 		return "BP cannot be opened in this mode.";
 	}
 	
-	onRoomMessage(user, rank, message){
-		if(user.id === this.curHist.active.id && this.checkBold(message)){
-			this.clearTimers();
-			this.curHist.hasAsked = true;
-			if(message.length > 10){
-				this.curHist.question = message;
-			}
-		}
-	}
+	onRoomMessage(user, rank, message){}
 
-	onPunishment(user, punishment){
-	}
+	onPunishment(user, punishment){}
 
-	onLeave(user){
-	}
-
-	end(){
-		this.clearTimers();
-		this.sendEnd();
-	}
+	onLeave(user){}
 }
 
 class PictureTrivia extends TriviaTrackerSingleAsker{
