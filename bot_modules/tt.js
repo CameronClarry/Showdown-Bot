@@ -645,9 +645,10 @@ let commands = {
 		}else if(!game.chatCommands[command]){
 			room.broadcast(user, "That command is not recognized.");
 		}else{
-			game.chatCommands[command].call(game, user, rank);
+			game.chatCommands[command].call(game, user, rank, args);
 		}
 	},
+	mgnew: "minigamenew",
 	minigamenew: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
 		let gameType = toId(args[0]);
@@ -663,6 +664,7 @@ let commands = {
 			this.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, this.config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
 		}
 	},
+	mgend: "minigameend",
 	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
 		if(!AuthManager.rankgeq(commandRank, '+')){
@@ -700,6 +702,49 @@ let commands = {
 		}else{
 			this.games[gameRoom.id].setHost(newHost);
 			room.broadcast(user, `${newHost.name} is now the host.`);
+		}
+	},
+	pladd: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id];
+		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
+		}else if(!game){
+			room.broadcast(user, "There is no game currently.");
+		}else{
+			let response = game.addPlayers(args, commandRoom);
+			room.broadcast(user, response, rank);
+		}
+	},
+	plremove: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id];
+		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
+		}else if(!game){
+			room.broadcast(user, "There is no game currently.");
+		}else{
+			let response = game.removePlayers(args);
+			room.broadcast(user, response, rank);
+		}
+	},
+	pl: "pllist",
+	pllist: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id];
+		if(!game){
+			game.room.broadcast(user, "There is no game in this room.");	
+			return;
+		}
+		let parray = game.plist.map(e=>{return e.name});
+		if(!parray || parray.length==0){
+			room.broadcast(user, "There are no players.", rank);
+		}else if(args.length>0 & AuthManager.rankgeq(commandRank, '+') && toId(args[0]) === 'html' && room.id === 'trivia'){
+			let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="background-color: #209331"><th>Players</th></tr>`;
+			message = message + `<tr><td><center>${parray.join(', ')}</center></td></tr></table>`;
+
+			room.send(message);
+		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
+			room.broadcast(user, `The players in the game are ${prettyList(parray.map(p=>{return `__${p}__`}))}.`, rank);
+		}else{
+			room.broadcast(user, `The players in the game are ${prettyList(parray)}.`, rank);
 		}
 	},
 	showpoints: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -748,7 +793,7 @@ let commands = {
 		}else{
 			let history = game.history;
 			for(let i=history.length-1;i>=0;i--){
-				if(history[i].active.id == nominee){
+				if(history[i].active.id == nominee && history[i].question){
 					question = history[i].question;
 					nomineeUser = history[i].active;
 					break;
