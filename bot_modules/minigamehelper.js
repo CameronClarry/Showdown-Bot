@@ -16,22 +16,22 @@ let commands = {
 			}
 		}
 	},
-	pladd: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
-			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
-		}else{
-			let response = this.addPlayers(args, commandRoom);
-			room.broadcast(user, response, rank);
-		}
-	},
-	plremove: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
-			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
-		}else{
-			let response = this.removePlayers(args);
-			room.broadcast(user, response, rank);
-		}
-	},
+	//pladd: function(message, args, user, rank, room, commandRank, commandRoom){
+		//if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
+			//room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
+		//}else{
+			//let response = this.addPlayers(args, commandRoom);
+			//room.broadcast(user, response, rank);
+		//}
+	//},
+	//plremove: function(message, args, user, rank, room, commandRank, commandRoom){
+		//if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
+			//room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
+		//}else{
+			//let response = this.removePlayers(args);
+			//room.broadcast(user, response, rank);
+		//}
+	//},
 	tar: "titanaddregs",
 	titanaddreg: "titanaddregs",
 	titanaddregs: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -77,22 +77,6 @@ let commands = {
 				}
 			}
 			room.broadcast(user, `Removed ${removed} player(s) from the titanomachy roster.`, rank);
-		}
-	},
-	pl: "pllist",
-	pllist: function(message, args, user, rank, room, commandRank, commandRoom){
-    	let parray = this.plist.map(e=>{return e.displayName});
-		if(!parray || parray.length==0){
-			room.broadcast(user, "There are no players.", rank);
-		}else if(args.length>0 & AuthManager.rankgeq(commandRank, this.config.rosterRank.value) && toId(args[0]) === 'html' && room.id === 'trivia'){
-			let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="background-color: #209331"><th>Players</th></tr>`;
-			message = message + `<tr><td><center>${parray.join(', ')}</center></td></tr></table>`;
-
-			room.send(message);
-		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
-			room.broadcast(user, `The players in the game are ${prettyList(parray.map((p)=>{return `__${p}__`}))}.`, rank);
-		}else{
-			room.broadcast(user, `The players in the game are ${prettyList(parray.map((p)=>{return p}))}.`, rank);
 		}
 	},
 	plshuffle: function(message, args, user, rank, room, commandRank, commandRoom){

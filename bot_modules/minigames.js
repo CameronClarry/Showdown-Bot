@@ -5,6 +5,12 @@ let commands = {
 	modchat: function(user, rank){
 		// Check if their rank is high enough
 		// Toggle modchat
+		if(!AuthManager.rankgeq(rank, '%')){
+			this.room.broadcast(user, "Your rank is not high enough to use modchat.");
+			return;
+		}else if(this.modchat){
+		}else{
+		}
 	}
 };
 
@@ -26,9 +32,11 @@ class TriviaTrackerGame{
 		this.chatCommands = {};
 		this.scores = {};
 		this.customBp = customBp;
-		this.plist = {};
-		this.modchat = false;
+		this.plist = [];
 		this.usePlist = false;
+		this.plmax = 0;
+		this.modchat = false;
+		this.voices = {};
 		this.setupData();
 		this.sendStart();
 	}
@@ -122,13 +130,41 @@ class TriviaTrackerGame{
 				}
 				delete this.voices[userId];
 			}
-			if(this.scores[userId]) delete this.scores[userId]
+			//if(this.scores[userId]) delete this.scores[userId]
 			this.plist = this.plist.filter(item=>{return item.id !== userId});
 		}
 		let n = this.plist.length;
+		if(!this.plist.length) this.usePlist = false;
 		return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
 	}
 
+	addPlayers(names, room){
+		if(names.length === 0) return "Player list not updated. You must give at least one player.";
+		let plist = this.plist;
+		for(let i=0;i<names.length;i++){
+			let user = this.room.getUserData(toId(names[i]));
+			if(!user) continue;
+			if(!this.voices[user.id] && user.trueRank === " "){
+				this.voices[user.id] = user;
+				// The following lines would make things more convenient, but for security reasons they should not be included.
+				// Theoretically, voices would be able to voice people under certain circumstances if they were uncommented.
+				// if(data.shouldVoice){
+				// 	chat.js.say("trivia", "/roomvoice " + id);
+				// }
+			}
+			for(let j=0;j<plist.length+1;j++){
+				if(j == plist.length){
+					plist.push(user);
+					break;
+				}else if(user.id == plist[j].id){
+					break;
+				}
+			}
+		}
+		let n = plist.length;
+		if(this.plist.length) this.usePlist = true;
+		return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
+	}
 	
 	/// Check if a user can open BP. Either they are auth or they have bp.
 	cantOpenBp(user, rank, type){
@@ -246,6 +282,8 @@ class TriviaTrackerGame{
 		if(!user2) return "That player is not in the room.";
 		if(this.curHist.active.id === id2) return `It is already ${this.curHist.active.name}'s turn to ask a question.`;
 		if(user2.trueRank === '‽' || user2.trueRank === '!') return `${user2.name} is muted or locked.`;
+
+		if(this.usePlist && !this.plist.filter(item=>{return item.id === id2}).length) return `${user2.name} is not on the player list.`;
 
 		// At this point, if the user1 is auth they can ~yes
 		if(hasRank) return;
@@ -476,7 +514,6 @@ class TriviaTrackerGame{
 	onBold(user, message){
 		this.clearTimers();
 		if(!this.curHist.hasAsked && message.length > 10){
-			info("Set question");
 			this.curHist.question = message;
 		}
 		this.curHist.hasAsked = true;
@@ -669,23 +706,17 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		let hasRank = AuthManager.rankgeq(rank1, '+') || user1.id === this.host.id;
 
 		// This message should take priority
-		if(!hasRank && this.curHist.active.id !== user1.id) return "You are not the question asker.";
+		if(!hasRank && this.host.id !== user1.id) return "You are not the question asker.";
 
 		// Failure conditions that do not depend on whether user1 is auth
 		if(!user2) return "That player is not in the room.";
 		if(this.host.id === id2) return `${this.host.name} is the question asker.`;
 		if(user2.trueRank === '‽' || user2.trueRank === '!') return `${user2.name} is muted or locked.`;
 
-		// At this point, if the user1 is auth they can ~yes
-		if(hasRank) return;
+		if(this.usePlist && !this.plist.filter(item=>{return item.id === id2}).length) return `${user2.name} is not on the player list.`;
 	}
 
 	doYes(user1, user2, undoAsker){
-		// The current asker is the answerer in the most recent history
-		if(undoAsker && this.curHist.undoAnswerer){
-			this.curHist.undoAnswerer();
-			this.curHist.undoAnswerer = null;
-		}
 		this.givePoints(this.curHist.active, user2);
 		let historyToAdd = this.makeHistory(user1, user2);
 		this.changeBp(user1, user2, historyToAdd);
@@ -734,8 +765,7 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	changeBp(user1, user2, historyToAdd, bypassBl){
 		// Append the new hist
 		// Update the current hist
-		// If user2 is on the blacklist and !bypassBl, open bp
-		// Give a message saying who has bp, and mention if they are on the blacklist
+		// In TTSA, we don't actually send bp change messages
 		this.history.push(historyToAdd);
 		this.curHist = historyToAdd;
 		if(this.history.length > this.maxHistLength) this.history.shift();
@@ -791,14 +821,116 @@ class PictureTrivia extends TriviaTrackerSingleAsker{
 	sendEnd(){
 		this.room.send("The game of Picture Trivia has ended.");
 	}
+}
 
+class Duel extends TriviaTrackerSingleAsker{
+
+	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
+		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+		this.chatCommands['selectplayers'] = this.selectPlayers;
+		this.chatCommands['startq'] = this.startQuestion;
+	}
+
+	setupData(){
+		this.answerPoints = 1;
+		this.leaderboards = [];
+		this.scores = {};
+		this.activePlayers = [];
+	}
+
+	sendStart(){
+		this.room.send("A new game of Duel has started.");
+	}
+
+	sendEnd(){
+		this.room.send("The game of Duel has ended.");
+	}
+
+	cantYes(user1, rank1, id2){
+		// Is user1 either the active player or an auth? have they asked a question? is bp locked or open?
+		// Is user2 in the room? muted/locked? ttmuted? Different from the active player?
+		let user2 = this.room.getUserData(id2);
+		let hasRank = AuthManager.rankgeq(rank1, '+') || user1.id === this.host.id;
+
+		// This message should take priority
+		if(!hasRank && this.host.id !== user1.id) return "You are not the host.";
+
+		if(!user2) return "That player is not in the room.";
+		if(this.activePlayers.length < 2) return "There are fewer than two active players.";
+		if(!this.activePlayers.filter(item=>{return item.id === id2}).length) return `${user2.name} is not one of the selected players.`;
+	}
+
+	doYes(user1, user2, undoAsker){
+		this.givePoints(this.curHist.active, user2);
+		let historyToAdd = this.makeHistory(user1, user2);
+		this.changeBp(user1, user2, historyToAdd);
+
+		// Remove players
+		let playersToRemove = this.activePlayers.filter(e=>{return e.id !== user2.id}).map(e=>{return e.id});
+		this.activePlayers = [];
+		this.removePlayers(playersToRemove);
+		
+		if(this.plist.length > 1){
+			// Say who got it right and how many points they have
+			this.room.send(`${user2.name} answered correctly! They now have ${this.scores[user2.id].score} point(s).`);
+		}else{
+			// Say who got it right, how many points they have, and that they won
+			this.room.send(`${user2.name} answered correctly and has won the duel with ${this.scores[user2.id].score} point(s)!`);
+		}
+
+	}
+
+	selectPlayers(user, rank, args){
+		if(user.id !== this.host.id){
+			this.room.broadcast(user, "You can only select the players if you are the host.");
+			return;
+		}
+		// If no players given, select one randomly
+		// Otherwise, add the given players
+		// If there are at least two players at the end, send the message highlighting them
+		// args is ~mg [selectplayers, p1, p2, ...]
+		if(args.length == 1){
+			// No players given. Select one player that is not active and add them to the active list
+			let options = this.plist.filter(e=>{return this.activePlayers.indexOf(e) == -1});
+			if(options.length){
+				let p = options[Math.floor(Math.random()*options.length)];
+				this.activePlayers.push(p);
+				this.room.send(`Randomly selected __${p.name}__.`);
+			}else{
+				this.room.send("There are no more players.");
+			}
+		}else{
+			// filter the args by players that are in the player list but not the active list
+			let argPlayers = args.slice(1).map(e=>{return toId(e)});
+			let newPlayers = this.plist.filter(e=>{return this.activePlayers.indexOf(e) == -1 && argPlayers.indexOf(e.id) > -1});
+			if(newPlayers.length){
+				// Add players, if there are at least two send the message
+				this.activePlayers = this.activePlayers.concat(newPlayers);
+				this.room.send(`Added ${newPlayers.length} player(s).`);
+			}else{
+				this.room.broadcast(user, "No given users are both in the game and not currently chosen.");
+			}
+		}
+	}
+
+	startQuestion(user, rank, args){
+		if(user.id !== this.host.id){
+			this.room.broadcast(user, "You can only start the question if you are the host.");
+			return;
+		}else if(this.activePlayers.length < 2){
+			this.room.send("There are fewer than two selected players.");
+			return
+		}
+		this.room.send(`**Question incoming! It is ${prettyList(this.activePlayers.map(p=>{return p.name}))}'s turn to answer.**`);
+	}
 }
 
 let gameTypes = {
 	'triviatracker': TriviaTrackerGame,
 	'picturetrivia': PictureTrivia,
 	'blitz': Blitz,
-	'ttsa': TriviaTrackerSingleAsker
+	'ttsa': TriviaTrackerSingleAsker,
+	'duel': Duel
 };
 
 exports.gameTypes = gameTypes;
