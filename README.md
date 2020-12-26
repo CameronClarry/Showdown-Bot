@@ -54,6 +54,8 @@ Command|Usage|Required Rank
 `~bplock`|Locks BP, preventing it from being opened and preventing users from being ~yessed. Can only be used by someone with the required rank.|+
 `~bpunlock`|Unlock BP, allowing BP to used as normal again. Can only be used by someone with the required rank.|+
 
+There are also a number of aliases for the `~yes` command: yea, yup, sure, yee, yep, yeah, hellyeah, ofcourse, butofcourse, go, oui, si, right, aye, ya, ye, correct, ja, indeed, and damnright.
+
 Blacklist commands:
 
 Command|Usage|Required Rank
