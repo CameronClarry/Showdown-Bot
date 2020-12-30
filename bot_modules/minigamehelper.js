@@ -149,23 +149,6 @@ let commands = {
 			room.broadcast(user, "Cleared the auth and reg lists.", rank);
 		}
 	},
-	addpoint: "addpoints",
-	addpoints: function(message, args, user, rank, room, commandRank, commandRoom){
-		let id = toId(args[0]);
-		if(!AuthManager.rankgeq(commandRank, '+') || this.voices[user.id]){
-			room.broadcast(user, "Your rank is not high enough to add points.", rank);
-		}else if(!id || !args[1] || !/^-?\d+$/.test(args[1])){
-			room.broadcast(user, "You must give a valid player and number of points.", rank);
-		}else{
-			let points = parseInt(args[1], 10);
-			if(this.scores[id]){
-				this.scores[id].score = this.scores[id].score + points;
-			}else{
-				this.scores[id] = {name: args[0], score: points};
-			}
-			room.broadcast(user, `${this.scores[id].name}'s score is now ${this.scores[id].score}.`, rank);
-		}
-	},
 	showmghpoints: function(message, args, user, rank, room, commandRank, commandRoom){
 		let id = toId(args[0]);
 		if(id){
