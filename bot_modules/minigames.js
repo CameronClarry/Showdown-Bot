@@ -925,12 +925,29 @@ class Duel extends TriviaTrackerSingleAsker{
 	}
 }
 
+class SuspectSearch extends TriviaTrackerSingleAsker{
+
+	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
+		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+	}
+
+	sendStart(){
+		this.room.send("A new game of Suspect Search has started.");
+	}
+
+	sendEnd(){
+		this.room.send("The game of Suspect Search has ended.");
+	}
+}
+
 let gameTypes = {
 	'triviatracker': TriviaTrackerGame,
 	'picturetrivia': PictureTrivia,
 	'blitz': Blitz,
 	'ttsa': TriviaTrackerSingleAsker,
-	'duel': Duel
+	'duel': Duel,
+	'ss': SuspectSearch,
+	'suspectsearch': SuspectSearch
 };
 
 exports.gameTypes = gameTypes;
