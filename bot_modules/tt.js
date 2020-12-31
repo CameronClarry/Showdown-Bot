@@ -749,18 +749,21 @@ let commands = {
 	},
 	addpoint: "addpoints",
 	addpoints: function(message, args, user, rank, room, commandRank, commandRoom){
-		let id = toId(args[0]);
+		let numPlayers = args.length-1;
+		let ids = args.slice(0, numPlayers).map(toId);
 		let roomId = room.id
 		if(!AuthManager.rankgeq(commandRank, '+')){
 			room.broadcast(user, "Your rank is not high enough to add points.", rank);
 		}else if(!this.games[roomId]){
 			room.broadcast(user, "There is no game in progress.");
 			return;
-		}else if(!id || !args[1] || !/^-?\d+$/.test(args[1])){
+		}else if(numPlayers < 1 || !/^-?\d+$/.test(args[numPlayers])){
 			room.broadcast(user, "You must give a valid player and number of points.", rank);
-		}else{
+		}else if(numPlayers === 1){
+			// one player given
+			let id = ids[0];
 			let scores = this.games[roomId].scores;
-			let points = parseInt(args[1], 10);
+			let points = parseInt(args[numPlayers], 10);
 			let targetUser = this.games[roomId].room.getUserData(id);
 			if(!targetUser){
 				room.broadcast(user, "That user is not in the room.");
@@ -775,6 +778,26 @@ let commands = {
 				scores[id] = entry;
 			}
 			room.broadcast(user, `${entry.user.name}'s score is now ${entry.score}.`, rank);
+		}else{
+			// many players given
+			let scores = this.games[roomId].scores;
+			let points = parseInt(args[numPlayers], 10);
+			let changes = 0;
+			for(let i=0;i<numPlayers;i++){
+				let id = ids[i];
+				let targetUser = this.games[roomId].room.getUserData(id);
+				if(!targetUser) continue;
+
+				let entry = scores[id];
+				if(entry){
+					entry.score = entry.score + points;
+				}else{
+					entry = {user: targetUser, score: points};
+					scores[id] = entry;
+				}
+				changes++;
+			}
+			room.broadcast(user, `Updated the points for ${changes} player(s).`, rank);
 		}
 	},
 	showpoints: function(message, args, user, rank, room, commandRank, commandRoom){
