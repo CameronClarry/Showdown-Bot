@@ -43,15 +43,6 @@ const REMOVE_PLAYER_ACH_SQL = "DELETE FROM player_achievements WHERE player_id =
 // TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists 
 // TODO one function for updating sores: 'all' vs 'enabled' vs ['lb1', 'lb2', ...]. make updatefunc take the lb id as well
 
-
-
-
-let refreshDependencies = function(){
-	pgclient = getModuleForDependency("pgclient", "tt");
-	achievements = getModuleForDependency("achievements", "tt");
-	minigames.refreshDependencies();
-};
-
 let commands = {
 	// newgame, endgame
 	tt: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1734,33 +1725,6 @@ let sayScores = function(scores, lb, room){
 	message = message + "</table>"
 
 	room.send(message);
-}
-
-// TODO move this to a general helper function file
-let millisToTime = function(millis){
-	let seconds = millis/1000;
-	let hours = Math.floor(seconds/3600);
-	let minutes = Math.floor((seconds-hours*3600)/60);
-	let response;
-	if(hours>0){
-		response = `${hours} hour${hours === 1 ? "" : "s"} and ${minutes} minute${minutes === 1 ? "" : "s"}`;
-	}else{
-		response = `minutes} minute${minutes === 1 ? "" : "s"}`;
-	}
-	return response;
-};
-
-// TODO move this to a general helper function file
-let removeFormatting = function(text){
-	let reg = /([_~*`^])\1(.+)\1\1/g;
-	while(reg.test(text)){
-		text = text.replace(reg, "$2");
-	}
-	reg = /\[\[(.+)\]\]/g;
-	while(reg.test(text)){
-		text = text.replace(reg, "$1");
-	}
-	return text;
 }
 
 class TT extends BaseModule{
