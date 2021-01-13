@@ -695,6 +695,24 @@ let commands = {
 			room.broadcast(user, `${newHost.name} is now the host.`);
 		}
 	},
+	plmax: function(message, args, user, rank, room, commandRank, commandRoom){
+		let max = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0]) : 0;
+		let game = this.games[room.id];
+		if(!room){
+			room.broadcast(user, "You cannot use this command through PM.", rank);
+		}else if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
+		}else if(!game){
+			room.broadcast(user, "There is no game in this room.", rank);
+		}else{
+			game.plmax = max;
+			if(max === 0){
+				room.send("Autojoin has been turned off.");
+			}else{
+				room.send("**Autojoin is now on! Type ``/me in`` to join!**");
+			}
+		}
+	},
 	pladd: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
 		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
@@ -717,6 +735,20 @@ let commands = {
 			room.broadcast(user, response, rank);
 		}
 	},
+	clearpl: "plclear",
+	plclear: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id];
+		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+			// Can put a message here
+			return;
+		}else if(!game){
+			room.broadcast(user, "There is no game in this room.");
+			return;
+		}
+
+		game.removePlayers(game.plist.map(e=>{return e.id}))
+		room.broadcast(user, "Cleared the player list.", rank);
+	},
 	pl: "pllist",
 	pllist: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
@@ -736,6 +768,36 @@ let commands = {
 			room.broadcast(user, `The players in the game are ${prettyList(parray.map(p=>{return `__${p}__`}))}.`, rank);
 		}else{
 			room.broadcast(user, `The players in the game are ${prettyList(parray)}.`, rank);
+		}
+	},
+	plshuffle: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id]
+		if(!game){
+			game.room.broadcast(user, "There is not game in this room.");
+			return;
+		}
+		let plist = game.plist;
+		if(!plist || plist.length==0){
+			room.broadcast(user, "There are no players.", rank);
+		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
+			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return `__${item.name}__`})), rank);
+		}else{
+			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return item.name})), rank);
+		}
+	},
+	plpick: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id]
+		if(!game){
+			game.room.broadcast(user, "There is not game in this room.");
+			return;
+		}
+		let plist = game.plist;
+		if(!plist || plist.length==0){
+			room.broadcast(user, "There are no players.", rank);
+		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
+			room.broadcast(user, `I randomly picked: __${plist[Math.floor(Math.random()*plist.length)].name}__`, rank);
+		}else{
+			room.broadcast(user, `I randomly picked: ${plist[Math.floor(Math.random()*plist.length)].name}`, rank);
 		}
 	},
 	addpoint: "addpoints",
@@ -807,7 +869,7 @@ let commands = {
 			if(entry){
 				room.broadcast(user, `${entry.user.name}'s score is ${entry.score}.`, rank);
 			}else{
-				room.broadcast(user, `${entry.user.name} does not have a score.`, rank);
+				room.broadcast(user, `${args[0]} does not have a score.`, rank);
 			}
 		}else{
 			let scoresArray = [];
@@ -821,6 +883,18 @@ let commands = {
 				room.broadcast(user, `The current top scores are: ${scoresArray.slice(0,10).map(e=>{return `__${e.user.name}__ (${e.score})`}).join(", ")}`, rank);
 			}
 		}
+	},
+	clearpoints: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id];
+		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+			// Can put a message here
+			return;
+		}else if(!game){
+			room.broadcast(user, "There is no game in this room.");
+			return;
+		}
+		game.scores = {}
+		room.broadcast(user, "Cleared the current scores.", rank);
 	},
 	nominate: function(message, args, user, rank, room, commandRank, commandRoom){
 		let nominee = toId(args[0]);

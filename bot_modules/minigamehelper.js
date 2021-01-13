@@ -1,21 +1,4 @@
 let commands = {
-	plmax: function(message, args, user, rank, room, commandRank, commandRoom){
-		let max = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0]) : 0;
-		if(!room){
-			room.broadcast(user, "You cannot use this command through PM.", rank);
-		}else if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
-			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
-		}else if(room.id !== "trivia"){
-			room.broadcast(user, "This command can only be used in Trivia.", rank);
-		}else{
-			this.maxplayers = max;
-			if(max === 0){
-				room.send("Autojoin has been turned off.");
-			}else{
-				room.send("**Autojoin is now on! Type ``/me in`` to join!**");
-			}
-		}
-	},
 	//pladd: function(message, args, user, rank, room, commandRank, commandRoom){
 		//if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
 			//room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
@@ -79,30 +62,6 @@ let commands = {
 			room.broadcast(user, `Removed ${removed} player(s) from the titanomachy roster.`, rank);
 		}
 	},
-	plshuffle: function(message, args, user, rank, room, commandRank, commandRoom){
-		let plist = this.plist;
-		if(!plist || plist.length==0){
-			room.broadcast(user, "There are no players.", rank);
-		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
-			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return `__${item.displayName}__`})), rank);
-		}else{
-			room.broadcast(user, prettyList(shuffle(plist).map(item=>{return item.displayName})), rank);
-		}
-	},
-	plpick: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value)){
-			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
-		}else{
-			let plist = this.plist;
-			if(!plist || plist.length==0){
-				room.broadcast(user, "There are no players.", rank);
-			}else if(args.length > 0 && toId(args[0]) === 'nohl'){
-				room.broadcast(user, `I randomly picked: __${plist[Math.floor(Math.random()*plist.length)].displayName}__`, rank);
-			}else{
-				room.broadcast(user, `I randomly picked: ${plist[Math.floor(Math.random()*plist.length)].displayName}`, rank);
-			}
-		}
-	},
 	tl: "titanlist",
 	titanlist: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(AuthManager.rankgeq(commandRank, this.config.rosterRank.value)){
@@ -126,20 +85,6 @@ let commands = {
 				room.broadcast(user, `Regs: ${prettyList(rarray.map((p)=>{return `__${p}__`}))}.`, rank);
 				room.broadcast(user, `Auth: ${prettyList(aarray.map((p)=>{return `__${p}__`}))}.`, rank);
 			}
-		}
-	},
-	clearpl: "plclear",
-	plclear: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(AuthManager.rankgeq(commandRank, this.config.rosterRank.value) && !this.voices[user.id]){
-			this.plist = [];
-			this.scores = {};
-			if(this.shouldVoice){
-				for(let id in this.voices){
-					commandRoom.send(`/roomdeauth ${id}`);
-				}
-			}
-			this.voices = {};
-			room.broadcast(user, "Cleared the player list.", rank);
 		}
 	},
 	titanclear: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -170,12 +115,6 @@ let commands = {
 				room.broadcast(user, `The current scores are: ${scores.map(e=>{return `__${e.name}__ (${e.score})`}).join(', ')}`, rank);
 			}
 		}
-	},
-	clearpoints: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(AuthManager.rankgeq(commandRank, this.config.rosterRank.value) && !this.voices[user.id]){
-			this.scores = {};
-			room.broadcast(user, "Cleared the current scores.", rank);
-    	}
 	},
 	reghost: function(message, args, user, rank, room, commandRank, commandRoom){
 		let host = commandRoom.getUserData(toId(args[0]));
