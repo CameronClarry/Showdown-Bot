@@ -536,6 +536,21 @@ class TriviaTrackerGame{
 		}else if(user.id === this.curHist.active.id && this.checkBold(message)){
 			this.onBold(user, message);
 		}
+		
+		// For allowing users to join and leave a game
+		if(this.plmax){
+			let plist = this.plist;
+			let text = toId(message);
+			if(plist.length < this.plmax && text === 'mein'){
+				let nplayers = plist.length;
+				this.addPlayers([user.id], this.room);
+				this.onPlayerChange(nplayers, this.room);
+			}else if(text === 'meout'){
+				let nplayers = this.plist.length;
+				this.removePlayers([user.id], this.room);
+				this.onPlayerChange(nplayers, this.room);
+			}
+		}
 	}
 
 	onPunishment(user, punishment){
@@ -795,8 +810,6 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 		return "BP cannot be opened in this mode.";
 	}
 	
-	onRoomMessage(user, rank, message){}
-
 	onPunishment(user, punishment){}
 
 	onLeave(user){}
