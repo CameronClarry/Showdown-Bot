@@ -1096,7 +1096,6 @@ let ttleaderboardCommands = {
 				if(args[3] &&  AuthManager.rankgeq(commandRank, "%")){
 					sayScores(rows, lb, room);
 				}else{
-					info(JSON.stringify(rows[0]));
 					room.broadcast(user, `The top ${rows.length} score${rows.length === 1 ? "" : "s"} on the ${rows[0].lb_name} leaderboard ${rows.length === 1 ? "is" : "are"}: ${rows.map((row)=>{return `__${row.display_name || row.id1}__: ${row.points}`}).join(", ")}.`, rank, true);
 				}
 			}
