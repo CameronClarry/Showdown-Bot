@@ -137,7 +137,6 @@ class PGClient extends BaseModule{
 	};
 
 	//Takes a username, returns their entry in the users table if it exists. Can also add missing users to the database.
-	// TODO find all references to this, and make the callback something more descriptive than 'res'
 	getUser(username, createNewEntry, callback, client){
 		let newCallback = (err, res)=>{
 			if(err){
@@ -203,22 +202,31 @@ class PGClient extends BaseModule{
 			}
 			let pendingCalls = res.rows.length;
 			let totalError = null;
+			let updatedPoints = {};
 
-			let sharedCallback = (err, res2)=>{
+			let sharedCallback = (err, boardId, points)=>{
 				totalError = totalError || err;
+				updatedPoints[boardId] = points;
 				pendingCalls--;
 				if(err) error(err);
-				// TODO decide whether to return failed updates
-				if(pendingCalls === 0) callback(totalError, name, res.rows.length, res);
+				if(pendingCalls === 0) callback(totalError, name, res.rows, updatedPoints);
 			};
 
 			for(let i=0;i<res.rows.length;i++){
 				let curPoints = res.rows[i].points || 0;
 				let leaderboardId = res.rows[i].id;
+				let newPoints = updateFunc(curPoints, leaderboardId);
+				let uniqueCallback = (err, res2)=>{
+					if(res2.rowCount){
+						sharedCallback(err, leaderboardId, newPoints);
+					}else{
+						sharedCallback(err, leaderboardId, null);
+					}
+				}
 				if(res.rows[i].points !== null){
-					this.runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
+					this.runSql(UPDATE_LB_ENTRY_SQL, [dbId, leaderboardId, newPoints], uniqueCallback, client);
 				}else{
-					this.runSql(INSERT_LB_ENTRY_SQL, [dbId, leaderboardId, updateFunc(curPoints, leaderboardId)], sharedCallback, client);
+					this.runSql(INSERT_LB_ENTRY_SQL, [dbId, leaderboardId, newPoints], uniqueCallback, client);
 				}
 				this.achievements.achievementsOnScoreUpdate(name, leaderboardId, curPoints, updateFunc(curPoints, leaderboardId));
 			}
@@ -240,14 +248,14 @@ class PGClient extends BaseModule{
 				callback(err, username, affected, failed);
 			};
 
-			this.getUser(name, true, (err, res)=>{
+			this.getUser(name, true, (err, user)=>{
 				if(err){
 					done()
 					callback(err);
 					return;
 				}
 
-				this.updatePointsByDbId(res.id, res.display_name, updateFunc, leaderboards, newCallback, client);
+				this.updatePointsByDbId(user.id, user.display_name, updateFunc, leaderboards, newCallback, client);
 			}, client);
 		})
 	}

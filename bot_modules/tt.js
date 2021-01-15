@@ -1142,17 +1142,18 @@ let ttleaderboardCommands = {
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank, true);
 			}else{
 				let boardName = res.rows[0].display_name;
-				this.pgclient.getUser(username, false, (err, res2)=>{
+				this.pgclient.getUser(username, false, (err, dbUser)=>{
 					if(err){
 						error(err);
 						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
-					if(!res2){
+					if(!dbUser){
 						room.broadcast(user, `${username} does not have a score on the ${boardName} leaderboard.`, rank, true);
 					}else{
-						this.getLeaderboardEntry([res2.id, boardId], (err, entry)=>{
+						// TODO should use a function from pgclient
+						this.getLeaderboardEntry([dbUser.id, boardId], (err, entry)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, `Error: ${err}`);
@@ -1160,7 +1161,7 @@ let ttleaderboardCommands = {
 							}
 
 							if(!entry){
-								room.broadcast(user, `${res2.display_name} does not have a score on the ${boardName} leaderboard.`, rank, true);
+								room.broadcast(user, `${dbUser.display_name} does not have a score on the ${boardName} leaderboard.`, rank, true);
 							}else{
 								room.broadcast(user, `${entry.display_name}'s score on the ${boardName} leaderboard is ${entry.points}.`, rank, true);
 							}
@@ -1186,17 +1187,18 @@ let ttleaderboardCommands = {
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank);
 			}else{
 				let lbName = lbEntry.display_name;
-				this.pgclient.getUser(userId, false, (err, res2)=>{
+				this.pgclient.getUser(userId, false, (err, dbUser)=>{
 					if(err){
 						error(err);
 						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
 
-					if(!res2){
+					if(!dbUser){
 						room.broadcast(user, `You do not have a score on the ${lbName} leaderboard.`, rank);
 					}else{
-						this.getLeaderboardEntry([res2.id, lbId], (err, entry)=>{
+						// TODO should use a function from pgclient
+						this.getLeaderboardEntry([dbUser.id, lbId], (err, entry)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, `Error: ${err}`);
@@ -1220,7 +1222,7 @@ let ttleaderboardCommands = {
 									}else if(entries.length === 1){
 										room.broadcast(user, `You are the only person on the leaderboard (and your score is ${score}).`, rank);
 									}else if(entries[0].points === score){
-										let nextPlayer = idsMatch(entries[0].display_name, res2.display_name) ? entries[1] : entries[0];
+										let nextPlayer = idsMatch(entries[0].display_name, dbUser.display_name) ? entries[1] : entries[0];
 										let response = `You are first on the leaderboard with ${score} points.`
 										response += ` Second place is __${nextPlayer.display_name}__ with ${entries[1].points} points.`;
 										room.broadcast(user, response, rank);
@@ -1297,17 +1299,17 @@ let ttleaderboardCommands = {
 				}else{
 					this.pgclient.updatePointsByPsId(toId(username), username , (oldPoints)=>{
 						return points;
-					}, [boardId], (err, name, num, res)=>{
+					}, [boardId], (err, name, oldPoints, newPoints)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 
-						if(!res.rows[0].points === null){
-							room.broadcast(user, `Created a new ${boardName} leaderboard entry for ${username} and set their score to ${newPoints}.`, rank);
+						if(oldPoints[0].points === null){
+							room.broadcast(user, `Created a new ${boardName} leaderboard entry for ${username} and set their score to ${newPoints[boardId]}.`, rank);
 						}else{
-							room.broadcast(user, `Updated the score for ${name}. Their ${boardName} leaderboard score changed from ${res.rows[0].points} to ${points}.`, rank);
+							room.broadcast(user, `Updated the score for ${name}. Their ${boardName} leaderboard score changed from ${oldPoints[0].points} to ${newPoints[boardId]}.`, rank);
 						}
 					});
 				}
@@ -1326,17 +1328,14 @@ let ttleaderboardCommands = {
 			let points = parseInt(args[2], 10);
 			this.pgclient.updatePointsByPsId(toId(username), username, (oldPoints)=>{
 				return Math.max(oldPoints + points, 0);
-			}, 'enabled', (err, username, affected, failed)=>{
+			}, 'enabled', (err, username, oldPoints, newPoints)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
-				let response = `Updated ${affected} scores for ${username}.`;
-				if(failed.length){
-					response += ` The following leaderboards failed to update: ${failed.join(", ")}.`;
-				}
+				let response = `Updated ${oldPoints.length} scores for ${username}.`;
 				room.broadcast(user, response, rank);
 			});
 		}
@@ -1363,20 +1362,19 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
 					let boardName = res.rows[0].display_name;
-					// TODO this should use pgclient.updatePointsByPsId
-					this.updateLeaderboardEntryByUsername([username, boardId], (oldPoints)=>{
+					this.pgclient.updatePointsByPsId(toId(username), username , (oldPoints)=>{
 						return oldPoints + points;
-					}, (err, res2, newPoints)=>{
+					}, [boardId], (err, name, oldPoints, newPoints)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
-						
-						if(!res2){
-							room.broadcast(user, `Created a new ${boardName} leaderboard entry for ${username} and set their score to ${newPoints}.`, rank);
+
+						if(oldPoints[0].points === null){
+							room.broadcast(user, `Created a new ${boardName} leaderboard entry for ${username} and set their score to ${newPoints[boardId]}.`, rank);
 						}else{
-							room.broadcast(user, `Updated the score for ${res2.display_name}. Their ${boardName} leaderboard score changed from ${res2.points} to ${newPoints}.`, rank);
+							room.broadcast(user, `Updated the score for ${name}. Their ${boardName} leaderboard score changed from ${oldPoints[0].points} to ${newPoints[boardId]}.`, rank);
 						}
 					});
 				}
@@ -1389,24 +1387,24 @@ let ttleaderboardCommands = {
 		}else if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
 			room.broadcast(user, "Your rank is not high enough to remove someone's leaderboard entries.", rank);
 		}else{
-			this.pgclient.getUser(args[1], false, (err, player)=>{
+			this.pgclient.getUser(args[1], false, (err, dbUser)=>{
 				if(err){
 					error(err);
 					room.broadcast(user, `Error: ${err}`);
 					return;
 				}
 
-				if(!player){
+				if(!dbUser){
 					room.broadcast(user, `${args[1]} does not have any leaderboard entries.`, rank);
 				}else{
-					this.removeAllLeaderboardEntries(player.id, (err, res)=>{
+					this.removeAllLeaderboardEntries(dbUser.id, (err, res)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 
-						room.broadcast(user, `Removed ${res.rowCount} leaderboard entries for ${player.display_name}.`, rank);
+						room.broadcast(user, `Removed ${res.rowCount} leaderboard entries for ${dbUser.display_name}.`, rank);
 					});
 				}
 			});
@@ -1440,7 +1438,7 @@ let ttleaderboardCommands = {
 									return;
 								}
 
-								this.pgclient.getUser(user.id, true, (err, user)=>{
+								this.pgclient.getUser(user.id, true, (err, dbUser)=>{
 									if(err){
 										error(err);
 										room.broadcast(user, `Error: ${err}`);
@@ -1454,7 +1452,7 @@ let ttleaderboardCommands = {
 											return;
 										}
 
-										this.pgclient.runSql(RESET_MAIN_LB_SQL, [user.id], (err, res2)=>{
+										this.pgclient.runSql(RESET_MAIN_LB_SQL, [dbUser.id], (err, res2)=>{
 											if(err){
 												error(err);
 												room.broadcast(user, `Error: ${err}`);
@@ -1518,14 +1516,14 @@ let ttleaderboardEventCommands = {
 				if(res.rowCount){
 					room.broadcast(user, "A leaderboard already exists with the same name.", rank);
 				}else{
-					this.pgclient.getUser(user.id, true, (error, res)=>{
+					this.pgclient.getUser(user.id, true, (error, dbUser)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, `Error: ${err}`);
 							return;
 						}
 
-						this.pgclient.runSql(INSERT_LB_SQL, [toId(boardName), boardName, res.id], (err, res2)=>{
+						this.pgclient.runSql(INSERT_LB_SQL, [toId(boardName), boardName, dbUser.id], (err, res2)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, `Error: ${err}`);
@@ -2046,49 +2044,6 @@ class TT extends BaseModule{
 			}
 
 			callback(err, res.rows);
-		});
-	};
-
-	// TODO replace references to this with the pgclient version
-	//updateFunc takes the old score, and returns what the new score should be
-	//callback takes err, the old row, and new score, and does whatever
-	//args is [dbId, leaderboard, display name]
-	updateLeaderboardEntryById(args, updateFunc, callback){
-		this.getLeaderboardEntry(args, (err, res)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			let oldPoints = res ? res.points : 0;
-			let newPoints = updateFunc(oldPoints);
-			let newCallback = (err, res2)=>{
-				if(err){
-					callback(err);
-					return;
-				}
-
-				callback(err, res, newPoints);
-				this.achievementsOnScoreUpdate(args[2], args[1], oldPoints, newPoints, logIfError);
-			};
-
-			if(!res){
-				this.pgclient.runSql(INSERT_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
-			}else{
-				this.pgclient.runSql(UPDATE_LB_ENTRY_SQL, [args[0], args[1], newPoints], newCallback);
-			}
-		});
-	};
-
-	// TODO replaces references to this with the pgclient version
-	updateLeaderboardEntryByUsername(args, updateFunc, callback){
-		this.pgclient.getUser(args[0], true, (err, res)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			this.updateLeaderboardEntryById([res.id, args[1], res.display_name], updateFunc, callback);
 		});
 	};
 
