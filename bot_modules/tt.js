@@ -39,8 +39,6 @@ const UPDATE_ACH_ID_SQL = "UPDATE player_achievements SET player_id = $1 WHERE p
 const UPDATE_ACH_DATE_SQL = "UPDATE player_achievements SET date_achieved = $1 WHERE player_id = $2 AND achievement_id = $3;";
 const REMOVE_PLAYER_ACH_SQL = "DELETE FROM player_achievements WHERE player_id = $1;";
 
-// TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists 
-
 let commands = {
 	// newgame, endgame
 	tt: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -129,7 +127,6 @@ let commands = {
 		}else{
 			let id = toId(args[0]);
 			if(!id || !AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)){
-				// TODO can this be moved to the minigame side?
 				let curUser = game.curHist.active;
 				// if BP is open or locked, there's no need to HL the user who last had it.
 				let curName = game.bpOpen || game.bpLock ? "__" + curUser.name + "__" : curUser.name;
@@ -1862,15 +1859,10 @@ class TT extends BaseModule{
 		game.onRoomMessage(user, triviaRank, message);
 	}
 
-	// TODO this should be changed to use the game class commands
 	processHide(room, user){
 		let game = this.games[room.id];
-		if(game && user.id === game.curUser.id && !game.bpLocked){ // can't open BP if it's locked
-			// The user must've done something very bad so opening BP is probably a good idea
-			if(!game.bpOpen){
-				room.send("**BP is now open (say 'me' or 'bp' to claim it).**")
-			}
-			game.bpOpen = "auth";
+		if(game){
+			game.onPunishment(user, 'hide');
 		}
 	}
 

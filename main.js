@@ -365,6 +365,19 @@ function handle(message){
 						info(`Exception when sending name update to ${modulename}`);
 					}
 				}
+			}else if(args[1] === 'hidelines'){
+				let user = room.getUserData(args[3]);
+				if(user){
+					for(let modulename in modules){
+						let module = modules[modulename];
+						try{
+							if(module.processHide) module.processHide(room, user);
+						}catch(e){
+							error(e.message);
+							info(`Exception when sending hide update to ${modulename}`);
+						}
+					}
+				}
 			}else if(args[1]==="c"||args[1]==="chat"||args[1]==="c:"||args[1]==="pm"){
 				let id, message;
 				if(args[1]==="c:"){
