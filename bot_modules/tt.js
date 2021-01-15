@@ -2,7 +2,6 @@ let fs = require("fs");
 let path = "./minigames";
 delete require.cache[require.resolve(path)];
 let minigames = require(path);
-let request = require("request");
 let spawn = require('child_process').spawn;
 
 const DELETE_USER_SQL = "DELETE FROM users WHERE id = $1;";
@@ -24,7 +23,7 @@ const DISABLE_ALL_LB_SQL = "UPDATE tt_leaderboards SET enabled = false;";
 const GET_LB_ENTRY_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;";
 const GET_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;";
 const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;";
-const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;";
+const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, tt_leaderboards.display_name AS lb_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id LEFT OUTER JOIN tt_leaderboards ON lb.leaderboard = tt_leaderboards.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;";
 const LIST_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;";
 const INSERT_LB_ENTRY_SQL = "INSERT INTO tt_points VALUES ($1, $2, $3);";
 const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND leaderboard = $2;";
@@ -41,7 +40,6 @@ const UPDATE_ACH_DATE_SQL = "UPDATE player_achievements SET date_achieved = $1 W
 const REMOVE_PLAYER_ACH_SQL = "DELETE FROM player_achievements WHERE player_id = $1;";
 
 // TODO when getting a single score, outer join it with the leaderbaord table to know if the leaderboard exists 
-// TODO one function for updating sores: 'all' vs 'enabled' vs ['lb1', 'lb2', ...]. make updatefunc take the lb id as well
 
 let commands = {
 	// newgame, endgame
@@ -1098,7 +1096,8 @@ let ttleaderboardCommands = {
 				if(args[3] &&  AuthManager.rankgeq(commandRank, "%")){
 					sayScores(rows, lb, room);
 				}else{
-					room.broadcast(user, `The top ${rows.length} score${rows.length === 1 ? "" : "s"} on the ${lb} leaderboard ${rows.length === 1 ? "is" : "are"}: ${rows.map((row)=>{return `__${row.display_name || row.id1}__: ${row.points}`}).join(", ")}.`, rank, true);
+					info(JSON.stringify(rows[0]));
+					room.broadcast(user, `The top ${rows.length} score${rows.length === 1 ? "" : "s"} on the ${rows[0].lb_name} leaderboard ${rows.length === 1 ? "is" : "are"}: ${rows.map((row)=>{return `__${row.display_name || row.id1}__: ${row.points}`}).join(", ")}.`, rank, true);
 				}
 			}
 		});
@@ -1795,7 +1794,7 @@ let blacklistCommands = {
 };
 
 let sayScores = function(scores, lb, room){
-	let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black" border=1><tr style="background-color: #209331"><th colspan="2">${lb}</th></tr><tr style="background-color: #209331"><th style="width: 150px">User</th><th>Score</th></tr>`;
+	let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black" border=1><tr style="background-color: #209331"><th colspan="2">${scores[0].lb_name}</th></tr><tr style="background-color: #209331"><th style="width: 150px">User</th><th>Score</th></tr>`;
 	for(let i=0;i<scores.length;i++){
 		message = message + `<tr><td>${scores[i].display_name || scores[i].id1}</td><td>${scores[i].points}</td></tr>`;
 	}
