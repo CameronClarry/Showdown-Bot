@@ -582,9 +582,8 @@ class Blitz extends TriviaTrackerGame{
 	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
 		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
 		this.remindTime = 60;
-		// TODO this should be simpler using .call
-		this.chatCommands['finals'] = (user, rank)=>{this.doFinals(user, rank)};
-		this.chatCommands['hyperfinals'] = (user, rank)=>{this.doHyperFinals(user, rank)};
+		this.chatCommands['finals'] = this.doFinals;
+		this.chatCommands['hyperfinals'] = this.doHyperFinals;
 	}
 
 	setupData(){
