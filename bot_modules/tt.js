@@ -1149,18 +1149,17 @@ let ttleaderboardCommands = {
 					if(!dbUser){
 						room.broadcast(user, `${username} does not have a score on the ${boardName} leaderboard.`, rank, true);
 					}else{
-						// TODO should use a function from pgclient
-						this.getLeaderboardEntry([dbUser.id, boardId], (err, entry)=>{
+						this.pgclient.getPoints(dbUser.id, [boardId], (err, res)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, `Error: ${err}`);
 								return;
 							}
 
-							if(!entry){
+							if(!res.rows.length || res.rows[0].points === null){
 								room.broadcast(user, `${dbUser.display_name} does not have a score on the ${boardName} leaderboard.`, rank, true);
 							}else{
-								room.broadcast(user, `${entry.display_name}'s score on the ${boardName} leaderboard is ${entry.points}.`, rank, true);
+								room.broadcast(user, `${dbUser.display_name}'s score on the ${boardName} leaderboard is ${res.rows[0].points}.`, rank, true);
 							}
 						});
 					}
@@ -1194,18 +1193,17 @@ let ttleaderboardCommands = {
 					if(!dbUser){
 						room.broadcast(user, `You do not have a score on the ${lbName} leaderboard.`, rank);
 					}else{
-						// TODO should use a function from pgclient
-						this.getLeaderboardEntry([dbUser.id, lbId], (err, entry)=>{
+						this.pgclient.getPoints(dbUser.id, [lbId], (err, res)=>{
 							if(err){
 								error(err);
 								room.broadcast(user, `Error: ${err}`);
 								return;
 							}
 
-							if(!entry){
+							if(!res.rows.length || res.rows[0].points === null){
 								room.broadcast(user, `You do not have a score on the ${lbName} leaderboard.`, rank);
 							}else{
-								let score = entry.points;
+								let score = res.rows[0].points;
 								this.pgclient.runSql(GET_ALL_LB_ENTRIES_SQL, [lbId], (err, res3)=>{
 									if(err){
 										error(err);
@@ -2009,18 +2007,6 @@ class TT extends BaseModule{
 			error(e.message);
 		}
 		return false;
-	};
-
-	//args is [dbId, leaderboard]
-	getLeaderboardEntry(args, callback){
-		this.pgclient.runSql(GET_LB_ENTRY_SQL, [args[0], toId(args[1])], (err, res)=>{
-			if(err){
-				callback(err);
-				return;
-			}
-
-			callback(err, res.rows[0]);
-		});
 	};
 
 	//args is [number of entries to get, leaderboard]
