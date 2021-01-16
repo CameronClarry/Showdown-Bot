@@ -1411,54 +1411,48 @@ let ttleaderboardCommands = {
 		}else{
 			if(idsMatch(user.id, this.askToReset)){
 				try{
-					// TODO can this just be pg_dump > filename?
 					let child = spawn("pg_dump", [bot.config.dbname.value]);
-					let parts = [];
-					child.stdout.on("data", (data)=>{
-						parts.push(data);
-					});
+					let filename = `backups/${new Date().toISOString()}.dump`;
+					let backupStream = fs.createWriteStream(filename, {flags: 'a'});
+					child.stdout.pipe(backupStream);
 					child.on('error', (err)=>{
 						error("There was an error with the subprocess.");
 						room.broadcast(user, "There was an error with the subprocess responsible for creating the database dump.", rank);
 					});
 					child.on("exit", (code, signal)=>{
-						let text = parts.join("");
-						let filename = `backups/${new Date().toISOString()}.dump`;
-						fs.writeFile(filename, text, (err)=>{
-							// Now that the database has been written, it's okay to reset
-							this.getAllLeaderboardEntries("main", (err, rows)=>{
+						// Now that the database has been written, it's okay to reset
+						this.getAllLeaderboardEntries("main", (err, rows)=>{
+							if(err){
+								error(err);
+								room.broadcast(user, `Error: ${err}`);
+								return;
+							}
+
+							this.pgclient.getUser(user.id, true, (err, dbUser)=>{
 								if(err){
 									error(err);
 									room.broadcast(user, `Error: ${err}`);
 									return;
 								}
 
-								this.pgclient.getUser(user.id, true, (err, dbUser)=>{
+								this.pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], (err, res)=>{
 									if(err){
 										error(err);
 										room.broadcast(user, `Error: ${err}`);
 										return;
 									}
 
-									this.pgclient.runSql(DELETE_LB_ENTRIES_SQL, ["main"], (err, res)=>{
+									this.pgclient.runSql(RESET_MAIN_LB_SQL, [dbUser.id], (err, res2)=>{
 										if(err){
 											error(err);
 											room.broadcast(user, `Error: ${err}`);
 											return;
 										}
 
-										this.pgclient.runSql(RESET_MAIN_LB_SQL, [dbUser.id], (err, res2)=>{
-											if(err){
-												error(err);
-												room.broadcast(user, `Error: ${err}`);
-												return;
-											}
-
-											room.broadcast(user, `Successfully deleted ${res.rowCount} score(s) from the main leaderboard.`, rank);
-											this.askToReset = "";
-											this.achievementsOnReset("main", rows);
-										})
-									});
+										room.broadcast(user, `Successfully deleted ${res.rowCount} score(s) from the main leaderboard.`, rank);
+										this.askToReset = "";
+										this.achievementsOnReset("main", rows);
+									})
 								});
 							});
 						});
