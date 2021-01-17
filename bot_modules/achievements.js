@@ -234,6 +234,52 @@ class Achievements extends BaseModule{
 		});
 	};
 
+	// Achievement crap
+	// This is called when a leaderboard is reset.
+	// leaderboard is the string id of the leaderboard being reset.
+	// scores is an array of {display_name, points}, sorted descending by points.
+	// There are achievements for getting first, getting top 5, and getting 6th
+	achievementsOnReset(leaderboard, scores){
+		let triviaRoom = RoomManager.getRoom(this.room);
+		let callback = (err, username, achievement)=>{
+			if(err){
+				error(err);
+				return;
+			}
+
+			if(triviaRoom) triviaRoom.send(`${username} has earned the achievement '${achievement}'!`);
+		}
+		if(scores.length > 0 && leaderboard === 'main'){ // Awarding achievements
+			let firstPlace = scores.filter((e)=>{return e.points === scores[0].points});
+			for(let i=0;i<firstPlace.length;i++){
+				this.awardAchievement(firstPlace[i].display_name, "Hatmor", callback);
+			}
+			let num = firstPlace.length;
+			while(num<5 && num < scores.length){ // Using black magic to find all players in the top 5
+				num += scores.filter((e)=>{return e.points === scores[num].points}).length;
+			}
+			let top5 = scores.slice(firstPlace.length, num);
+			for(let i=0;i<top5.length;i++){
+				this.awardAchievement(top5[i].display_name, "Elite", callback);
+			}
+			let message = `Congratulations to ${prettyList(firstPlace.map((e)=>{return e.display_name}))} for getting first`;
+			if(top5.length){
+				message += `, and to ${prettyList(top5.map((e)=>{return e.display_name}))} for being in the top five!`;
+			}else{
+				message += "!";
+			}
+			if(!triviaRoom) return;
+			triviaRoom.send(message);
+			if(num === 5 && scores.length > 5){
+				let consolation = scores.filter((e)=>{return e.points === scores[5].points});
+				for(let i=0;i<consolation.length;i++){
+					this.awardAchievement(consolation[i].display_name, "Consolation Prize", callback);
+				}
+			}
+		}
+	}
+
+	// TODO this needs to be called from pgclient when updating scores
 	achievementsOnScoreUpdate(username, leaderboard, oldScore, newScore){
 		let triviaRoom = RoomManager.getRoom(this.room);
 		let callback = (err, username, achievement)=>{
