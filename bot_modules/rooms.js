@@ -20,14 +20,15 @@ let commands = {
 	leave: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, this.config.joinRoomRank.value)) return;
 		if(!args.length || !toRoomId(args[0])){
-			room.broadcast(user, "You must specify a room to join.");
+			room.broadcast(user, "You must specify a room to leave.");
 			return;
 		}
 
 		let roomId = toRoomId(args[0]);
 		send(`|/leave ${roomId}`);
-		if(this.roomList.indexOf(roomId) !== -1){
-			this.roomList.remove(roomId);
+		let index = this.roomList.indexOf(roomId);
+		if(index !== -1){
+			this.roomList.splice(index, 1);
 			this.saveRoomList();
 		}
 	},
