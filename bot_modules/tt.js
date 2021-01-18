@@ -1734,7 +1734,6 @@ class BlacklistManager{
 	}
 }
 
-// TODO remove this middleman command and make the chat commands directly reference the manager
 let blacklistCommands = {
 	add: function(username, id, duration, reason, user, room, triviaRoom){
 		let response = this.blacklistManager.addUser(username, duration, reason, user);
@@ -2012,43 +2011,46 @@ class TT extends BaseModule{
 	}
 
 	transferAllPoints(fromDbId, toDbId, callback, client){
-		this.pgclient.runSql(GET_LB_ENTRIES_SQL, [fromDbId], (err, res)=>{
+		this.pgclient.getPoints(fromDbId, 'all', (err, fromRes)=>{
 			if(err){
 				callback(err);
 				return;
 			}
 
-			let entriesToTransfer = res.rows.length;
+			let entriesToTransfer = 0;
 			let fromEntries = {};
-			for(let i=0;i<res.rows.length;i++){
-				fromEntries[res.rows[i].leaderboard] = res.rows[i];
+			for(let i=0;i<fromRes.rows.length;i++){
+				if(fromRes.rows[i].points){
+					fromEntries[fromRes.rows[i].id] = fromRes.rows[i];
+					entriesToTransfer++;
+				}
 			}
 			
 			if(entriesToTransfer === 0){
 				callback();
 			}
 
-			this.pgclient.runSql(GET_LB_ENTRIES_SQL, [toDbId], (err, res2)=>{
+			this.pgclient.getPoints(toDbId, 'all', (err, toRes)=>{
 				if(err){
 					callback(err);
 					return;
 				}
 
 				let toEntries = {};
-				for(let i=0;i<res2.rows.length;i++){
-					toEntries[res2.rows[i].leaderboard] = res2.rows[i];
+				for(let i=0;i<toRes.rows.length;i++){
+					toEntries[toRes.rows[i].id] = toRes.rows[i];
 				}
 
 				let totalError = null;
-				let sharedCallback = (err, res3)=>{
+				let sharedCallback = (err, res)=>{
 					totalError = err || totalError;
 					entriesToTransfer--;
-					if(entriesToTransfer === 0) callback(err);
+					if(entriesToTransfer === 0) callback(totalError);
 				}
 
 				this.removeAllLeaderboardEntries(fromDbId, logIfError, client);
 				for(let event in fromEntries){
-					if(toEntries[event]){
+					if(toEntries[event] && toEntries[event].points !== null){
 						this.pgclient.runSql(UPDATE_LB_ENTRY_SQL, [toDbId, event, toEntries[event].points + fromEntries[event].points], sharedCallback, client);
 					}else{
 						this.pgclient.runSql(INSERT_LB_ENTRY_SQL, [toDbId, event, fromEntries[event].points], sharedCallback, client);
