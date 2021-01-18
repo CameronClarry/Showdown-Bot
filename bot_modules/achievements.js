@@ -240,7 +240,7 @@ class Achievements extends BaseModule{
 	// scores is an array of {display_name, points}, sorted descending by points.
 	// There are achievements for getting first, getting top 5, and getting 6th
 	achievementsOnReset(leaderboard, scores){
-		let triviaRoom = RoomManager.getRoom(this.room);
+		let triviaRoom = RoomManager.getRoom('trivia');
 		let callback = (err, username, achievement)=>{
 			if(err){
 				error(err);
