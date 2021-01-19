@@ -82,7 +82,6 @@ let achievementCommands = {
 	},
 	list: function(message, args, user, rank, room, commandRank, commandRoom){
 		this.pgclient.runSql(GET_ALL_ACHIEVEMENTS_SQL, [], (err, res)=>{
-			info('in callback');
 			if(err){
 				error(JSON.stringify(err));
 				room.broadcast(user, `Error: ${err}`);
@@ -306,5 +305,7 @@ class Achievements extends BaseModule{
 		}
 	};
 }
+
+Achievements.room = 'trivia';
 
 exports.Module = Achievements;
