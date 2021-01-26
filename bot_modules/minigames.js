@@ -840,6 +840,7 @@ class Duel extends TriviaTrackerSingleAsker{
 	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
 		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
 		this.chatCommands['selectplayers'] = this.selectPlayers;
+		this.chatCommands['pick'] = this.selectPlayers;
 		this.chatCommands['startq'] = this.startQuestion;
 	}
 
