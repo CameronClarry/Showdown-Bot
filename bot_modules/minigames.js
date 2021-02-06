@@ -641,8 +641,8 @@ class Blitz extends TriviaTrackerGame{
 
 	onBold(user, message){
 		if(!this.curHist.hasAsked){
-			this.setRemindTimer();
 			this.clearTimers();
+			this.setRemindTimer();
 		}
 		if(!this.curHist.hasAsked && message.length > 10){
 			this.curHist.question = message;
