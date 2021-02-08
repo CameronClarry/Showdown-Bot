@@ -1,37 +1,50 @@
 let fs = require("fs");
 let request = require("request");
 
+let moduleRoomRank = function(user, moduleId){
+	let moduleRoomId = moduleInfo[moduleId] && moduleInfo[moduleId].room;
+	return AuthManager.getRank(user, RoomManager.getRoom(moduleRoomId));
+}
+
 let commands = {
 	load: function(message, args, user, rank, room, commandRank, commandRoom){
+		let moduleId = toId(args[0]);
+		commandRank = moduleRoomRank(user, moduleId)
 		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to load modules.", rank);
+			room.broadcast(user, "Your rank is not high enough to load that module.", rank);
 		}else if(!args.length){
 			room.broadcast(user, "You must specify the module to be loaded.", rank);
 		}else{
-			room.broadcast(user, this.loadModule.call(this, toId(args[0])), rank);
+			room.broadcast(user, this.loadModule.call(this, moduleId), rank);
 		}
 	},
 	reload: function(message, args, user, rank, room, commandRank, commandRoom){
+		let moduleId = toId(args[0]);
+		commandRank = moduleRoomRank(user, moduleId)
 		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to load modules.", rank);
+			room.broadcast(user, "Your rank is not high enough to load that module.", rank);
 		}else if(!args.length){
 			room.broadcast(user, "You must specify the module to reload.", rank);
 		}else{
-			room.broadcast(user, this.reloadModule.call(this,toId(args[0])), rank);
+			room.broadcast(user, this.reloadModule.call(this, moduleId), rank);
 		}
 	},
 	unload: function(message, args, user, rank, room, commandRank, commandRoom){
+		let moduleId = toId(args[0]);
+		commandRank = moduleRoomRank(user, moduleId)
 		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to unload modules.", rank);
+			room.broadcast(user, "Your rank is not high enough to unload that module.", rank);
 		}else if(!args.length){
 			room.broadcast(user, "You must specify the module to be unloaded.", rank);
 		}else{
-			room.broadcast(user, this.unloadModule.call(this,toId(args[0])), rank);
+			room.broadcast(user, this.unloadModule.call(this,moduleId), rank);
 		}
 	},
 	config: function(message, args, user, rank, room, commandRank, commandRoom){
+		let moduleId = toId(args[0]);
+		commandRank = moduleRoomRank(user, moduleId)
 		if(!AuthManager.rankgeq(commandRank,"#")){
-			room.broadcast(user, "Your rank is not high enough to manage configs.", rank);
+			room.broadcast(user, "Your rank is not high enough to manage that config.", rank);
 		}else if(args.length < 2){
 			room.broadcast(user, "You must give a config command and a module name.", rank);
 		}else{

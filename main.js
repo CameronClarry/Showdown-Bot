@@ -3,7 +3,7 @@ console.log("Starting the bot");
 let fs = require("fs");
 let helpers = require('./helperfuncs');
 
-let moduleInfo = {};
+global.moduleInfo = {};
 
 
 //Various logging commands for output to the console
