@@ -326,8 +326,14 @@ class TriviaTrackerGame{
 		}
 	}
 
+	cantTf(user, rank){
+		if(!AuthManager.rankgeq(rank, '+') && (user.id !== this.curHist.active.id) && user.id !== this.host.id) return "Your rank is not high enough to use that command.";
+		
+		if(this.lastNo && Date.now() - this.lastNo < 5000) return "There is a cooldown between uses of ~no, try again in a few seconds.";
+	}
+
 	cantNo(user, rank, number){
-		if(!AuthManager.rankgeq(rank, '+') && (user.id !== this.curHist.active.id || number > 1) && user.id !== this.host.id) return "Your rank is not high enough to use that command.";
+		if(!AuthManager.rankgeq(rank, '+') && user.id !== this.host.id) return "Your rank is not high enough to use that command.";
 		
 		if(this.lastNo && Date.now() - this.lastNo < 5000) return "There is a cooldown between uses of ~no, try again in a few seconds.";
 

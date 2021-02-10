@@ -84,6 +84,26 @@ let commands = {
 			game.doNo(user, number);
 		}
 	},
+	tf: "tabfail",
+	tabfail: function(message, args, user, rank, room, commandRank, commandRoom){
+		//let roomId = AuthManager.rankgeq(commandRank, config.manageBpRank) && args[1] ? toRoomId(args[1]) : room.id;
+		let roomId = room.id;
+		let game = this.games[roomId];
+		if(!roomId){
+			user.send("Not for use in PMs.");
+		}else if(!game){
+			room.broadcast(user, `There is no trivia game in ${roomId}.`);
+		}else{
+			let reason = game.cantTf(user, rank);
+			if(reason){
+				room.broadcast(user, reason);
+				return;
+			}
+
+			game.doNo(user, 1);
+			game.curHist.hasAsked = true;
+		}
+	},
 	bp: function(message, args, user, rank, room, commandRank, commandRoom){
 		let roomId = toRoomId(args[1]) || "trivia";
 		let game = this.games[roomId];
