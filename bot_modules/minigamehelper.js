@@ -1,20 +1,4 @@
 let commands = {
-	//pladd: function(message, args, user, rank, room, commandRank, commandRoom){
-		//if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
-			//room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
-		//}else{
-			//let response = this.addPlayers(args, commandRoom);
-			//room.broadcast(user, response, rank);
-		//}
-	//},
-	//plremove: function(message, args, user, rank, room, commandRank, commandRoom){
-		//if(!AuthManager.rankgeq(commandRank, this.config.rosterRank.value) || this.voices[user.id]){
-			//room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
-		//}else{
-			//let response = this.removePlayers(args);
-			//room.broadcast(user, response, rank);
-		//}
-	//},
 	tar: "titanaddregs",
 	titanaddreg: "titanaddregs",
 	titanaddregs: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -94,93 +78,6 @@ let commands = {
 			room.broadcast(user, "Cleared the auth and reg lists.", rank);
 		}
 	},
-	showmghpoints: function(message, args, user, rank, room, commandRank, commandRoom){
-		let id = toId(args[0]);
-		if(id){
-			let entry = this.scores[id];
-			if(entry){
-				room.broadcast(user, `${entry.name}'s score is ${entry.score}.`, rank);
-			}else{
-				room.broadcast(user, `${entry.name} does not have a score.`, rank);
-			}
-		}else{
-			let scores = [];
-			for(let p in this.scores){
-				scores.push(this.scores[p]);
-			}
-			scores.sort((e1,e2)=>{return e1.score < e2.score});
-			if(scores.length == 0){
-				room.broadcast(user, "No one has any points.", rank);
-			}else{
-				room.broadcast(user, `The current scores are: ${scores.map(e=>{return `__${e.name}__ (${e.score})`}).join(', ')}`, rank);
-			}
-		}
-	},
-	reghost: function(message, args, user, rank, room, commandRank, commandRoom){
-		let host = commandRoom.getUserData(toId(args[0]));
-		if(!AuthManager.rankgeq(commandRank, '%')){
-			room.broadcast(user, "Your rank is not high enough to appoint a reghost.", rank);
-		}else if(!host){
-			room.broadcast(user, "You must give a user in Trivia to appoint as a reghost.", rank);
-		}else if(AuthManager.getTrueRoomRank(host, commandRoom) !== ' '){
-			room.broadcast(user, "That user already has a rank.", rank);
-		}else if(this.hosts[host.id]){
-			room.broadcast(user, "That user is already a reghost.", rank);
-		}else if(Object.keys(this.hosts).length > 1){
-			room.broadcast(user, "There cannot be more than two reghosts.", rank);
-		}else if(!commandRoom){
-			room.broadcast(user, "I'm not in Trivia currently.", rank);
-		}else{
-			this.hosts[host.id] = host;
-			commandRoom.send(`/roomvoice ${host.id}`);
-			room.broadcast(user, "Successfully added the host.", rank);
-		}
-	},
-	endhost: function(message, args, user, rank, room, commandRank, commandRoom){
-		if(!AuthManager.rankgeq(commandRank, '%')){
-			room.broadcast(user, "Your rank is not high enough to end a reghost.", rank);
-		}else{
-			for(let host in this.hosts){
-				commandRoom.send(`/roomdeauth ${this.hosts[host].id}`);
-				this.hosts[host].rank = ' ';
-				this.hosts[host].trueRank = ' ';
-			}
-			this.hosts = {};
-			room.broadcast(user, "Successfully removed the hosts.", rank);
-		}
-	},
-	modchat: function(message, args, user, rank, room, commandRank, commandRoom){
-		let arg = toId(args[0]);
-		if(!AuthManager.rankgeq(commandRank, '%')){
-			room.broadcast(user, "Your rank is not high enough to turn on modchat.", rank);
-		}else if(!commandRoom){
-			room.broadcast(user, "I'm not in Trivia currently.", rank);
-		}else{
-			if(arg === 'on'){
-				if(this.shouldVoice){
-					room.broadcast(user, "Modchat is already on.", rank);
-				}else{
-					this.shouldVoice = true;
-					for(let id in this.voices){
-						commandRoom.send(`/roomvoice ${id}`);
-					}
-					commandRoom.send("/modchat +");
-				}
-			}else if(arg === 'off'){
-				if(!this.shouldVoice){
-					room.broadcast(user, "Modchat is already off.", rank);
-				}else{
-					this.shouldVoice = false;
-					for(let id in this.voices){
-						commandRoom.send(`/roomdeauth ${id}`);
-						this.voices[id].rank = ' ';
-						this.voices[id].trueRank = ' ';
-					}
-					commandRoom.send("/modchat ac");
-				}
-			}
-		}
-	},
 	tsu: "triviasignups",
 	triviasignups: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, '+')){
@@ -239,7 +136,7 @@ class MinigameHelper extends BaseModule{
 			officialReminders: new ConfigBoolean(true)
 		};
 		this.commands = commands;
-		this.chathooks = {a: this.onChat};
+		this.chathooks = {};
 		this.messagehooks = {a: this.onMessage};
 		this.dependencies = ['tt'];
 	}
@@ -247,12 +144,6 @@ class MinigameHelper extends BaseModule{
 	onLoad(){
 		this.titanRegs = {};
 		this.titanAuth = {};
-		this.plist = [];
-		this.maxplayers = 0;
-		this.voices = {};
-		this.scores = {};
-		this.shouldVoice = false;
-		this.hosts = {};
 
 		if(!this.remindTimer && this.config.officialReminders.value){
 			let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
@@ -265,17 +156,6 @@ class MinigameHelper extends BaseModule{
 	}
 
 	onUnload(){
-		let triviaRoom = RoomManager.getRoom("trivia");
-		if(!triviaRoom) error("Minigamehelper unloaded, but wasn't in Trivia. Did any temporary voices get left behind?");
-		if(this.shouldVoice){
-			for(let id in this.voices){
-				triviaRoom.send("/roomdeauth " + id);
-			}
-			triviaRoom.send("/modchat ac");
-		}
-		for(let id in this.hosts){
-			triviaRoom.send("/roomdeauth " + id);
-		}
 		if(this.remindTimer){
 			clearTimeout(this.remindTimer);
 			this.remindTimer = null;
@@ -283,33 +163,11 @@ class MinigameHelper extends BaseModule{
 	}
 
 	recover(oldModule){
-		this.shouldVoice = oldModule.shouldVoice;
-		this.voices = oldModule.voices;
-		this.hosts = oldModule.hosts;
 		this.remindTimer = oldModule.remindTimer;
 		this.titanRegs = oldModule.titanRegs;
 		this.titanAuth = oldModule.titanAuth;
-		this.plist = oldModule.plist;
-		this.maxplayers = oldModule.maxplayers;
 		this.joinTimer = oldModule.joinTimer;
 		this.shouldStart = oldModule.shouldStart;
-		this.scores = oldModule.scores;
-	}
-
-	onChat(room, user, message){
-		let plist = this.plist;
-		if(this.maxplayers && plist.length < this.maxplayers && room.id === this.room){
-			let text = toId(message);
-			if(text === "mein" && this.plist.length < this.maxplayers){
-				let nplayers = this.plist.length;
-				this.addPlayers([user.id], room);
-				this.onPlayerChange(nplayers, room);
-			}else if(text === "meout"){
-				let nplayers = this.plist.length;
-				this.removePlayers([user.id], room);
-				this.onPlayerChange(nplayers, room);
-			}
-		}
 	}
 
 	onMessage(room, args){
@@ -334,19 +192,6 @@ class MinigameHelper extends BaseModule{
 		}
 	}
 
-	onPlayerChange(prevCount, room){
-		if(this.plist.length !== prevCount){
-			if(this.joinTimer){
-				clearTimeout(this.joinTimer);
-			}
-			this.joinTimer = setTimeout(()=>{
-				this.joinTimer = null;
-				let numPlayers = this.plist.length;
-				room.send(`There ${numPlayers === 1 ? "is" : "are"} now ${numPlayers} player${numPlayers === 1 ? "" : "s"} in the game.`);
-			}, 5000);
-		}
-	}
-
 	officialReminder(){
 		let triviaRoom = RoomManager.getRoom(this.room);
 		if(triviaRoom) triviaRoom.send("Time for the next official!");
@@ -363,52 +208,6 @@ class MinigameHelper extends BaseModule{
 		room.send("/trivia start");
 		room.send("**Triviastart, good luck! Remember to only answer using ``/ta`` or else you may be warned/muted!**");
 		this.shouldStart = false;
-	}
-
-	removePlayers(names){
-		if(names.length === 0) return "Player list not updated. You must give at least one player.";
-		let triviaRoom = RoomManager.getRoom(this.room);
-		for(let i=0;i<names.length;i++){
-			let userId = toId(names[i]);
-			if(this.voices[userId]){
-				if(this.shouldVoice && triviaRoom){
-					triviaRoom.send("/roomdeauth " + userId);
-					this.voices[userId].rank = " ";
-				}
-				delete this.voices[userId];
-			}
-			if(this.scores[userId]) delete this.scores[userId]
-			this.plist = this.plist.filter(item=>{return item.id !== userId});
-		}
-		let n = this.plist.length;
-		return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
-	}
-
-	addPlayers(names, room){
-		if(names.length === 0) return "Player list not updated. You must give at least one player.";
-		let plist = this.plist;
-		for(let i=0;i<names.length;i++){
-			let user = room.getUserData(toId(names[i]));
-			if(!user) continue;
-			if(!this.voices[user.id] && user.trueRank === " "){
-				this.voices[user.id] = user;
-				// The following lines would make things more convenient, but for security reasons they should not be included.
-				// Theoretically, voices would be able to voice people under certain circumstances if they were uncommented.
-				// if(data.shouldVoice){
-				// 	chat.js.say("trivia", "/roomvoice " + id);
-				// }
-			}
-			for(let j=0;j<plist.length+1;j++){
-				if(j == plist.length){
-					plist.push({id: user.id, displayName: user.name});
-					break;
-				}else if(user.id == plist[j].id){
-					break;
-				}
-			}
-		}
-		let n = plist.length;
-		return `Player list updated. There ${n==1?"is":"are"} now ${n} player${n==1?"":"s"}.`;
 	}
 }
 MinigameHelper.room = 'trivia';

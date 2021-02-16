@@ -2,7 +2,7 @@ const UPDATE_LB_ENTRY_SQL = "UPDATE tt_points SET points = $3 WHERE id = $1 AND 
 
 // These are commands that every minigame will have
 let commands = {
-	modchat: function(user, rank){
+	modchat: function(user, rank, args){
 		// Check if their rank is high enough
 		// Toggle modchat
 		if(!AuthManager.rankgeq(rank, '%')){
@@ -52,7 +52,21 @@ class TriviaTrackerGame{
 	}
 
 	setHost(newHost){
+		// Devoice the previous host if necessary
+		if(this.voices[this.host.id]){
+			if(this.modchat){
+				this.room.send(`/roomdeauth ${this.host.id}`);
+			}
+			delete this.voices[this.host.id];
+		}
 		this.host = newHost;
+		// Voice the new host if necessary
+		if(!this.voices[newHost.id] && newHost.trueRank === " "){
+			this.voices[newHost.id] = newHost;
+			if(this.modchat){
+				this.room.send(`/roomvoice ${newHost.id}`);
+			}
+		}
 	}
 
 	sendStart(){
@@ -65,9 +79,32 @@ class TriviaTrackerGame{
 
 	end(){
 		this.clearTimers();
+		// Demote the temporary voices
+		if(this.modchat){
+			this.endModchat();
+		}
 		this.sendEnd();
 	}
 
+	startModchat(){
+		if(this.modchat) return;
+		// Promote temporary voices and host, set modchat to +
+		this.modchat = true;
+		for(let id in this.voices){
+			this.room.send(`/roomvoice ${id}`);
+		}
+		this.room.send("/modchat +");
+	}
+
+	endModchat(){
+		if(!this.modchat) return;
+		this.modchat = false;
+		// Demote temporary voices and host, set modchat to ac
+		for(let id in this.voices){
+			this.room.send(`/roomdeauth ${id}`);
+		}
+		this.room.send("/modchat ac");
+	}
 
 	/// prevUser: the user that asked the question
 	/// nextUser: the user who got the question correct:
@@ -120,16 +157,16 @@ class TriviaTrackerGame{
 
 	removePlayers(names){
 		if(names.length === 0) return "Player list not updated. You must give at least one player.";
-		let triviaRoom = RoomManager.getRoom(this.room);
 		for(let i=0;i<names.length;i++){
 			let userId = toId(names[i]);
 			if(this.voices[userId]){
-				if(this.shouldVoice && triviaRoom){
-					triviaRoom.send("/roomdeauth " + userId);
+				if(this.modchat){
+					this.room.send(`/roomdeauth ${userId}`);
 					this.voices[userId].rank = " ";
 				}
 				delete this.voices[userId];
 			}
+			// Let's keep scores even when the player is removed (helps for eg duel)
 			//if(this.scores[userId]) delete this.scores[userId]
 			this.plist = this.plist.filter(item=>{return item.id !== userId});
 		}

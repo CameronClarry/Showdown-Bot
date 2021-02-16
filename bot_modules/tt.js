@@ -665,17 +665,41 @@ let commands = {
 	sethost: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
 		let newHost = gameRoom ? gameRoom.getUserData(toId(args[0])) : null;
-		if(!AuthManager.rankgeq(commandRank, '+')){
-			room.broadcast(user, "Your rank is not high enough to change the host");
+		if(!AuthManager.rankgeq(commandRank, '%')){
+			room.broadcast(user, "Your rank is not high enough to change the host.");
 		}else if(!gameRoom || !gameRoom.id){
 			room.broadcast(user, "You must specify a valid room.");
 		}else if(!this.games[gameRoom.id]){
 			room.broadcast(user, "There is no game in that room currently.");
-		}else if(!newHost){
+		}else if(!newHost || newHost === this.games[gameRoom.id].host){
 			room.broadcast(user, "The user you specify must be in the room and not the current host.");
 		}else{
 			this.games[gameRoom.id].setHost(newHost);
 			room.broadcast(user, `${newHost.name} is now the host.`);
+		}
+	},
+	modchat: function(message, args, user, rank, room, commandRank, commandRoom){
+		let arg = toId(args[0]);
+		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
+		let game = this.games[gameRoom.id];
+		if(!AuthManager.rankgeq(commandRank, '%')){
+			room.broadcast(user, "Your rank is not high enough to start modchat.");
+		}else if(!gameRoom || !gameRoom.id){
+			room.broadcast(user, "You must specify a valid room.");
+		}else if(!game){
+			room.broadcast(user, "There is no game in that room currently.");
+		}else if(game.modchat){
+			if(arg === 'on'){
+				room.broadcast(user, "Modchat is already on.");
+			}else if(arg === 'off'){
+				game.endModchat()
+			}
+		}else{
+			if(arg === 'off'){
+				room.broadcast(user, "Modchat is already off.");
+			}else if(arg === 'on'){
+				game.startModchat()
+			}
 		}
 	},
 	plmax: function(message, args, user, rank, room, commandRank, commandRoom){
