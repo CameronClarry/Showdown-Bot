@@ -767,7 +767,7 @@ let commands = {
 		if(!parray || parray.length==0){
 			room.broadcast(user, "There are no players.", rank);
 		}else if(args.length>0 & AuthManager.rankgeq(commandRank, '+') && toId(args[0]) === 'html' && room.id === 'trivia'){
-			let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="background-color: #209331"><th>Players</th></tr>`;
+			let message = `/addhtmlbox <table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="color: black; background-color: #209331"><th>Players</th></tr>`;
 			message = message + `<tr><td><center>${parray.join(', ')}</center></td></tr></table>`;
 
 			room.send(message);
@@ -871,7 +871,7 @@ let commands = {
 			return;
 		}
 		let scores = this.games[roomId].scores;
-		if(id){
+		if(id && id !== 'html'){
 			let entry = scores[id];
 			if(entry){
 				room.broadcast(user, `${entry.user.name}'s score is ${entry.score}.`, rank);
@@ -887,7 +887,14 @@ let commands = {
 			if(scoresArray.length == 0){
 				room.broadcast(user, "No one has any points.", rank);
 			}else{
-				room.broadcast(user, `The current top scores are: ${scoresArray.slice(0,10).map(e=>{return `__${e.user.name}__ (${e.score})`}).join(", ")}`, rank);
+				if(id){
+					let message = `/addhtmlbox <table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="color: black; background-color: #209331"><th>Scores</th></tr>`;
+					message = message + `<tr><td><center>${scoresArray.map(e=>{return `${e.user.name} (${e.score})`}).join(', ')}</center></td></tr></table>`;
+
+					room.broadcast(user, message);
+				}else{
+					room.broadcast(user, `The current top scores are: ${scoresArray.slice(0,10).map(e=>{return `__${e.user.name}__ (${e.score})`}).join(', ')}`, rank);
+				}
 			}
 		}
 	},
