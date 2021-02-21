@@ -200,7 +200,7 @@ let commands = {
 				return;
 			}
 
-			game.doCloseBp(true, AuthManager.rankgeq(rank, '+'));
+			game.doCloseBp(AuthManager.rankgeq(rank, '+'), true);
 		}
 	},
 	//~ttblacklist add/remove/check, [user], {duration}, {reason}
