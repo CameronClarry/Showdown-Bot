@@ -296,6 +296,7 @@ function handle(message){
 						data = JSON.parse(body);
 					}
 					if(data && data.curuser && data.curuser.loggedin){
+						bot.assertion = data.assertion;
 						send(`|/trn ${bot.config.user.value},0,${data.assertion}`);
 					}else{
 						// We couldn't log in for some reason
