@@ -58,7 +58,7 @@ let commands = {
 				aarray.push(this.titanAuth[id]);
 			}
 			if(toId(args[0]) === 'html' && room.id === 'trivia'){
-				let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="background-color: #209331"><th>Regs</th><th>Auth</th></tr>`;
+				let message = `/addhtmlbox <table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="background-color: #209331"><th>Regs</th><th>Auth</th></tr>`;
 				for(let i=0;i<Math.max(rarray.length, aarray.length);i++){
 					message = message + `<tr><td>${rarray[i] || ""}</td><td>${aarray[i] || ""}</td></tr>`;
 				}
