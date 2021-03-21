@@ -71,6 +71,34 @@ let commands = {
 			}
 		}
 	},
+	tpr: "titanpickreg",
+	titanpickreg: function(message, args, user, rank, room, commandRank, commandRoom){
+		let plist = [];
+		for(let id in this.titanRegs){
+			plist.push(this.titanRegs[id]);
+		}
+		if(!plist || plist.length==0){
+			room.broadcast(user, "There are no regs.", rank);
+		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
+			room.broadcast(user, `I randomly picked: __${plist[Math.floor(Math.random()*plist.length)]}__`, rank);
+		}else{
+			room.broadcast(user, `I randomly picked: ${plist[Math.floor(Math.random()*plist.length)]}`, rank);
+		}
+	},
+	tpa: "titanpickauth",
+	titanpickauth: function(message, args, user, rank, room, commandRank, commandRoom){
+		let plist = [];
+		for(let id in this.titanAuth){
+			plist.push(this.titanAuth[id]);
+		}
+		if(!plist || plist.length==0){
+			room.broadcast(user, "There are no auth.", rank);
+		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
+			room.broadcast(user, `I randomly picked: __${plist[Math.floor(Math.random()*plist.length)]}__`, rank);
+		}else{
+			room.broadcast(user, `I randomly picked: ${plist[Math.floor(Math.random()*plist.length)]}`, rank);
+		}
+	},
 	titanclear: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(AuthManager.rankgeq(commandRank, this.config.rosterRank.value)){
 			this.titanAuth = {};
