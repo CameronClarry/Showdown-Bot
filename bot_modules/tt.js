@@ -931,32 +931,31 @@ let commands = {
 					break;
 				}
 			}
+			let questionId = toId(question);
 			if(!question){
 				user.send("That user hasn't asked a question recently.");
+				return;
+			}else if(entry && entry[questionId]){
+				user.send("You've already nominated that question.");
+				return;
 			}else if(AuthManager.rankgeq(nomineeUser.rank, '%')){
 				user.send("Staff members can't be nominated for best question.");
-			}else if(entry){
-				if(entry.lastUse && (Date.now() - entry.lastUse) < 300*1000){
-					entry.nominee = nominee;
-					entry.question = question;
-					entry.timestamp = new Date().toUTCString();
-					delete entry.lastUse;
-					user.send("You have changed your nomination.");
-					this.saveLeaderboard();
-				}else{
-					entry.lastUse = Date.now();
-					user.send(`Your current nomination is '${entry.question}'. Use ~nominate again to overwrite it.`);
-				}
-			}else{
-				this.leaderboard.nominations[user.id] = {
-					nominator: user.id,
-					nominee: nominee,
-					question: question,
-					timestamp: new Date().toUTCString()
-				};
-				user.send(`You have nominated ${args[0]}.`);
-				this.saveLeaderboard();
 			}
+
+			if(!entry){
+				this.leaderboard.nominations[user.id] = {};
+				entry = this.leaderboard.nominations[user.id];
+			}
+
+			entry[questionId] = {
+				nominator: user.id,
+				nominee: nominee,
+				question: question,
+				timestamp: new Date().toUTCString()
+			};
+			
+			user.send(`You have nominated ${args[0]}.`);
+			this.saveLeaderboard();
 		}
 	},
 	nominations: function(message, args, user, rank, room, commandRank, commandRoom){
