@@ -940,6 +940,7 @@ let commands = {
 				return;
 			}else if(AuthManager.rankgeq(nomineeUser.rank, '%')){
 				user.send("Staff members can't be nominated for best question.");
+				return;
 			}
 
 			if(!entry){
