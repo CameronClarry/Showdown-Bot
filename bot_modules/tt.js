@@ -983,32 +983,6 @@ let commands = {
 
 		user.send("Successfully cleared all nominations.");
 	},
-	checknom: "checknomination",
-	checknomination: function(message, args, user, rank, room, commandRank, commandRoom){
-		let hasRank = AuthManager.rankgeq(commandRank, '@');
-		let useArg = hasRank && args[0];
-		let id = useArg ? toId(args[0]) : user.id;
-		
-		if(!this.leaderboard.nominations[id]){
-			room.broadcast(user, `${useArg ? "They" : "You"} do not have a nomination.`);
-		}else{
-			room.broadcast(user, `${useArg ? "Their" : "Your"} nomination is "${this.leaderboard.nominations[id].question}"`);
-		}
-	},
-	removenomination: function(message, args, user, rank, room, commandRank, commandRoom){
-		let hasRank = AuthManager.rankgeq(commandRank, '@');
-		let useArg = hasRank && args[0];
-		let id = useArg ? toId(args[0]) : user.id;
-		
-		if(!this.leaderboard.nominations[id]){
-			room.broadcast(user, (useArg ? "They" : "You") + " do not have a nomination.");
-			room.broadcast(user, `${useArg ? "They" : "You"} do not have a nomination.`);
-		}else{
-			delete this.leaderboard.nominations[id];
-			this.saveLeaderboard();
-			room.broadcast(user, `Successfully deleted ${useArg ? "their" : "your"} nomination.`);
-		}
-	},
 	custbpadd: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, '@');
 		let id = toId(args[0]);
