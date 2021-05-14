@@ -204,18 +204,7 @@ class MinigameHelper extends BaseModule{
 		// |c|~|/raw <div class="infobox">There is a trivia game in progress, and it is in its signups phase.<br />Mode: Timer | Category: All | Score cap: 50<br />Current score:  | Correct Answers: <br />Players: Struchni (0), Codex Necro (0)</div>
 		if(this.shouldStart && room.id === 'trivia' && args.length > 2 && args[1] == 'c'){
 			if(args[3].match(/in its signups phase/)){
-				let matches = args[args.length-1].match(/<br \/>Players: (.*)<\/div>/);
-				if(!matches) return;
-				if(matches[1].length === 0){
-					//info("No players");
-				}else{
-					//info(`${matches[1].split(',').length} players`);
-					let num = matches[1].split(',').length;
-					info(num);
-					if(num > 2){
-						this.startOfficial(room);
-					}
-				}
+				this.startOfficial(room);
 			}
 		}
 	}
