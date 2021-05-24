@@ -924,11 +924,15 @@ let commands = {
 			user.send("You can't nominate yourself.");
 		}else{
 			let history = game.history;
-			for(let i=history.length-1;i>=0;i--){
-				if(history[i].active.id == nominee && history[i].question){
-					question = history[i].question;
-					nomineeUser = history[i].active;
-					break;
+			if(AuthManager.rankgeq(commandRank, '+') && args.length > 1){
+				question = args.slice(1).join(', ');
+			}else{
+				for(let i=history.length-1;i>=0;i--){
+					if(history[i].active.id == nominee && history[i].question){
+						question = history[i].question;
+						nomineeUser = history[i].active;
+						break;
+					}
 				}
 			}
 			let questionId = toId(question);
@@ -938,7 +942,7 @@ let commands = {
 			}else if(entry && entry[questionId]){
 				user.send("You've already nominated that question.");
 				return;
-			}else if(AuthManager.rankgeq(nomineeUser.rank, '%')){
+			}else if(nomineeUser && AuthManager.rankgeq(nomineeUser.rank, '%')){
 				user.send("Staff members can't be nominated for best question.");
 				return;
 			}
