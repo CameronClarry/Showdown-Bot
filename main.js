@@ -324,6 +324,8 @@ function handle(message){
 				RoomManager.deinitRoom(roomName);
 			}else if(args[1]==="users"){
 				room.processUsers(args[2].split(",").slice(1));
+			}else if(args[1]==="popup"){
+				RoomManager.handlePopup(args.slice(2).join('|'));
 			}else if(args[1]==="j"||args[1]==="join"||args[1]==="J"){
 				let parts = args[2].slice(1).split("@");
 				let rank = args[2][0];

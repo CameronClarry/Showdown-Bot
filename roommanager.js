@@ -1,6 +1,7 @@
 exports.RoomManager = class{
 	constructor(){
 		this.rooms = {};
+		this.queryAuth();
 	}
 
 	getUser(id, roomId){
@@ -21,6 +22,43 @@ exports.RoomManager = class{
 		let id = toRoomId(name);
 		delete this.rooms[id];
 	}
+
+	// Processes popup messages to check for an auth list.
+	handlePopup(text){
+		let lines = text.split('||||');
+
+		let match = lines[0].match(/^(.*) room auth:/);
+		if(!match || !match.length) return;
+
+		let roomId = toId(match[1]);
+
+		if(!this.rooms[roomId]) return;
+
+		let ranks = {};
+		for(let i=0;i<lines.length;i++){
+			let parts = lines[i].split('||');
+			let match = parts[0].match(/\((.)\):/);
+			if(parts.length < 2 || !match || !match.length) continue;
+
+			let rank = match[1];
+			let names = parts[1].split(',').map((e)=>{return toId(e)});
+			ranks[rank] = names;
+		}
+
+		this.rooms[roomId].processAuth(ranks);
+	}
+
+	// Request a list of roomauth for all rooms that have at least one user
+	// If a room has at least one user, it should be a legitimate room
+	queryAuth(){
+		for(let roomId in this.rooms){
+			if(this.rooms[roomId].numUsers > 0){
+				send(`|/roomauth ${roomId}`);
+			}
+		}
+
+		setTimeout(()=>{this.queryAuth()}, 30*60*1000);
+	}
 }
 
 //name, id, list of players
@@ -30,6 +68,7 @@ class Room{
 		this.id = toRoomId(name);
 		this.users = {};
 		this.numUsers = 0;
+		this.auth = {};
 		this.broadcastRank = broadcastRank;
 		this.lastCull = Date.now();
 		this.firstGarbage = {};
@@ -57,8 +96,9 @@ class Room{
 		return this.users[id];
 	}
 	
-	//This will ensure that the room's user list matches the new userArray, but will retain any User instances that have the same id.
-	//This is done so that leaving and rejoining will preserve all the user objects.
+	// This will ensure that the room's user list matches the new userArray, but will retain any User instances that have the same id.
+	// This is done so that leaving and rejoining will preserve all the user objects.
+	// A call to refresh the auth list is also made
 	processUsers(userArray){
 		let newUsers = {};
 		for(let i=0;i<userArray.length;i++){
@@ -72,6 +112,17 @@ class Room{
 		}
 		this.users = newUsers;
 		this.numUsers = userArray.length;
+
+		send(`|/roomauth ${this.id}`);
+	}
+
+	processAuth(authData){
+		this.auth = {};
+		for(let rank in authData){
+			for(let userId of authData[rank]){
+				this.auth[userId] = rank;
+			}
+		}
 	}
 
 	userLeave(id){
@@ -99,6 +150,13 @@ class Room{
 		if(id !== prevId){
 			this.users[id] = user;
 			delete this.users[prevId];
+		}else{
+			// Their rank may have changed, so let's update it
+			if(this.auth[id] && rank === ' '){
+				delete this.auth[id];
+			}else if(rank !== ' '){
+				this.auth[id] = rank;
+			}
 		}
 		// info(JSON.stringify(this.getUserData(id)));
 		return this.users[id];
