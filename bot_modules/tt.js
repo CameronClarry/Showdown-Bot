@@ -942,7 +942,7 @@ let commands = {
 			}else if(entry && entry[questionId]){
 				user.send("You've already nominated that question.");
 				return;
-			}else if(nomineeUser && AuthManager.rankgeq(nomineeUser.rank, '%')){
+			}else if(commandRoom && AuthManager.rankgeq(commandRoom.auth[nominee], '%')){
 				user.send("Staff members can't be nominated for best question.");
 				return;
 			}
