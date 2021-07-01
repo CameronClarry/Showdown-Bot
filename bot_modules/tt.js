@@ -641,7 +641,7 @@ let commands = {
 	mgend: "minigameend",
 	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
-		if(!AuthManager.rankgeq(commandRank, '+')){
+		if(game && !game.hasVoicePermissions(user, commandRank)){
 			room.broadcast(user, "Your rank is not high enough to end minigames.");
 		}else if(!gameRoom || !gameRoom.id){
 			room.broadcast(user, "You must specify a valid room.");
@@ -707,7 +707,7 @@ let commands = {
 		let game = this.games[room.id];
 		if(!room){
 			room.broadcast(user, "You cannot use this command through PM.", rank);
-		}else if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+		}else if(game && !game.hasVoicePermissions(user, commandRank)){
 			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
 		}else if(!game){
 			room.broadcast(user, "There is no game in this room.", rank);
@@ -722,7 +722,7 @@ let commands = {
 	},
 	pladd: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
-		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+		if(game && !game.hasVoicePermissions(user, commandRank)){
 			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
 		}else if(!game){
 			room.broadcast(user, "There is no game currently.");
@@ -733,7 +733,7 @@ let commands = {
 	},
 	plremove: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
-		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+		if(game && !game.hasVoicePermissions(user, commandRank)){
 			room.broadcast(user, "Your rank is not high enough to use the player list commands.", rank);
 		}else if(!game){
 			room.broadcast(user, "There is no game currently.");
@@ -745,7 +745,7 @@ let commands = {
 	clearpl: "plclear",
 	plclear: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
-		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+		if(game && !game.hasVoicePermissions(user, commandRank)){
 			// Can put a message here
 			return;
 		}else if(!game){
@@ -766,7 +766,7 @@ let commands = {
 		let parray = game.plist.map(e=>{return e.name});
 		if(!parray || parray.length==0){
 			room.broadcast(user, "There are no players.", rank);
-		}else if(args.length>0 & AuthManager.rankgeq(commandRank, '+') && toId(args[0]) === 'html' && room.id === 'trivia'){
+		}else if(args.length>0 && game.hasVoicePermissions(user, commandRank) && toId(args[0]) === 'html' && room.id === 'trivia'){
 			let message = `/addhtmlbox <table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="color: black; background-color: #209331"><th>Players</th></tr>`;
 			message = message + `<tr><td><center>${parray.join(', ')}</center></td></tr></table>`;
 
@@ -812,9 +812,10 @@ let commands = {
 		let numPlayers = args.length-1;
 		let ids = args.slice(0, numPlayers).map(toId);
 		let roomId = room.id
-		if(!AuthManager.rankgeq(commandRank, '+')){
+		let game = this.games[roomId];
+		if(game && !game.hasVoicePermissions(user, commandRank)){
 			room.broadcast(user, "Your rank is not high enough to add points.", rank);
-		}else if(!this.games[roomId]){
+		}else if(!game){
 			room.broadcast(user, "There is no game in progress.");
 			return;
 		}else if(numPlayers < 1 || !/^-?\d+$/.test(args[numPlayers])){
@@ -822,9 +823,9 @@ let commands = {
 		}else if(numPlayers === 1){
 			// one player given
 			let id = ids[0];
-			let scores = this.games[roomId].scores;
+			let scores = game.scores;
 			let points = parseInt(args[numPlayers], 10);
-			let targetUser = this.games[roomId].room.getUserData(id);
+			let targetUser = game.room.getUserData(id);
 			if(!targetUser){
 				room.broadcast(user, "That user is not in the room.");
 				return;
@@ -840,12 +841,12 @@ let commands = {
 			room.broadcast(user, `${entry.user.name}'s score is now ${entry.score}.`, rank);
 		}else{
 			// many players given
-			let scores = this.games[roomId].scores;
+			let scores = game.scores;
 			let points = parseInt(args[numPlayers], 10);
 			let changes = 0;
 			for(let i=0;i<numPlayers;i++){
 				let id = ids[i];
-				let targetUser = this.games[roomId].room.getUserData(id);
+				let targetUser = game.room.getUserData(id);
 				if(!targetUser) continue;
 
 				let entry = scores[id];
@@ -900,7 +901,7 @@ let commands = {
 	},
 	clearpoints: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
-		if(!AuthManager.rankgeq(commandRank, '+') || game && game.voices[user.id]){
+		if(game && !game.hasVoicePermissions(user, commandRank)){
 			// Can put a message here
 			return;
 		}else if(!game){

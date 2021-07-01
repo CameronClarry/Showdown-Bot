@@ -106,6 +106,14 @@ class TriviaTrackerGame{
 		this.room.send("/modchat ac");
 	}
 
+	hasVoicePermissions(user, commandRank){
+		if(user.id === this.host.id) return true;
+
+		if(this.voices[user.id]) return false;
+
+		return AuthManager.rankgeq(commandRank, '+');
+	}
+
 	/// prevUser: the user that asked the question
 	/// nextUser: the user who got the question correct:
 	givePoints(prevUser, nextUser){
