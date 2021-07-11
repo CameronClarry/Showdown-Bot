@@ -1004,6 +1004,56 @@ class SuspectSearch extends TriviaTrackerSingleAsker{
 	}
 }
 
+let path = "./autotrivia-queries";
+delete require.cache[require.resolve(path)];
+let queries = require(path);
+let baseQueries = queries.baseQueries;
+
+class AutoTrivia extends TriviaTrackerSingleAsker{
+
+	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
+		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+		this.chatCommands['question'] = this.askQuestion;
+	}
+
+	setupData(){
+		this.answerPoints = 1;
+		this.leaderboards = ['autotrivia'];
+	}
+
+	sendStart(){
+		this.room.send("A new game of Auto Trivia has started.");
+	}
+
+	sendEnd(){
+		this.room.send("The game of Auto Trivia has ended.");
+	}
+
+	askQuestion(user, rank){
+		if(user.id !== this.host.id) return;
+
+		let questionCallback = (err, question, answers)=>{
+			if(err){
+				error(err);
+				return;
+			}
+
+			this.room.send(`**${question}**`);
+			this.host.send(`Answers: ${answers.join(', ')}`);
+		};
+
+		let rand = Math.random();
+		let func = baseQueries[baseQueries.length-1].func;
+		for(let i=0;i<baseQueries.length;i++){
+			if(rand < baseQueries[i].cdf){
+				func = baseQueries[i].func;
+				break;
+			}
+		}
+		func.call(this, questionCallback);
+	}
+}
+
 let gameTypes = {
 	'triviatracker': TriviaTrackerGame,
 	'picturetrivia': PictureTrivia,
@@ -1011,7 +1061,8 @@ let gameTypes = {
 	'ttsa': TriviaTrackerSingleAsker,
 	'duel': Duel,
 	'ss': SuspectSearch,
-	'suspectsearch': SuspectSearch
+	'suspectsearch': SuspectSearch,
+	'autotrivia': AutoTrivia
 };
 
 exports.gameTypes = gameTypes;
