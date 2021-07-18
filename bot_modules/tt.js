@@ -641,12 +641,12 @@ let commands = {
 	mgend: "minigameend",
 	minigameend: function(message, args, user, rank, room, commandRank, commandRoom){
 		let gameRoom = args[1] ? RoomManager.getRoom(toRoomId(args[1])) : room;
-		if(game && !game.hasVoicePermissions(user, commandRank)){
-			room.broadcast(user, "Your rank is not high enough to end minigames.");
-		}else if(!gameRoom || !gameRoom.id){
+		if(!gameRoom || !gameRoom.id){
 			room.broadcast(user, "You must specify a valid room.");
 		}else if(!this.games[gameRoom.id]){
 			room.broadcast(user, "There is no game in progress.");
+		}else if(!this.games[gameRoom.id].hasVoicePermissions(user, commandRank)){
+			room.broadcast(user, "Your rank is not high enough to end minigames.");
 		}else{
 			this.games[gameRoom.id].end();
 			delete this.games[gameRoom.id];
