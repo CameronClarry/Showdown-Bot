@@ -29,10 +29,11 @@ let makecdf = function(arr){
 
 
 let pokemonByVersionMoveDifferences = function(callback){
-	const EXCLUSIVE_LEVELUP_MOVE = `SELECT pokemon.name, ms1.pokemon_id, ms1.game_name, ms1.move_name
+	const EXCLUSIVE_LEVELUP_MOVE = `SELECT pokemon.name, ms1.pokemon_id, ms1.game_name, moves.name AS move_name
 	FROM movesets AS ms1
+	INNER JOIN moves ON ms1.move_id = moves.id
 	INNER JOIN pokemon ON ms1.pokemon_id = pokemon.id
-	LEFT JOIN movesets AS ms2 ON ms1.pokemon_id = ms2.pokemon_id AND ms1.move_name = ms2.move_name AND ms1.game_name != ms2.game_name AND ms2.learn_method = 1
+	LEFT JOIN movesets AS ms2 ON ms1.pokemon_id = ms2.pokemon_id AND ms1.move_id = ms2.move_id AND ms1.game_name != ms2.game_name AND ms2.learn_method = 1
 	WHERE ms1.game_name != 'rby'
 	AND ms1.learn_method = 1
 	AND ms2.pokemon_id IS NULL;`;
@@ -67,10 +68,11 @@ let pokemonByVersionMoveDifferences = function(callback){
 
 let signatureMoves = function(callback){
 	const EXCLUSIVE_MOVE = `WITH family_counts AS (
-		SELECT move_name, COUNT(DISTINCT pokemon.family_id) AS family_count, COUNT(DISTINCT pokemon.id)::int AS pokemon_count, MAX(pokemon.family_id) AS family_id, MAX(pokemon.id) AS pokemon_id
+		SELECT moves.name AS move_name, COUNT(DISTINCT pokemon.family_id) AS family_count, COUNT(DISTINCT pokemon.id)::int AS pokemon_count, MAX(pokemon.family_id) AS family_id, MAX(pokemon.id) AS pokemon_id
 		FROM movesets
+		INNER JOIN moves ON moves.id = movesets.move_id
 		INNER JOIN pokemon ON pokemon.id = movesets.pokemon_id
-		GROUP BY move_name
+		GROUP BY moves.name
 	)
 	SELECT move_name, family_count, pokemon_count, families.name AS family_name, pokemon.name AS pokemon_name
 	FROM family_counts
@@ -103,7 +105,7 @@ let signatureMoves = function(callback){
 			// Ask which move
 			let ending = row.pokemon_count === 1 ? `unique to ${row.pokemon_name}` : `signature to the ${row.family_name} line`;
 			question = `In Generation I, this move is ${ending}.`;
-			answers = filteredRows.map((e)=>{return row.move_name});
+			answers = filteredRows.map((e)=>{return e.move_name});
 		}
 
 		callback(null, question, answers);
@@ -122,10 +124,11 @@ let finalLevelUpMove = function(callback){
 		FROM movesets
 		GROUP BY pokemon_id
 	)
-	SELECT pokemon.name, pokemon.short_name, movesets.move_name, movesets.game_name, movesets.learn_level
+	SELECT pokemon.name, pokemon.short_name, moves.name AS move_name, movesets.game_name, movesets.learn_level
 	FROM pokemon
-	INNER JOIN movesets ON pokemon.id = movesets.pokemon_id
-	INNER JOIN max_levels ON max_levels.max_level = movesets.learn_level AND pokemon.id = max_levels.pokemon_id
+	INNER JOIN max_levels ON max_levels.pokemon_id = pokemon.id
+	INNER JOIN movesets ON pokemon.id = movesets.pokemon_id AND movesets.learn_level = max_levels.max_level
+	INNER JOIN moves ON moves.id = movesets.move_id
 	WHERE movesets.learn_method = 1
 	AND max_levels.max_level > 1;`;
 
@@ -152,13 +155,13 @@ let finalLevelUpMove = function(callback){
 
 // {{{ LEARNS MOVE
 
-let twoMovePokemon = function(move1_name, move2_name, callback){
+let twoMovePokemon = function(move1_id, move1_name, move2_id, move2_name, callback){
 	const TWO_MOVE_LEARN_COUNTS = `SELECT DISTINCT pokemon.name
 	FROM movesets AS ms1
 	INNER JOIN movesets AS ms2 ON ms1.pokemon_id = ms2.pokemon_id
 	INNER JOIN pokemon ON pokemon.id = ms1.pokemon_id
-	WHERE ms1.learn_method = 1 AND ms1.move_name = '${move1_name}'
-	AND ms2.learn_method = 1 AND ms2.move_name = '${move2_name}';`;
+	WHERE ms1.learn_method = 1 AND ms1.move_id = ${move1_id}
+	AND ms2.learn_method = 1 AND ms2.move_id = ${move2_id};`;
 
 	let newCallback = (err, res) =>{
 		console.log("inside final part");
@@ -178,12 +181,13 @@ let twoMovePokemon = function(move1_name, move2_name, callback){
 	this.pgclient.runSql(TWO_MOVE_LEARN_COUNTS, [], newCallback);
 }
 
-let twoMoveCounts = function(move_name, callback){
-	const TWO_MOVE_LEARN_COUNTS = `SELECT ms2.move_name, COUNT(DISTINCT ms2.pokemon_id)::int AS learn_num
+let twoMoveCounts = function(move_id, move_name, callback){
+	const TWO_MOVE_LEARN_COUNTS = `SELECT moves2.name AS move_name, ms2.move_id AS move_id, COUNT(DISTINCT ms2.pokemon_id)::int AS learn_num
 	FROM movesets AS ms1
 	INNER JOIN movesets AS ms2 ON ms1.pokemon_id = ms2.pokemon_id AND ms2.learn_method = 1
-	WHERE ms1.move_name = '${move_name}' AND ms1.learn_method = 1 AND ms2.move_name != ms1.move_name
-	GROUP BY ms2.move_name;`;
+	INNER JOIN moves AS moves2 ON moves2.id = ms2.move_id
+	WHERE ms1.move_id = ${move_id} AND ms1.learn_method = 1 AND ms2.move_id != ms1.move_id
+	GROUP BY ms2.move_id, moves2.name;`;
 
 	let newCallback = (err, res) =>{
 		if(err){
@@ -197,18 +201,19 @@ let twoMoveCounts = function(move_name, callback){
 		let row = rows[Math.floor(Math.random()*rows.length)];
 		console.log(row);
 
-		twoMovePokemon.call(this, move_name, row.move_name, callback);
+		twoMovePokemon.call(this, move_id, move_name, row.move_id, row.move_name, callback);
 	};
 	this.pgclient.runSql(TWO_MOVE_LEARN_COUNTS, [], newCallback);
 }
 
-
 let moveCounts = function(callback){
-	const MOVE_LEARN_COUNTS = `SELECT move_name, COUNT(DISTINCT pokemon_id)::int AS learn_num, COUNT(DISTINCT family_id)::int AS family_num
+	const MOVE_LEARN_COUNTS = `SELECT moves.name AS move_name, moves.id AS move_id, COUNT(DISTINCT pokemon_id)::int AS learn_num, COUNT(DISTINCT family_id)::int AS family_num
 	FROM movesets
 	INNER JOIN pokemon ON pokemon.id = movesets.pokemon_id
+	INNER JOIN moves ON moves.id = movesets.move_id
 	WHERE learn_method = 1
-	GROUP BY move_name;`;
+	GROUP BY moves.name, moves.id;`;
+
 	let newCallback = (err, res) =>{
 		if(err){
 			callback(err);
@@ -224,7 +229,7 @@ let moveCounts = function(callback){
 		console.log(row);
 
 		// Decide how to handle the row
-		twoMoveCounts.call(this, row.move_name, callback);
+		twoMoveCounts.call(this, row.move_id, row.move_name, callback);
 	};
 	this.pgclient.runSql(MOVE_LEARN_COUNTS, [], newCallback);
 }
@@ -234,9 +239,10 @@ let moveCounts = function(callback){
 // {{{ LEVEL 1 MOVES
 
 let firstLevelMove = function(callback){
-	const LEVEL_ONE_MOVE = `SELECT pokemon.name, pokemon.short_name, movesets.move_name
+	const LEVEL_ONE_MOVE = `SELECT pokemon.name, pokemon.short_name, moves.name AS move_name
 	FROM pokemon
 	INNER JOIN movesets ON pokemon.id = movesets.pokemon_id
+	INNER JOIN moves ON moves.id = movesets.move_id
 	WHERE movesets.learn_method = 1
 	AND movesets.learn_level = 1;`;
 
@@ -278,19 +284,19 @@ let baseQueries = [
 	},
 	{
 		func: signatureMoves,
-		weight: 1
+		weight: 3
 	},
 	{
 		func: finalLevelUpMove,
-		weight: 1
+		weight: 3
 	},
 	{
 		func: moveCounts,
-		weight: 1
+		weight: 3
 	},
 	{
 		func: firstLevelMove,
-		weight: 1
+		weight: 3
 	}
 ];
 
