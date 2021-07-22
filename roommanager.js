@@ -208,7 +208,7 @@ class Room{
 
 	sendNoAuthWarning(){
 		axios.post(bot.config.discordStaffWebhook.value, {
-			content: "The last staff member just left the Trivia."
+			content: `The last staff member just left ${this.name}.`
 		}).then(res => {
 			
 		}).catch(error => {
