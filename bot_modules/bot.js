@@ -15,7 +15,9 @@ class Bot extends BaseModule{
 			"dbport": new ConfigInt(0),
 			"dbname": new ConfigString(""),
 			"text_directory": new ConfigString("./"),
-			"text_web_directory": new ConfigString("www.example.com")
+			"text_web_directory": new ConfigString("www.example.com"),
+			"discordStaffWebhook": new ConfigString(""),
+			"noStaffRooms": new ConfigArray([])
 		};
 	}
 }

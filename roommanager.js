@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 exports.RoomManager = class{
 	constructor(){
 		this.rooms = {};
@@ -73,6 +75,7 @@ class Room{
 		this.lastCull = Date.now();
 		this.firstGarbage = {};
 		this.secondGarbage = {};
+		this.doStafflessWarning = bot.config.noStaffRooms.value.indexOf(this.id) > -1;
 	}
 	
 	userJoin(name, id, status, rank){
@@ -133,7 +136,10 @@ class Room{
 			this.firstGarbage[id] = this.users[id];
 			delete this.users[id];
 			this.numUsers--;
-			// info(this.id + ": " + this.numUsers);
+
+			if(this.doStafflessWarning && bot.config.discordStaffWebhook.value && AuthManager.rankg(user.trueRank, '+') && this.checkAuthCount() === 0){
+				this.sendNoAuthWarning();
+			}
 		}else{
 			error("User left, but they were not known to be in the room");
 		}
@@ -191,6 +197,24 @@ class Room{
         this.secondGarbage = this.firstGarbage;
         this.firstGarbage = {};
     }
+
+	checkAuthCount(){
+		let authCount = 0;
+		for(let id in this.users){
+			if(AuthManager.rankg(this.users[id].trueRank, '+') && this.users[id].trueRank !== '*') authCount++;
+		}
+		return authCount;
+	}
+
+	sendNoAuthWarning(){
+		axios.post(bot.config.discordStaffWebhook.value, {
+			content: "The last staff member just left the Trivia."
+		}).then(res => {
+			
+		}).catch(error => {
+			error("Post to Discord webhook failed");
+		});
+	}
 }
 
 // name, id, rank, status, isAway

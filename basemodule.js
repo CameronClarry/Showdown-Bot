@@ -121,3 +121,18 @@ class ConfigBoolean extends ConfigOption{
 	}
 }
 global.ConfigBoolean = ConfigBoolean
+
+class ConfigArray extends ConfigOption{
+	constructor(value){
+		super(value);
+	}
+
+	parse(value){
+		if(Array.isArray(value)){
+			this.value = value;
+			return true;
+		}
+		return false;
+	}
+}
+global.ConfigArray = ConfigArray
