@@ -1029,6 +1029,13 @@ class AutoTrivia extends TriviaTrackerSingleAsker{
 		this.room.send("The game of Auto Trivia has ended.");
 	}
 
+	sendYes(user1, user2, undoAsker){
+		this.room.send(`${user2.name} answered correctly. They now have ${this.scores[user2.id].score} point(s).`);
+		if(this.answers){
+			this.room.send(`The answer(s) to the previous question are: ${this.answers.join(', ')}`);
+		}
+	}
+
 	askQuestion(user, rank){
 		if(user.id !== this.host.id) return;
 
@@ -1040,6 +1047,7 @@ class AutoTrivia extends TriviaTrackerSingleAsker{
 
 			this.room.send(`**${question}**`);
 			this.host.send(`Answers: ${answers.join(', ')}`);
+			this.answers = answers;
 		};
 
 		let rand = Math.random();
