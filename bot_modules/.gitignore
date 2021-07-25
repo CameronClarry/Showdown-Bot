@@ -1,4 +1,4 @@
-*
+*.js
 !git.js
 !bot.js
 !wl.js
@@ -16,3 +16,4 @@
 !minigamehelper.js
 !minigames.js
 !autotrivia-queries.js
+!queries/*.js
