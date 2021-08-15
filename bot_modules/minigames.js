@@ -1058,7 +1058,10 @@ class AutoTrivia extends TriviaTrackerSingleAsker{
 				break;
 			}
 		}
-		func.call(this, questionCallback);
+		let i = Math.floor(Math.random()*2);
+		let genSchemas = ['gen1', 'gen2'];
+		let genNames = ['I', 'II'];
+		func.call(this, genSchemas[i], genNames[i], questionCallback);
 	}
 }
 
