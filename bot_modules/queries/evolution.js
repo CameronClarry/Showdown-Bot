@@ -110,13 +110,19 @@ let evolutionTypeChanges = function(genSchema, genName, callback){
 			answers = filteredRows.map((e)=>{return e.prevo_name});
 		}else if(row.prevo_t1 !== row.evo_t1){
 			// Ask which pokemon changes primary type
-			question = `In Generation ${genName}, this Pokemon changes its primary type when evolving.`;
-			let filteredRows = rows.filter((e)=>{return e.prevo_t1 !== e.evo_t1});
+			question = `In Generation ${genName}, this Pokemon changes its primary type to ${row.evo_t1} when evolving.`;
+			let filteredRows = rows.filter((e)=>{return e.prevo_t1 !== e.evo_t1 && e.evo_t1 === row.evo_t1});
+			answers = filteredRows.map((e)=>{return e.prevo_name});
+		}else if(row.prevo_t2 !== row.evo_t2 && row.evo_t2 && row.prevo_t2){
+			// Ask which mons changes their secondary type
+			question = `In Generation ${genName}, this Pokemon changes its secondary type to ${row.evo_t2} when evolving.`;
+			let filteredRows = rows.filter((e)=>{return e.prevo_t2 && e.prevo_t2 !== row.evo_t2 && e.evo_t2 === row.evo_t2});
 			answers = filteredRows.map((e)=>{return e.prevo_name});
 		}else{
-			// Ask which pokemon changes type as a fallback
-			question = `In Generation ${genName}, this Pokemon changes type when evolving.`;
-			answers = rows.map((e)=>{return e.prevo_name});
+			// Ask which mons lost their secondary typing
+			question = `In Generation ${genName}, this Pokemon loses its secondary ${row.prevo_t2} typing when it evolves.`;
+			let filteredRows = rows.filter((e)=>{return e.prevo_t2 == row.prevo_t2 && !e.evo_t2});
+			answers = filteredRows.map((e)=>{return e.prevo_name});
 		}
 
 		callback(null, question, answers);
