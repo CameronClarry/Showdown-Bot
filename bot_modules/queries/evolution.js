@@ -1,13 +1,12 @@
 // {{{ EVOLUTION STAT CHANGES
 
-let pokemonByStatChange = function(statId, targetDiff, typeId, question, genSchema, genName, callback){
+let pokemonByStatChange = function(statId, targetDiff, question, genSchema, genName, callback){
 	const POKEMON_BY_STAT_CHANGE = `SELECT pokemon.name, pokemon.short_name
 	FROM ${genSchema}.evolutions
 	INNER JOIN ${genSchema}.pokemon ON pokemon.id = evolutions.from_id
 	INNER JOIN ${genSchema}.stats AS prevo_stats ON prevo_stats.pokemon_id = evolutions.from_id
 	INNER JOIN ${genSchema}.stats AS evo_stats ON evo_stats.pokemon_id = evolutions.to_id
-	WHERE evo_stats.${statId} - prevo_stats.${statId} = ${targetDiff}
-	AND (pokemon.type1_id = ${typeId} OR pokemon.type2_id = ${typeId})`;
+	WHERE evo_stats.${statId} - prevo_stats.${statId} = ${targetDiff}`;
 
 	let newCallback = (err, res) =>{
 		if(err){
@@ -31,23 +30,14 @@ let evolutionStatChanges = function(genSchema, genName, callback){
 	let statId = stats[i];
 	let statName = statNames[i];
 	const EVO_STAT_CHANGES = `WITH stat_changes AS (
-		SELECT evo_stats.${statId} - prevo_stats.${statId} AS diff, pokemon.type1_id AS type_id, pokemon.name
+		SELECT evo_stats.${statId} - prevo_stats.${statId} AS diff, pokemon.name
 		FROM ${genSchema}.evolutions
 		INNER JOIN ${genSchema}.stats AS prevo_stats ON prevo_stats.pokemon_id = evolutions.from_id
 		INNER JOIN ${genSchema}.stats AS evo_stats ON evo_stats.pokemon_id = evolutions.to_id
 		INNER JOIN ${genSchema}.pokemon ON pokemon.id = evolutions.from_id
-		UNION ALL
-		SELECT evo_stats.${statId} - prevo_stats.${statId} AS diff, pokemon.type2_id AS type_id, pokemon.name
-		FROM ${genSchema}.evolutions
-		INNER JOIN ${genSchema}.stats AS prevo_stats ON prevo_stats.pokemon_id = evolutions.from_id
-		INNER JOIN ${genSchema}.stats AS evo_stats ON evo_stats.pokemon_id = evolutions.to_id
-		INNER JOIN ${genSchema}.pokemon ON pokemon.id = evolutions.from_id
-		WHERE pokemon.type2_id IS NOT NULL
 	)
-	SELECT type_id, types.name AS type_name, MAX(diff) AS max_diff, MIN(diff) AS min_diff
-	FROM stat_changes
-	INNER JOIN ${genSchema}.types ON types.id = stat_changes.type_id
-	GROUP BY type_id, type_name`;
+	SELECT MAX(diff) AS max_diff, MIN(diff) AS min_diff
+	FROM stat_changes`;
 
 	let newCallback = (err, res) =>{
 		if(err){
@@ -60,18 +50,18 @@ let evolutionStatChanges = function(genSchema, genName, callback){
 		let row = rows[Math.floor(Math.random()*rows.length)];
 		let question, targetChange;
 
-		if(Math.random() < 0.1){
+		if(Math.random() < 0.3){
 			// Ask which increases the least/decreases the most
 			targetChange = row.min_diff;
-			let change = targetChange < 0 ? `decreases the most` : `increases the least`;
-			question = `In Generation ${genName}, this Pokemon's ${statName} stat ${change} of all ${row.type_name} types when evolving.`;
+			let change = targetChange < 0 ? `the largest decrease` : (targetChange > 0 ? `the smallest increase` : `no change`);
+			question = `In Generation ${genName}, this Pokemon has ${change} in ${statName} when it evolves.`;
 		}else{
 			// Ask which increases the most
 			targetChange = row.max_diff;
-			question = `In Generation ${genName}, this Pokemon's ${statName} stat increases the most of all ${row.type_name} types when evolving.`;
+			question = `In Generation ${genName}, this Pokemon has the largest increase in ${statName} when it evolves.`;
 		}
 
-		pokemonByStatChange.call(this, statId, targetChange, row.type_id, question, genSchema, genName, callback);
+		pokemonByStatChange.call(this, statId, targetChange, question, genSchema, genName, callback);
 	};
 	this.pgclient.runSql(EVO_STAT_CHANGES, [], newCallback);
 }
