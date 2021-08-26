@@ -73,7 +73,8 @@ let signatureMoves = function(genSchema, genName, callback){
 		let row = rows[Math.floor(Math.random()*rows.length)];
 
 		// Filter to just rows that have that pokemon and game
-		filteredRows = rows.filter((e)=>{return e.family_name === row.family_name});
+		filteredRows = row.pokemon_count === 1 ? rows.filter((e)=>{return e.pokemon_name === row.pokemon_name && e.pokemon_count === 1})
+			: rows.filter((e)=>{return e.family_name === row.family_name});
 
 		let question, answers;
 		if(Math.random() < 0.5){
@@ -81,7 +82,7 @@ let signatureMoves = function(genSchema, genName, callback){
 			//let ending = row.pokemon_count === 1 ? `unique to ${row.pokemon_name}` : `signature to the ${row.family_name} line`;
 			let ending = row.pokemon_count === 1 ? `unique to this Pokemon` : `signature to this evolutionary line`;
 			question = `In Generation ${genName}, ${row.move_name} is ${ending}.`
-			answers = filteredRows.map((e)=>{return row.pokemon_count === 1 ? row.pokemon_name : row.family_name});
+			answers = [row.pokemon_count === 1 ? row.pokemon_name : row.family_name]
 		}else{
 			// Ask which move
 			let ending = row.pokemon_count === 1 ? `unique to ${row.pokemon_name}` : `signature to the ${row.family_name} line`;
