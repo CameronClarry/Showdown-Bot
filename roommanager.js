@@ -76,6 +76,8 @@ class Room{
 		this.firstGarbage = {};
 		this.secondGarbage = {};
 		this.doStafflessWarning = bot.config.noStaffRooms.value.indexOf(this.id) > -1;
+		this.stafflessTimer = null;
+		this.isStaffless = false;
 	}
 	
 	userJoin(name, id, status, rank){
@@ -94,8 +96,14 @@ class Room{
 		}else{
 			this.users[id] = new User(name, rank, status);
 		}
-		// info(JSON.stringify(this.users[id]));
-		// info(this.id + ": " + this.numUsers);
+
+		if(this.isStaffless && AuthManager.rankg(this.users[id].trueRank, '+') && this.checkAuthCount() === 1){
+			if(this.stafflessTimer){
+				clearTimeout(this.stafflessTimer);
+				this.stafflessTimer = null;
+			}
+		}
+
 		return this.users[id];
 	}
 	
@@ -138,7 +146,7 @@ class Room{
 			this.numUsers--;
 
 			if(this.doStafflessWarning && bot.config.discordStaffWebhook.value && AuthManager.rankg(user.trueRank, '+') && this.checkAuthCount() === 0){
-				this.sendNoAuthWarning();
+				this.startNoAuthTimer();
 			}
 		}else{
 			error("User left, but they were not known to be in the room");
@@ -206,9 +214,21 @@ class Room{
 		return authCount;
 	}
 
+	startNoAuthTimer(){
+		if(this.stafflessTimer){
+			clearTimeout(this.stafflessTimer);
+			this.stafflessTimer = null;
+		}
+		this.isStaffless = true;
+		this.stafflessTimer = setTimeout(()=>{
+			this.sendNoAuthWarning();
+			this.stafflessTimer = null;
+		}, 60*1000);
+	}
+
 	sendNoAuthWarning(){
 		axios.post(bot.config.discordStaffWebhook.value, {
-			content: `The last staff member just left ${this.name}.`
+			content: `@here The last staff member just left ${this.name}.`
 		}).then(res => {
 			
 		}).catch(error => {
