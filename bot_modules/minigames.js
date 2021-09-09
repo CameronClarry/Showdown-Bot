@@ -508,6 +508,8 @@ class TriviaTrackerGame{
 			this.room.send("!rfaq bold");
 		}else if(/vdoc/.test(messageId)){
 			this.room.send("!rfaq vdoc");
+		}else if(/explanation/.test(messageId)){
+			this.room.send("!rfaq explanation");
 		}
 	}
 
