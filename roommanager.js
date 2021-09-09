@@ -101,6 +101,9 @@ class Room{
 			if(this.stafflessTimer){
 				clearTimeout(this.stafflessTimer);
 				this.stafflessTimer = null;
+			}else{
+				// Let the server know everything is okay
+				this.sendNoAuthWarning(`${this.users[id].name} has joined the room.`);
 			}
 		}
 
@@ -226,9 +229,9 @@ class Room{
 		}, 60*1000);
 	}
 
-	sendNoAuthWarning(){
+	sendNoAuthWarning(message){
 		axios.post(bot.config.discordStaffWebhook.value, {
-			content: `@here The last staff member just left ${this.name}.`
+			content: message || `The last staff member just left ${this.name}.`
 		}).then(res => {
 			
 		}).catch(error => {
