@@ -90,6 +90,7 @@ Misc commands:
 
 Command|Usage|Required Rank
 -|-|:-:
+`~nominate {user}, [question]`|Nominates the last question from `{user}` for best question of the cycle. If you are roomauth, you can specify the text of the question that is nominated and it can be used at any time.|None
 `~alts {user}`|Displays your alts, or the alts of `{user}` if you have the required rank.|%
 `~alt [user]`|Links your account with `[user]`. This command must be used from both accounts to complete the link.|None
 `~removealt [user]`|Removes the specified account from your linked accounts. It cannot be your main account.|None
