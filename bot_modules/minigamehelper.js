@@ -106,6 +106,7 @@ let commands = {
 			room.broadcast(user, "Cleared the auth and reg lists.", rank);
 		}
 	},
+	fish: "triviasignups",
 	tsu: "triviasignups",
 	triviasignups: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, '+')){
