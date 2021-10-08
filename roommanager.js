@@ -97,7 +97,8 @@ class Room{
 			this.users[id] = new User(name, rank, status);
 		}
 
-		if(this.isStaffless && AuthManager.rankg(this.users[id].trueRank, '+') && this.checkAuthCount() === 1){
+		if(this.isStaffless && AuthManager.rankg(this.users[id].trueRank, '+') && this.checkAuthCount() > 0){
+			this.isStaffless = false;
 			if(this.stafflessTimer){
 				clearTimeout(this.stafflessTimer);
 				this.stafflessTimer = null;
