@@ -1032,7 +1032,7 @@ let commands = {
 		room.broadcast(user, "Here are the rules for questions: https://drive.google.com/file/d/0B6H5ZoTTDakRYTBNMzUtWUNndWs/view", rank);
 	},
 	intro: function(message, args, user, rank, room, commandRank, commandRoom){
-		room.broadcast(user, "Here is a beginner's guide to Trivia Tracker (with pictures!): https://pstrivia.weebly.com/trivia-tracker.html#intro", rank);
+		room.broadcast(user, "Here is a beginner's guide to Trivia Tracker (with pictures!): https://pstrivia.weebly.com/tt-intro.html", rank);
 	},
 	plug: function(message, args, user, rank, room, commandRank, commandRoom){
 		room.broadcast(user, "https://plug.dj/trivia", rank);
