@@ -891,7 +891,7 @@ let commands = {
 			}else{
 				if(id){
 					let message = `/addhtmlbox <table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="background-color: #209331"><th>Scores</th></tr>`;
-					message = message + `<tr><td><center>${scoresArray.map(e=>{return `${e.user.name} (${e.score})`}).join(', ')}</center></td></tr></table>`;
+					message = message + `<tr><td><center>${scoresArray.map(e=>{return `${e.user.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')} (${e.score})`}).join(', ')}</center></td></tr></table>`;
 
 					room.broadcast(user, message);
 				}else{
