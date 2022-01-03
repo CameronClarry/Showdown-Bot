@@ -24,7 +24,7 @@ Command|Usage|Required Rank
 `~ttl summary, {leaderboard}`|Gets a variety of statistics on your ranking in the main leaderboard, or any other leaderboard that is specified|None
 `~ttl stats, {leaderboard}`|Gets a variety of statistics the main leaderboard, or any other leaderboard that is specified|None
 `~ttl set, [user], [points], {leaderboard}`|Sets the given user's score to the given number (must be positive). Defaults to acting on the main leaderboard, but can be specified.|@
-`~ttl add, [user], [points], {leaderboard}`|This adds (or subtracts) the given number of points to (or from) the given user's scores. This affects all leaderboards, unless `{leaderboard}` is specified in which case only that leaderboard is affected.|@
+`~ttl add, [user], [points]`|This adds (or subtracts) the given number of points to (or from) the given user's scores. This affects all enabled leaderboards.|@
 `~ttl addto, [user], [points], [leaderboard]`|This adds (or subtracts) the given number of points to (or from) the given user's score. This only affects the given leaderboard, and works even if it is disabled.|@
 `~ttl remove, [user]`|Removes the specified user from all leaderboards.|@
 `~ttl reset`|This resets the main leaderboard. Use with caution.|#
@@ -39,8 +39,6 @@ Command|Usage|Required Rank
 `~event info, [name]`|Gives a variety of information on the event specified such as when it was made, who made it, etc.|None
 `~event enable, [name]`|Enables the given event. Scores will be updated in it from regular Trivia Tracker play and ~ttl add.|@
 `~event disable, [name]`|Disables the given event. Scores in it will no longer be updated from regular Trivia Tracker play and ~ttl add.|@
-`~event start, [name]`|This will add an event to the event list, with the specified name. It also disables all other leaderboards.|@
-`~event end, [name]`|This removes the given event. It also enables all other leaderboards (even if they were originally disabled).|@
 
 Regular Trivia Tracker commands:
 
@@ -79,12 +77,7 @@ Command|Usage|Required Rank
 `~ach unaward, [user], [achievement]`|Attempts to revoke the specified achievement.|@
 
 Minigame helper commands:
-
-Command|Usage|Required Rank
--|-|:-:
-`~minigamelist`|Provides a list of all available minigame commands.|#
-`~minigameupdate [URL]`|Overwrites the list of minigame commands. See the `~minigamelist` output for formatting.|#
-`~minigame [minigame name]`|Executes the given minigame. The effects and required rank will depend on which one is being executed.|Varies
+See https://trivia.cclarry.ca/minigames/
 
 Misc commands:
 
@@ -95,6 +88,8 @@ Command|Usage|Required Rank
 `~alt [user]`|Links your account with `[user]`. This command must be used from both accounts to complete the link.|None
 `~removealt [user]`|Removes the specified account from your linked accounts. It cannot be your main account.|None
 `~main [name]`|Changes your main account. The name given must match one of your alts in alphanumeric characters (eg. StRuChNi! is acceptable for Struchni). This is the name that you will be referred to as in all leaderboard listings.|None
+`~custbpadd [user], [message]`|Sets a custom message for when a user receives BP.|@
+`~custbpremove [user]`|Removes a user's custom BP message.|@
 `~timer [seconds], {message}, {room}`|This will set a timer to go off in [seconds] seconds. The message can be specified, otherwise a default will be used. Note that the message will always use `/wall`. The room can also be specified, defaulting to the room the message is used in.|+
 `~ttbtimer [min seconds], [max seconds], {message}, {room}`|This will set a timer to go off in between [min seconds] and [max seconds] seconds. The message can be specified, otherwise a default will be used. Note that the message will always use `/wall`. The room can also be specified, defaulting to the room the message is used in.|+
 `~timer end, {room}`|This will clear the timer in the given room. If no room is given, it defaults to the room that the command is used in.|+
