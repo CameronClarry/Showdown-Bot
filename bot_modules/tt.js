@@ -40,6 +40,7 @@ let commands = {
 	pog: "yes", // Added for winning the 2020 Trivia awards
 	yayeetdab: "yes", // Added for winning the 2020 Trivia awards
 	nyaa: "yes", // Added for winning the 2020 Trivia awards
+	yespiquen: "yes", // Added for winning the 2021 Trivia awards
 	claro: "yes", // Added for CynicCyndaquil UGO 3rd place
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)
