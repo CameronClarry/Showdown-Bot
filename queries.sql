@@ -8,11 +8,14 @@ CREATE TABLE tt_points(id INT NOT NULL, leaderboard VARCHAR(20) NOT NULL, points
 
 CREATE TABLE tt_leaderboards(id VARCHAR(20) PRIMARY KEY NOT NULL, display_name VARCHAR(20) NOT NULL, created_on TIMESTAMP NOT NULL, created_by INT NOT NULL, enabled BOOLEAN NOT NULL);
 
+CREATE TABLE leaderboard_aliases(alias_id VARCHAR(20) PRIMARY KEY, leaderboard_id VARCHAR(20), CONSTRAINT fk_leaderboard_id FOREIGN KEY(leaderboard_id) REFERENCES tt_leaderboards(id) ON DELETE CASCADE ON UPDATE CASCADE);
+
 CREATE TABLE wl_lb(id INT PRIMARY KEY NOT NULL, correct INTEGER NOT NULL, incorrect INTEGER NOT NULL, passed INTEGER NOT NULL, wins INTEGER NOT NULL, banked INTEGER NOT NULL, won INTEGER NOT NULL);
 
 CREATE TABLE achievement_list(id SERIAL PRIMARY KEY, name VARCHAR(40) NOT NULL, name_id VARCHAR(40) NOT NULL UNIQUE, description VARCHAR(300) NOT NULL, value INT NOT NULL);
 
 CREATE TABLE player_achievements(player_id INT NOT NULL, achievement_id INT NOT NULL, date_achieved TIMESTAMP NOT NULL, PRIMARY KEY(player_id, achievement_id));
+
 --####################
 --USER AND ALT QUERIES
 --####################
@@ -55,7 +58,7 @@ INSERT INTO tt_leaderboards VALUES($1, $2, CURRENT_TIMESTAMP, $3, true);
 DELETE FROM tt_leaderboards WHERE id = $1;
 
 --GET_LB_SQL
-SELECT lb.id, lb.display_name, lb.created_on, users.display_name AS created_by, lb.enabled FROM tt_leaderboards AS lb LEFT OUTER JOIN users ON lb.created_by = users.id WHERE lb.id = $1;
+SELECT lb.id, lb.display_name, lb.created_on, users.display_name AS created_by, lb.enabled FROM leaderboard_aliases AS aliases INNER JOIN tt_leaderboards AS lb ON aliases.leaderboard_id = lb.id LEFT OUTER JOIN users ON lb.created_by = users.id WHERE aliases.alias_id = $1;
 
 --GET_ALL_LB_SQL
 SELECT * FROM tt_leaderboards;
@@ -77,13 +80,13 @@ UPDATE tt_leaderboards SET enabled = $2 WHERE id = $1;
 SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.id = $1 AND lb.leaderboard = $2;
 
 --GET_LB_ENTRIES_SQL
-SELECT lb.points, users.display_name, lb.leaderboard FROM tt_points AS lb INNER JOIN users ON lb.id = USERS.id WHERE lb.id = $1;
+SELECT lb.points, users.display_name FROM tt_points AS lb INNER JOIN leaderboard_aliases AS aliases ON lb.leaderboard = aliases.leaderboard_id LEFT OUTER JOIN users ON lb.id = users.id WHERE aliases.alias_id = $1 AND lb.points > 0 ORDER BY lb.points DESC;
 
 --GET_ALL_LB_ENTRIES_SQL
 SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;
 
 --LSIT_LB_ENTRIES_SQL
-SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE lb.leaderboard = $1 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;
+SELECT lb.points, users.display_name, tt_leaderboards.display_name AS lb_name FROM tt_points AS lb INNER JOIN leaderboard_aliases AS aliases ON lb.leaderboard = aliases.leaderboard_id LEFT OUTER JOIN users ON lb.id = users.id LEFT OUTER JOIN tt_leaderboards ON lb.leaderboard = tt_leaderboards.id WHERE aliases.alias_id = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;
 
 --INSERT_LB_ENTRY_SQL
 INSERT INTO tt_points VALUES ($1, $2, $3);

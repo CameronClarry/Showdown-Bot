@@ -2,18 +2,20 @@ let fs = require("fs");
 let spawn = require('child_process').spawn;
 
 const INSERT_LB_SQL = "INSERT INTO tt_leaderboards VALUES($1, $2, CURRENT_TIMESTAMP, $3, true);";
+const INSERT_ALIAS_SQL = "INSERT INTO leaderboard_aliases VALUES($1, $1)";
 const DELETE_LB_SQL = "DELETE FROM tt_leaderboards WHERE id = $1;";
-const GET_LB_SQL = "SELECT lb.id, lb.display_name, lb.created_on, users.display_name AS created_by, lb.enabled FROM tt_leaderboards AS lb LEFT OUTER JOIN users ON lb.created_by = users.id WHERE lb.id = $1;";
+const GET_LB_SQL = "SELECT lb.id, lb.display_name, lb.created_on, users.display_name AS created_by, lb.enabled FROM leaderboard_aliases AS aliases INNER JOIN tt_leaderboards AS lb ON aliases.leaderboard_id = lb.id LEFT OUTER JOIN users ON lb.created_by = users.id WHERE aliases.alias_id = $1;";
 const GET_ALL_LB_SQL = "SELECT * FROM tt_leaderboards;";
 const GET_ENABLED_LB_SQL = "SELECT * FROM tt_leaderboards WHERE enabled = TRUE;";
 const RESET_MAIN_LB_SQL = "UPDATE tt_leaderboards SET created_on = CURRENT_TIMESTAMP, created_by = $1 WHERE id = 'main';";
+const DELETE_USER_ENTRIES_SQL = "DELETE FROM tt_points WHERE id = $1;";
 const UPDATE_LB_SQL = "UPDATE tt_leaderboards SET enabled = $2 WHERE id = $1;";
 const ENABLE_ALL_LB_SQL = "UPDATE tt_leaderboards SET enabled = true;";
 const DISABLE_ALL_LB_SQL = "UPDATE tt_leaderboards SET enabled = false;";
 
 const DELETE_LB_ENTRIES_SQL = "DELETE FROM tt_points WHERE leaderboard = $1;";
-const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC;";
-const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, tt_leaderboards.display_name AS lb_name FROM tt_points AS lb LEFT OUTER JOIN users ON lb.id = users.id LEFT OUTER JOIN tt_leaderboards ON lb.leaderboard = tt_leaderboards.id WHERE leaderboard = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;";
+const GET_ALL_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name FROM tt_points AS lb INNER JOIN leaderboard_aliases AS aliases ON lb.leaderboard = aliases.leaderboard_id LEFT OUTER JOIN users ON lb.id = users.id WHERE aliases.alias_id = $1 AND lb.points > 0 ORDER BY lb.points DESC;";
+const LIST_LB_ENTRIES_SQL = "SELECT lb.points, users.display_name, tt_leaderboards.display_name AS lb_name FROM tt_points AS lb INNER JOIN leaderboard_aliases AS aliases ON lb.leaderboard = aliases.leaderboard_id LEFT OUTER JOIN users ON lb.id = users.id LEFT OUTER JOIN tt_leaderboards ON lb.leaderboard = tt_leaderboards.id WHERE aliases.alias_id = $1 AND lb.points > 0 ORDER BY lb.points DESC FETCH FIRST _NUMBER_ ROWS ONLY;";
 const GET_STATS = "SELECT AVG(points)::FLOAT avg_points, STDDEV_POP(points)::FLOAT std_points, COUNT(*)::INTEGER num_players FROM tt_points WHERE points > 0 AND leaderboard = $1;";
 
 let commands = {
@@ -101,6 +103,7 @@ let ttleaderboardCommands = {
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank, true);
 			}else{
 				let boardName = res.rows[0].display_name;
+				boardId = res.rows[0].id;
 				this.pgclient.getUser(username, false, (err, dbUser)=>{
 					if(err){
 						error(err);
@@ -198,6 +201,7 @@ let ttleaderboardCommands = {
 			}
 		});
 	},
+	// TODO this does not need to get all leaderboards
 	stats: function(message, args, user, rank, room, commandRank, commandRoom){
 		let lbId = toId(args[1]) || 'main';
 		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
@@ -236,7 +240,7 @@ let ttleaderboardCommands = {
 		if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
 			room.broadcast(user, "Your rank is not high enough to change someone's score.", rank);
 		}else if(args.length<=2 || !toId(args[1])){
-			room.broadcast(user, "You must specify the user's name, and the number of points to add.", rank);
+			room.broadcast(user, "You must specify the user's name, the amount of points to set them to, and optionally the leaderboard.", rank);
 		}else if(!/^[\d]+$/.test(args[2])){
 			room.broadcast(user, "Invalid number format for the number of points.", rank);
 		}else{
@@ -250,10 +254,11 @@ let ttleaderboardCommands = {
 					return;
 				}
 
-				let boardName = res.rowCount ? res.rows[0].display_name : null;
-				if(!boardName){
+				if(!res.rowCount){
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
+					let boardName = res.rows[0].display_name;
+					boardId = res.rows[0].id;
 					this.pgclient.updatePointsByPsId(toId(username), username , (oldPoints)=>{
 						return points;
 					}, [boardId], (err, name, oldPoints, newPoints)=>{
@@ -319,6 +324,7 @@ let ttleaderboardCommands = {
 					room.broadcast(user, "That leaderboard doesn't exist.", rank);
 				}else{
 					let boardName = res.rows[0].display_name;
+					boardId = res.rows[0].id;
 					this.pgclient.updatePointsByPsId(toId(username), username , (oldPoints)=>{
 						return oldPoints + points;
 					}, [boardId], (err, name, oldPoints, newPoints)=>{
@@ -467,7 +473,7 @@ let ttleaderboardEventCommands = {
 				if(res.rowCount){
 					room.broadcast(user, "A leaderboard already exists with the same name.", rank);
 				}else{
-					this.pgclient.getUser(user.id, true, (error, dbUser)=>{
+					this.pgclient.getUser(user.id, true, (err, dbUser)=>{
 						if(err){
 							error(err);
 							room.broadcast(user, `Error: ${err}`);
@@ -481,7 +487,15 @@ let ttleaderboardEventCommands = {
 								return;
 							}
 
-							room.broadcast(user, "Successfully created a new leaderboard.", rank);
+							this.pgclient.runSql(INSERT_ALIAS_SQL, [toId(boardName)], (err, res3)=>{
+								if(err){
+									error(err);
+									room.broadcast(user, `Error: ${err}`);
+									return;
+								}
+
+								room.broadcast(user, "Successfully created a new leaderboard.", rank);
+							});
 						});
 					});
 				}
@@ -507,6 +521,7 @@ let ttleaderboardEventCommands = {
 				if(!res.rowCount){
 					room.broadcast(user, "There is no leaderboard with that name.", rank);
 				}else{
+					id = res.rows[0].id;
 					this.pgclient.runSql(DELETE_LB_ENTRIES_SQL, [id],(err, res2)=>{
 						if(err){
 							error(err);
@@ -540,7 +555,7 @@ let ttleaderboardEventCommands = {
 			let lbEntry = res.rows[0];
 			if(!res.rowCount){
 				room.broadcast(user, "The leaderboard you specified doesn't exist.", rank);
-			}else if(id !== "main"){
+			}else if(lbEntry.id !== "main"){
 				room.broadcast(user, `Leaderboard name: ${lbEntry.display_name}, created on: ${lbEntry.created_on.toUTCString()}, created by: ${lbEntry.created_by}, enabled: ${lbEntry.enabled}`, rank);
 			}else{
 				room.broadcast(user, `Leaderboard name: ${lbEntry.display_name}, last reset: ${lbEntry.created_on.toUTCString()}, reset by: ${lbEntry.created_by}, enabled: ${lbEntry.enabled}`, rank);
@@ -567,6 +582,7 @@ let ttleaderboardEventCommands = {
 				}else if(lbEntry.enabled){
 					room.broadcast(user, "That leaderboard is already enabled.", rank);
 				}else{
+					id = lbEntry.id;
 					this.pgclient.runSql(UPDATE_LB_SQL, [id, true], (err, res2)=>{
 						if(err){
 							error(err);
@@ -600,6 +616,7 @@ let ttleaderboardEventCommands = {
 				}else if(!lbEntry.enabled){
 					room.broadcast(user, "That leaderboard is already disabled.", rank);
 				}else{
+					id = lbEntry.id;
 					this.pgclient.runSql(UPDATE_LB_SQL, [id, false], (err, res2)=>{
 						if(err){
 							error(err);
