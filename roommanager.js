@@ -227,7 +227,7 @@ class Room{
 		this.stafflessTimer = setTimeout(()=>{
 			this.sendNoAuthWarning();
 			this.stafflessTimer = null;
-		}, 60*1000);
+		}, 3*60*1000);
 	}
 
 	sendNoAuthWarning(message){
