@@ -260,10 +260,12 @@ class TriviaTrackerGame{
 
 		if(hasRank) return;
 
-		if(this.bpOpen !== 'user' || this.curHist.active.id !== user.id) return "Your rank is not high enough to close BP.";
+		if((this.bpOpen !== 'user' && this.bpOpen !== 'claim') || this.curHist.active.id !== user.id) return "Your rank is not high enough to close BP.";
 	}
 
 	doCloseBp(shouldClearTimers, shouldSendMessage){
+		if(this.bpOpen == 'claim') this.setRemindTimer(this.config.remindTime.value*1000/2);
+			
 		this.bpOpen = null;
 		if(shouldClearTimers) this.clearTimers();
 
@@ -431,7 +433,7 @@ class TriviaTrackerGame{
 	doBp(user1, id2){
 		let user2 = this.room.getUserData(id2);
 		let historyToAdd = {active: user2};
-		this.changeBp(user1, user2, historyToAdd);
+		if(user1.id !== id2) this.changeBp(user1, user2, historyToAdd);
 		this.sendGenericBpChange(user2);
 	}
 
@@ -537,6 +539,18 @@ class TriviaTrackerGame{
 		}else if( (this.bpOpen == 'leave' || this.bpOpen == 'user') && !this.bpLocked ){
 			this.doOpenBp('timer', false);
 		}
+		// Start the timer that lets them claim again
+		this.setClaimTimer()
+	}
+
+	setClaimTimer(){
+		this.setTimer('claim', 5*60*1000, ()=>{this.allowClaim();});
+	}
+
+	allowClaim(){
+		if(this.bpOpen == 'leave' || this.bpOpen == 'timer'){
+			this.bpOpen = 'claim';
+		}
 	}
 
 	doLeave(){
@@ -549,7 +563,7 @@ class TriviaTrackerGame{
 	cantClaimBp(user){
 		if(this.blacklistManager.getEntry(user.id)) return "You are on the blacklist and cannot claim BP.";
 
-		if(user.id === this.curHist.active.id) return "You are already the active player.";
+		if(user.id === this.curHist.active.id && this.bpOpen !== 'claim') return "You are already the active player.";
 	}
 
 	onVeto(vetoee, vetoer, message){
