@@ -550,6 +550,7 @@ class TriviaTrackerGame{
 	allowClaim(){
 		if(this.bpOpen == 'leave' || this.bpOpen == 'timer'){
 			this.bpOpen = 'claim';
+			this.curHist.active.send("You may now close or claim BP if you would like to ask a question.");
 		}
 	}
 
