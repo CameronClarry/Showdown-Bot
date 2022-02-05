@@ -552,7 +552,7 @@ let commands = {
 		}else if(!args.length){
 			room.broadcast(user, "You need to give a fact to add.");
 		}else{
-			let fact = message.substr(9);
+			let fact = message.split(' ').slice(1).join(' ');
 			let factId = toId(fact);
 			if(this.facts.filter(f=>{return f.id == factId}).length){
 				room.broadcast(user, "That fact already exists.");
@@ -571,7 +571,7 @@ let commands = {
 		}else if(!args.length){
 			room.broadcast(user, "You need to give a fact to remove.");
 		}else{
-			let fact = message.substr(12);
+			let fact = message.split(' ').slice(1).join(' ');
 			let factId = toId(fact);
 			let num = this.facts.length;
 			this.facts = this.facts.filter(f=>{return f.id !== factId});
