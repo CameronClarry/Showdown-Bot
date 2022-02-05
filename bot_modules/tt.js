@@ -545,6 +545,7 @@ let commands = {
 			user.send("You must give a minimum and a maximum time.");
 		}
 	},
+	af: "addfact",
 	addfact: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to edit facts.");
@@ -563,6 +564,7 @@ let commands = {
 		}
 	},
 	deletefact: "removefact",
+	rf: "removefact",
 	removefact: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
 			room.broadcast(user, "Your rank is not high enough to edit facts.");
