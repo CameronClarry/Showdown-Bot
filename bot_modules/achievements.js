@@ -88,14 +88,13 @@ let achievementCommands = {
 				return;
 			}
 
-			let output=`ACHIEVEMENT LIST\n################\n\n${res.rows.map((row)=>{return `Name: ${row.name}, Description: \n${row.description}`;}).join('\n\n')}`;
-			uploadText(output, (err, address)=>{
-				if(err){
-					room.broadcast(user, `Error: ${err}`);
-					return;
-				}
-				room.broadcast(user, `Here are the achievements: ${address}`, rank);
-			});
+			let output=`<div style="max-height:200px;overflow-y:scroll">ACHIEVEMENT LIST<br><br>${res.rows.map((row)=>{return `Name: ${row.name}<br>Description: ${row.description}`;}).join('<br><br>')}</div>`;
+			if(AuthManager.rankgeq(rank, '+') && room && room.id){
+				info(room.id);
+				room.send(`/addhtmlbox ${output}`);
+			}else{
+				send(`trivia|/pminfobox ${user.id}, ${output}`);
+			}
 		});
 	},
 	award: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -182,14 +181,13 @@ let achievementCommands = {
 						return;
 					}
 
-					let output = `${res.display_name}'s achievements:\n${res2.rows.map((row)=>{return row.name;}).join('\n')}`;
-					uploadText(output, (err, address)=>{
-						if(err){
-							room.broadcast(user, `Error: ${err}`);
-							return;
-						}
-						room.broadcast(user, `Here are ${res.display_name}'s achievements: ${address}`, rank);
-					});
+					let output = `<div style="max-height:200px;overflow-y:scroll">${res.display_name}'s achievements:<br>${res2.rows.map((row)=>{return row.name;}).join('<br>')}</div>`;
+					if(AuthManager.rankgeq(rank, '+') && room && room.id){
+						info(room.id);
+						room.send(`/addhtmlbox ${output}`);
+					}else{
+						send(`trivia|/pminfobox ${user.id}, ${output}`);
+					}
 				});
 			}
 		});
