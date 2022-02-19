@@ -127,8 +127,8 @@ global.millisToTime = function(millis){
 
 // Saves text to somewhere accessible via the internet, and returns the link used to access it.
 // callback(err, address)
-global.uploadText = function(text, callback){
-	let filename = `${MD5(text.substr(0,10)+Date.now())}.txt`;
+global.uploadText = function(text, callback, extension='txt'){
+	let filename = `${MD5(text.substr(0,10)+Date.now())}.${extension}`;
 	try{
 		let textFile = fs.openSync(bot.config.text_directory.value + filename,"w");
 		fs.writeSync(textFile,text,null,'utf8');

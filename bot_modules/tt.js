@@ -972,7 +972,15 @@ let commands = {
 		// For ROs only. Pastes all the nominations as a list
 		if(!AuthManager.rankgeq(commandRank,'@')) return;
 
-		let text = JSON.stringify(this.leaderboard.nominations, null, '\t');
+		let nominationArray = [];
+		for(let nominator in this.leaderboard.nominations){
+			for(let q in this.leaderboard.nominations[nominator]){
+				nominationArray.push(this.leaderboard.nominations[nominator][q]);
+			}
+		}
+		let text = nominationArray.map((nom)=>{
+			return `"${nom.question.replace(/"/g, '""')}",${nom.nominee},${nom.nominator},"${nom.timestamp}"`;
+		}).join('\n');
 
 		uploadText(text, (err, address)=>{
 			if(err){
@@ -981,7 +989,7 @@ let commands = {
 				return;
 			}
 			user.send(`Here is a list of all the nominations: ${address}`);
-		});
+		}, extension='csv');
 	},
 	clearnominations: function(message, args, user, rank, room, commandRank, commandRoom){
 		// For ROs only. Deletes all nominations and saves the leaderboard.
