@@ -420,6 +420,7 @@ let ttleaderboardCommands = {
 										room.broadcast(user, `Successfully deleted ${res2.rowCount} score(s) from the main leaderboard.`, rank);
 										this.askToReset = "";
 										if(this.achievements) this.achievements.achievementsOnReset("main", res.rows);
+										if(this.config.scoreWebhook && this.config.scoreWebhook.value) sendWebhook(this.config.scoreWebhook.value, `The top 10 scores on the main leaderboard are: ${res.rows.slice(0,10).map((row)=>{return `__${row.display_name || row.id1}__: ${row.points}`}).join(", ")}.`);
 									});
 								});
 							});
@@ -649,7 +650,8 @@ class TTL extends BaseModule{
 		this.config = {
 			editScoreRank: new ConfigRank('@'),
 			resetLeaderboardRank: new ConfigRank('#'),
-			manageEventRank: new ConfigRank('@')
+			manageEventRank: new ConfigRank('@'),
+			scoreWebhook: new ConfigString('')
 		};
 		this.commands = commands;
 		this.dependencies = ['pgclient', 'achievements'];

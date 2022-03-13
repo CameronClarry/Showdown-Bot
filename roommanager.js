@@ -1,5 +1,3 @@
-const axios = require('axios');
-
 exports.RoomManager = class{
 	constructor(){
 		this.rooms = {};
@@ -231,13 +229,7 @@ class Room{
 	}
 
 	sendNoAuthWarning(message){
-		axios.post(bot.config.discordStaffWebhook.value, {
-			content: message || `The last staff member just left ${this.name}. <@&911610998799085608>`
-		}).then(res => {
-			
-		}).catch(error => {
-			error("Post to Discord webhook failed");
-		});
+		sendWebhook(bot.config.discordStaffWebhook.value, message || `The last staff member just left ${this.name}. <@&911610998799085608>`);
 	}
 }
 

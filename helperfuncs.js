@@ -1,4 +1,5 @@
 let fs = require("fs");
+const axios = require('axios');
 global.cwd = process.cwd();
 
 let logToFile = function(text){
@@ -46,6 +47,17 @@ global.ok = function (text) {
 };
 
 //Here are some useful functions for all modules to use
+
+// Send to a discord webhook
+global.sendWebhook = function(webhook, text){
+	axios.post(webhook, {
+		content: text
+	}).then(res => {
+		
+	}).catch(error => {
+		error(`Post to Discord webhook failed: ${text}`);
+	});
+};
 
 //Removes characters denoting user ranks from the beginning of a name
 global.removeRank = function(text){
