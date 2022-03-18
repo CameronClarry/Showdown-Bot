@@ -247,8 +247,9 @@ class TriviaTrackerGame{
 		}else if(newIndex > curIndex){
 			this.bpOpen = type;
 		}else{
-			return;
 		}
+
+		if(type === 'user') this.setClaimTimer();
 		
 		if(shouldSendMessage) this.room.send("**BP is now open (say 'me' or 'bp' to claim it).**");
 	}
@@ -265,6 +266,7 @@ class TriviaTrackerGame{
 
 	doCloseBp(shouldClearTimers, shouldSendMessage){
 		if(this.bpOpen == 'claim') this.setRemindTimer(this.config.remindTime.value*1000/2);
+		this.clearTimer('claim');
 			
 		this.bpOpen = null;
 		if(shouldClearTimers) this.clearTimers();
@@ -539,8 +541,8 @@ class TriviaTrackerGame{
 		}else if( (this.bpOpen == 'leave' || this.bpOpen == 'user') && !this.bpLocked ){
 			this.doOpenBp('timer', false);
 		}
-		// Start the timer that lets them claim again
-		this.setClaimTimer()
+		// Start the timer that lets them claim again, if it hasn't already started
+		if(!this.timers['claim']) this.setClaimTimer();
 	}
 
 	setClaimTimer(){
