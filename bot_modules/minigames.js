@@ -435,7 +435,7 @@ class TriviaTrackerGame{
 	doBp(user1, id2){
 		let user2 = this.room.getUserData(id2);
 		let historyToAdd = {active: user2};
-		if(user1.id !== id2) this.changeBp(user1, user2, historyToAdd);
+		this.changeBp(user1, user2, historyToAdd);
 		this.sendGenericBpChange(user2);
 	}
 
