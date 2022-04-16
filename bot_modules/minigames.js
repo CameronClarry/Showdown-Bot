@@ -117,14 +117,15 @@ class TriviaTrackerGame{
 	/// prevUser: the user that asked the question
 	/// nextUser: the user who got the question correct:
 	givePoints(prevUser, nextUser){
-		if(this.askPoints){
+		let totalAskerPoints = (this.askPoints || 0) + (this.curHist.claimBonus || 0);
+		if(totalAskerPoints){
 			if(this.leaderboards.length){
-				this.pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + this.askPoints}, this.leaderboards, logIfError);
+				this.pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + totalAskerPoints}, this.leaderboards, logIfError);
 			}
 			if(this.scores[prevUser.id]){
-				this.scores[prevUser.id].score = this.scores[prevUser.id].score + this.askPoints;
+				this.scores[prevUser.id].score = this.scores[prevUser.id].score + totalAskerPoints;
 			}else{
-				this.scores[prevUser.id] = {score: this.askPoints, user: prevUser};
+				this.scores[prevUser.id] = {score: totalAskerPoints, user: prevUser};
 			}
 		}
 		if(this.answerPoints){
@@ -455,9 +456,10 @@ class TriviaTrackerGame{
 	}
 
 	makeHistory(user1, user2){
+		let totalAskerPoints = (this.askPoints || 0) + (this.curHist.claimBonus || 0);
 		return {
 			active:user2,
-			undoAsker: this.makeUndoFunc(this.curHist.active.id, this.curHist.active.name, this.askPoints, this.leaderboards),
+			undoAsker: this.makeUndoFunc(this.curHist.active.id, this.curHist.active.name, totalAskerPoints, this.leaderboards),
 			undoAnswerer: this.makeUndoFunc(user2.id, user2.name, this.answerPoints, this.leaderboards)
 		};
 	}
@@ -597,6 +599,7 @@ class TriviaTrackerGame{
 					// Could potentially PM the user here, but it is probably unnecessary
 				}else{
 					this.doBp(this.curHist.active, user.id);
+					this.curHist.claimBonus = 1;
 					this.setRemindTimer(this.config.remindTime.value*1000/2);
 					this.bpOpen = false;
 				}
