@@ -6,15 +6,18 @@ const GET_ACHIEVEMENT_BY_NAME_SQL = "SELECT * FROM achievement_list WHERE name_i
 const INSERT_PLAYER_ACHIEVEMENT_SQL = "INSERT INTO player_achievements VALUES ($1, $2, CURRENT_TIMESTAMP);";
 const DELETE_PLAYER_ACHIEVEMENT_SQL = "DELETE FROM player_achievements WHERE player_id = $1 AND achievement_id = $2;";
 const DELETE_ACHIEVEMENT_BY_NAME_SQL = "DELETE FROM player_achievements WHERE achievement_id = (SELECT id FROM achievement_list WHERE name_id = $1 FETCH FIRST 1 ROWS ONLY);";
-const GET_PLAYER_ACHIEVEMENTS_SQL = "SELECT achievement_list.name from player_achievements INNER JOIN achievement_list ON player_achievements.achievement_id = achievement_list.id WHERE player_achievements.player_id = $1;";
+const GET_PLAYER_ACHIEVEMENTS_SQL = "SELECT achievement_list.name, achievement_list.value from player_achievements INNER JOIN achievement_list ON player_achievements.achievement_id = achievement_list.id WHERE player_achievements.player_id = $1;";
+const GET_ACHIEVEMENT_LB_SQL = "WITH scores AS ( SELECT player_id, COUNT(*) AS achievements, SUM(value) AS points FROM player_achievements AS pa INNER JOIN achievement_list AS al ON pa.achievement_id = al.id GROUP BY player_id ) SELECT display_name, achievements, points FROM scores INNER JOIN users ON users.id = scores.player_id ORDER BY points DESC LIMIT _NUMBER_;"
 
 let commands = {
 	ach: "achievement",
 	achievement: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(args.length>0){
 			let command = args[0].toLowerCase();
-			if(achievementCommands[command]){
-				achievementCommands[command].call(this, message, args.slice(1), user, rank, room, commandRank, commandRoom)
+			let commandFunc = achievementCommands[command]
+			if(commandFunc){
+				commandFunc = typeof commandFunc == "string" ? achievementCommands[commandFunc] : commandFunc;
+				commandFunc.call(this, message, args.slice(1), user, rank, room, commandRank, commandRoom)
 				return;
 			}
 		}
@@ -88,7 +91,7 @@ let achievementCommands = {
 				return;
 			}
 
-			let output=`<div style="max-height:200px;overflow-y:scroll">ACHIEVEMENT LIST<br><br>${res.rows.map((row)=>{return `Name: ${row.name}<br>Description: ${row.description}`;}).join('<br><br>')}</div>`;
+			let output=`<div style="max-height:200px;overflow-y:scroll"><table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr><th>Achievement</th><th>Description</th><th>Points</th></tr>${res.rows.map((row)=>{return `<tr><td>${row.name}</td><td>${row.description}</td><td>${row.value}</td></tr>`;}).join('')}</table></div>`;
 			if(AuthManager.rankgeq(rank, '+') && room && room.id){
 				info(room.id);
 				room.send(`/addhtmlbox ${output}`);
@@ -180,8 +183,10 @@ let achievementCommands = {
 						room.broadcast(user, `Error: ${err}`);
 						return;
 					}
+					let pointArray = res2.rows.map((row)=>{return row.value;});
+					let totalScore = pointArray.reduce((a,b)=>{return a+b;}, 0);
 
-					let output = `<div style="max-height:200px;overflow-y:scroll">${res.display_name}'s achievements:<br>${res2.rows.map((row)=>{return row.name;}).join('<br>')}</div>`;
+					let output=`<div style="max-height:200px;overflow-y:scroll"><table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr><th colspan=2>${res.display_name}'s Achievements</th></tr><tr><th>Achievement</th><th>Points</th></tr>${res2.rows.map((row)=>{return `<tr><td>${row.name}</td><td>${row.value}</td></tr>`;}).join('')}<tr><th>Total</th><th>${totalScore}</th></tr></table></div>`;
 					if(AuthManager.rankgeq(rank, '+') && room && room.id){
 						info(room.id);
 						room.send(`/addhtmlbox ${output}`);
@@ -192,6 +197,26 @@ let achievementCommands = {
 			}
 		});
 	},
+	lb: "leaderboard",
+	leaderboard: function(message, args, user, rank, room, commandRank, commandRoom){
+		info(args[0]);
+		let number = /^[\d]+$/.test(args[0]) ? parseInt(args[0], 10) : 10;
+		this.pgclient.runSql(GET_ACHIEVEMENT_LB_SQL.replace("_NUMBER_",number), [], (err, res)=>{
+			if(err){
+				error(JSON.stringify(err));
+				room.broadcast(user, `Error: ${err}`);
+				return;
+			}
+
+			let output=`<div style="max-height:200px;overflow-y:scroll"><table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr><th>User</th><th>Achievements</th><th>Score</th></tr>${res.rows.map((row)=>{return `<tr><td>${row.display_name}</td><td>${row.achievements}</td><td>${row.points}</td></tr>`;}).join('')}</table></div>`;
+			if(AuthManager.rankgeq(rank, '+') && room && room.id){
+				info(room.id);
+				room.send(`/addhtmlbox ${output}`);
+			}else{
+				send(`trivia|/pminfobox ${user.id}, ${output}`);
+			}
+		});
+	}
 };
 
 class Achievements extends BaseModule{
