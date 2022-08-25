@@ -992,8 +992,8 @@ let commands = {
 		}, extension='csv');
 	},
 	clearnominations: function(message, args, user, rank, room, commandRank, commandRoom){
-		// For ROs only. Deletes all nominations and saves the leaderboard.
-		if(!AuthManager.rankgeq(commandRank,'#')) return;
+		// For mods/ROs. Deletes all nominations and saves the leaderboard.
+		if(!AuthManager.rankgeq(commandRank,'@')) return;
 
 		this.leaderboard.nominations = {};
 		this.saveLeaderboard();
