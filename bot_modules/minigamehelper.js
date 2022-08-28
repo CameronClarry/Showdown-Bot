@@ -137,24 +137,56 @@ let commands = {
 		}
 	},
 	next: function(message, args, user, rank, room, commandRank, commandRoom){
-		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
 		let response = `The next official is (theoretically) in ${millisToTime(timeDiff)}.`;
 		room.broadcast(user, response, rank, true);
 	},
+	cycleend: function(message, args, user, rank, room, commandRank, commandRoom){
+		let timeDiff = getResetTime();
+		let response = `This cycle will end in ${millisToTime(timeDiff)}.`;
+		room.broadcast(user, response, rank, true);
+	}
 };
 
 let millisToTime = function(millis){
 	let seconds = millis/1000;
-	let hours = Math.floor(seconds/3600);
-	let minutes = Math.floor((seconds-hours*3600)/60);
+	let days = Math.floor(seconds/86400);
+	let hours = Math.floor((seconds%86400)/3600);
+	let minutes = Math.floor((seconds%3600)/60);
 	let response;
-	if(hours>0){
+	if(days>0){
+		response = `${days} day${days === 1 ? "" : "s"}, ${hours} hour${hours === 1 ? "" : "s"}, and ${minutes} minute${minutes === 1 ? "" : "s"}`;
+	}else if(hours>0){
 		response = `${hours} hour${hours === 1 ? "" : "s"} and ${minutes} minute${minutes === 1 ? "" : "s"}`;
 	}else{
 		response = `${minutes} minute${minutes === 1 ? "" : "s"}`;
 	}
 	return response;
 };
+
+// Gets the miliseconds to the next official
+let getOfficialTime = function(){
+	return (1457024400000-new Date().getTime())%14400000+14400000;
+}
+
+// Gets the miliseconds to the next cycle reset
+let getResetTime = function(now=new Date()){
+	let target;
+	let dayOfMonth = now.getDate();
+	if(dayOfMonth <= 15){
+		// First cycle of the month
+		target = new Date(now.getFullYear(), now.getMonth(), 16)
+	}else{
+		// Second cycle of the month
+		target = new Date(now.getFullYear(), now.getMonth()+1, 1)
+	}
+	let timeDiff = target.getTime()-now.getTime();
+	if(timeDiff < 60*1000){
+		return getResetTime(new Date(now.getTime()+60*1000));
+	}else{
+		return timeDiff
+	}
+}
+
 
 class MinigameHelper extends BaseModule{
 	constructor(){
@@ -175,12 +207,20 @@ class MinigameHelper extends BaseModule{
 		this.titanAuth = {};
 
 		if(!this.remindTimer && this.config.officialReminders.value){
-			let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
+			let timeDiff = getOfficialTime()
 			this.remindTimer = setTimeout(()=>{
 				this.remindTimer = null;
 				this.officialReminder();
 			}, timeDiff);
 			info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+		}
+		if(!this.cycleRemindTimer && this.config.officialReminders.value){
+			let timeDiff = getResetTime()
+			this.cycleRemindTimer = setTimeout(()=>{
+				this.remindTimer = null;
+				this.cycleReminder();
+			}, timeDiff);
+			info("Set the cycle reminder for " + timeDiff/1000/60 + " minutes");
 		}
 	}
 
@@ -213,13 +253,24 @@ class MinigameHelper extends BaseModule{
 	officialReminder(){
 		let triviaRoom = RoomManager.getRoom(this.room);
 		if(triviaRoom) triviaRoom.send("Time for the next official!");
-		let timeDiff = (1457024400000-new Date().getTime())%14400000+14400000;
+		let timeDiff = getOfficialTime();
 		if(timeDiff < 1000*60) timeDiff = 14400000;
 		if(this.config.officialReminders.value) this.remindTimer = setTimeout(()=>{
 			this.remindTimer = null;
 			this.officialReminder();
 		}, timeDiff);
 		info("Set the reminder for " + timeDiff/1000/60 + " minutes");
+	}
+
+	cycleReminder(){
+		let triviaRoom = RoomManager.getRoom(this.room);
+		if(triviaRoom) triviaRoom.send("Time for the next Trivia Tracker cycle!");
+		let timeDiff = getResetTime();
+		if(this.config.officialReminders.value) this.cycleRemindTimer = setTimeout(()=>{
+			this.cycleRemindTimer = null;
+			this.cycleReminder();
+		}, timeDiff);
+		info("Set the cycle reminder for " + timeDiff/1000/60 + " minutes");
 	}
 
 	startOfficial(room){
