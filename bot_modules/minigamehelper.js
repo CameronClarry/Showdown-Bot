@@ -137,6 +137,7 @@ let commands = {
 		}
 	},
 	next: function(message, args, user, rank, room, commandRank, commandRoom){
+		let timeDiff = getOfficialTime();
 		let response = `The next official is (theoretically) in ${millisToTime(timeDiff)}.`;
 		room.broadcast(user, response, rank, true);
 	},
