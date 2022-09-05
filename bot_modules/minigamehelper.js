@@ -136,12 +136,13 @@ let commands = {
 			setTimeout(()=>{this.shouldStart = false;}, 1000);
 		}
 	},
+	nextofficial: "next",
 	next: function(message, args, user, rank, room, commandRank, commandRoom){
 		let timeDiff = getOfficialTime();
 		let response = `The next official is (theoretically) in ${millisToTime(timeDiff)}.`;
 		room.broadcast(user, response, rank, true);
 	},
-	cycleend: function(message, args, user, rank, room, commandRank, commandRoom){
+	nextcycle: function(message, args, user, rank, room, commandRank, commandRoom){
 		let timeDiff = getResetTime();
 		let response = `This cycle will end in ${millisToTime(timeDiff)}.`;
 		room.broadcast(user, response, rank, true);
