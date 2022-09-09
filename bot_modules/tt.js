@@ -594,6 +594,24 @@ let commands = {
 			room.broadcast(user, "There are no facts :<");
 		}
 	},
+	factsearch: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
+			room.broadcast(user, "Your rank is not high enough to check facts.");
+		}else if(this.facts.length){
+			let phrase = toId(args.join(''));
+			let filterFunc = (e)=>{
+				return e.id.includes(phrase);
+			};
+			let shortlist = this.facts.filter(filterFunc);
+			if(shortlist.length){
+				room.broadcast(user, `__${shortlist[Math.floor(Math.random()*shortlist.length)].text}__`);
+			}else{
+				room.broadcast(user, "Your search didn't find anything :<");
+			}
+		}else{
+			room.broadcast(user, "There are no facts :<");
+		}
+	},
 	facts: "factlist",
 	factlist: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!AuthManager.rankgeq(commandRank, this.config.factRank.value)){
