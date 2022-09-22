@@ -136,18 +136,18 @@ let ttleaderboardCommands = {
 	summary: function(message, args, user, rank, room, commandRank, commandRoom){
 		let lbId = toId(args[1]) || "main";
 		let userId = (AuthManager.rankgeq(commandRank, "%") && toId(args[2])) || user.id;
-		this.pgclient.runSql(GET_ALL_LB_SQL, [], (err, res)=>{
+		this.pgclient.runSql(GET_LB_SQL, [lbId], (err, res)=>{
 			if(err){
 				error(err);
 				room.broadcast(user, `Error: ${err}`);
 				return;
 			}
 			
-			let lbEntry = res.rows.filter((row)=>{return row.id === lbId;})[0];
-			if(!lbEntry){
+			if(!res.rowCount){
 				room.broadcast(user, "The leaderboard you entered does not exist.", rank);
 			}else{
-				let lbName = lbEntry.display_name;
+				let lbName = res.rows[0].display_name;
+				lbId = res.rows[0].id;
 				this.pgclient.getUser(userId, false, (err, dbUser)=>{
 					if(err){
 						error(err);
