@@ -630,6 +630,21 @@ let commands = {
 			user.send("There are no facts :<");
 		}
 	},
+	randtopic: function(message, args, user, rank, room, commandRank, commandRoom){
+		let game = this.games[room.id];
+		if(!AuthManager.rankgeq(commandRank, '+') && !(game && game.curHist && game.curHist.active.id === user.id) && room.id){
+			room.broadcast(user, "Please only use ~randtopic in chat if you currently have BP.");
+		}else if(this.topics && this.topics.length){
+			let topic = this.topics[Math.floor(Math.random()*this.topics.length)];
+			if(room.id){
+				room.send(`Your topic is: ${topic}`);
+			}else{
+				room.broadcast(user, `Your topic is: ${topic}`);
+			}
+		}else{
+			user.send("There are no topics :<");
+		}
+	},
 	mg: "minigame",
 	minigame: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
@@ -1252,6 +1267,7 @@ class TT extends BaseModule{
 		this.blacklistManager = new BlacklistManager();
 		this.blacklistManager.load()
 		this.loadFacts();
+		this.loadTopics();
 		this.loadLeaderboard();
 	}
 
@@ -1353,6 +1369,21 @@ class TT extends BaseModule{
 				this.facts = JSON.parse(fs.readFileSync(filename, "utf8"));
 			}else{
 				this.facts = [];
+			}
+			return true;
+		}catch(e){
+			error(e.message);
+		}
+		return false;
+	};
+
+	loadTopics(){
+		try{
+			let filename = "data/topics.json";
+			if(fs.existsSync(filename)){
+				this.topics = JSON.parse(fs.readFileSync(filename, "utf8"));
+			}else{
+				this.topics = [];
 			}
 			return true;
 		}catch(e){
