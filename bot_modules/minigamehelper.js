@@ -133,7 +133,7 @@ let commands = {
 		}else{
 			send("trivia|/trivia");
 			this.shouldStart = true;
-			setTimeout(()=>{this.shouldStart = false;}, 1000);
+			setTimeout(()=>{this.shouldStart = false;}, 10000);
 		}
 	},
 	nextofficial: "next",
@@ -231,10 +231,15 @@ class MinigameHelper extends BaseModule{
 			clearTimeout(this.remindTimer);
 			this.remindTimer = null;
 		}
+		if(this.cycleRemindTimer){
+			clearTimeout(this.cycleRemindTimer);
+			this.cycleRemindTimer = null;
+		}
 	}
 
 	recover(oldModule){
 		this.remindTimer = oldModule.remindTimer;
+		this.cycleRemindTimer = oldModule.cycleRemindTimer;
 		this.titanRegs = oldModule.titanRegs;
 		this.titanAuth = oldModule.titanAuth;
 		this.joinTimer = oldModule.joinTimer;

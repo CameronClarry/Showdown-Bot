@@ -632,6 +632,8 @@ let commands = {
 	},
 	randtopic: function(message, args, user, rank, room, commandRank, commandRoom){
 		let game = this.games[room.id];
+		// We don't want this interfering with other topic commands
+		if(room.id && room.id !== 'trivia') return;
 		if(!AuthManager.rankgeq(commandRank, '+') && !(game && game.curHist && game.curHist.active.id === user.id) && room.id){
 			room.broadcast(user, "Please only use ~randtopic in chat if you currently have BP.");
 		}else if(this.topics && this.topics.length){
@@ -1284,6 +1286,7 @@ class TT extends BaseModule{
 		this.timers = oldModule.timers;
 		this.blacklistManager = oldModule.blacklistManager;
 		this.facts = oldModule.facts;
+		this.topics = oldModule.topics;
 		this.leaderboard = oldModule.leaderboard;
 	}
 	
