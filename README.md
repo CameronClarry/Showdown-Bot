@@ -97,6 +97,9 @@ Command|Usage|Required Rank
 `~removefact [fact]`|Removes the given fact.|+
 `~factlist`|This will PM you a pastebin of all facts in the database.|+
 `~fact`|Displays a random fact.|+
+`~factsearch [text]`|Displays a random fact containing the given text.|+
+`~next`|Shows when the next Trivia official begins. Identical to `~nextofficial`.|None
+`~nextcycle`|Shows when the next Trivia Tracker cycle begins.|None
 `~help`|Gives the list of commands.|None
 `~rules`|Links to the rules doc.|None
 `~legacyrules`|Links to the old rules PDF.|None
