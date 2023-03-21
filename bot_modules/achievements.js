@@ -186,7 +186,7 @@ let achievementCommands = {
 					let pointArray = res2.rows.map((row)=>{return row.value;});
 					let totalScore = pointArray.reduce((a,b)=>{return a+b;}, 0);
 
-					let output=`<div style="max-height:200px;overflow-y:scroll"><table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr><th colspan=2>${res.display_name}'s Achievements</th></tr><tr><th>Achievement</th><th>Points</th></tr>${res2.rows.map((row)=>{return `<tr><td>${row.name}</td><td>${row.value}</td></tr>`;}).join('')}<tr><th>Total</th><th>${totalScore}</th></tr></table></div>`;
+					let output=`<div style="max-height:200px;overflow-y:scroll"><table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr><th colspan=2>${makeHTMLFriendly(res.display_name)}'s Achievements</th></tr><tr><th>Achievement</th><th>Points</th></tr>${res2.rows.map((row)=>{return `<tr><td>${row.name}</td><td>${row.value}</td></tr>`;}).join('')}<tr><th>Total</th><th>${totalScore}</th></tr></table></div>`;
 					if(AuthManager.rankgeq(rank, '+') && room && room.id){
 						info(room.id);
 						room.send(`/addhtmlbox ${output}`);
@@ -208,7 +208,7 @@ let achievementCommands = {
 				return;
 			}
 
-			let output=`<div style="max-height:200px;overflow-y:scroll"><table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr><th>User</th><th>Achievements</th><th>Score</th></tr>${res.rows.map((row)=>{return `<tr><td>${row.display_name}</td><td>${row.achievements}</td><td>${row.points}</td></tr>`;}).join('')}</table></div>`;
+			let output=`<div style="max-height:200px;overflow-y:scroll"><table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr><th>User</th><th>Achievements</th><th>Score</th></tr>${res.rows.map((row)=>{return `<tr><td>${makeHTMLFriendly(row.display_name)}</td><td>${row.achievements}</td><td>${row.points}</td></tr>`;}).join('')}</table></div>`;
 			if(AuthManager.rankgeq(rank, '+') && room && room.id){
 				info(room.id);
 				room.send(`/addhtmlbox ${output}`);

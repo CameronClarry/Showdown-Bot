@@ -88,6 +88,14 @@ global.toId = function(text){
 	return "";
 };
 
+//Replaces characters that may interfere with HTML
+global.makeHTMLFriendly = function(text){
+	if(typeof text === "string"){
+		return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+	}
+	return "";
+}
+
 //Removes all non-alphanumeric characters from text except hyphens, and makes it lower case
 global.toRoomId = function(text){
 	if(typeof text === "string"){

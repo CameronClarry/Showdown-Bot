@@ -41,7 +41,9 @@ let commands = {
 	yayeetdab: "yes", // Added for winning the 2020 Trivia awards
 	nyaa: "yes", // Added for winning the 2020 Trivia awards
 	yespiquen: "yes", // Added for winning the 2021 Trivia awards
+	wellgoogled: "yes", // Added for winning the 2022 Trivia awards
 	claro: "yes", // Added for CynicCyndaquil UGO 3rd place
+	woof: "yes", // Prize for BubidaJeffrey (2022-09-04) (UGO win)
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
@@ -807,7 +809,7 @@ let commands = {
 			room.broadcast(user, "There are no players.", rank);
 		}else if(args.length>0 && game.hasVoicePermissions(user, commandRank) && toId(args[0]) === 'html' && room.id === 'trivia'){
 			let message = `/addhtmlbox <table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="color: black; background-color: #209331"><th>Players</th></tr>`;
-			message = message + `<tr><td><center>${parray.join(', ')}</center></td></tr></table>`;
+			message = message + `<tr><td><center>${makeHTMLFriendly(parray.join(', '))}</center></td></tr></table>`;
 
 			room.send(message);
 		}else if(args.length > 0 && toId(args[0]) === 'nohl'){
@@ -929,7 +931,7 @@ let commands = {
 			}else{
 				if(id){
 					let message = `/addhtmlbox <table style="color: black; background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916" border=1><tr style="background-color: #209331"><th>Scores</th></tr>`;
-					message = message + `<tr><td><center>${scoresArray.map(e=>{return `${e.user.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')} (${e.score})`}).join(', ')}</center></td></tr></table>`;
+					message = message + `<tr><td><center>${scoresArray.map(e=>{return `${makeHTMLFriendly(e.user.name)} (${e.score})`}).join(', ')}</center></td></tr></table>`;
 
 					room.broadcast(user, message);
 				}else{
@@ -1069,13 +1071,13 @@ let commands = {
 		room.broadcast(user, "This page contains all the commands you need to know: https://github.com/CameronClarry/Showdown-Bot/blob/master/README.md", rank);
 	},
 	rules: function(message, args, user, rank, room, commandRank, commandRoom){
-		room.broadcast(user, "Here's everything you need to know about Trivia Tracker: http://pstrivia.weebly.com/trivia-tracker.html", rank);
+		room.broadcast(user, "Here's everything you need to know about Trivia Tracker: https://ps-trivia.github.io/trivia-tracker.html", rank);
 	},
 	legacyrules: function(message, args, user, rank, room, commandRank, commandRoom){
 		room.broadcast(user, "Here are the rules for questions: https://drive.google.com/file/d/0B6H5ZoTTDakRYTBNMzUtWUNndWs/view", rank);
 	},
 	intro: function(message, args, user, rank, room, commandRank, commandRoom){
-		room.broadcast(user, "Here is a beginner's guide to Trivia Tracker (with pictures!): https://pstrivia.weebly.com/tt-intro.html", rank);
+		room.broadcast(user, "Here is a beginner's guide to Trivia Tracker (with pictures!): https://ps-trivia.github.io/tt-intro.html", rank);
 	},
 	plug: function(message, args, user, rank, room, commandRank, commandRoom){
 		room.broadcast(user, "https://plug.dj/trivia", rank);
