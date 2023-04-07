@@ -997,8 +997,11 @@ let commands = {
 				question: question,
 				timestamp: new Date().toUTCString()
 			};
+
+			let shortQuestion = question.replace(/\*/g,"");
+			shortQuestion = shortQuestion.length < 50 ? shortQuestion : `${shortQuestion.slice(0,47)}...`;
 			
-			user.send(`You have nominated ${args[0]}.`);
+			user.send(`You have nominated ${args[0]}'s question "${shortQuestion}".`);
 			this.saveLeaderboard();
 		}
 	},
