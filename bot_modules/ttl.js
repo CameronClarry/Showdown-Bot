@@ -636,7 +636,7 @@ let ttleaderboardEventCommands = {
 let sayScores = function(scores, lb, room){
 	let message = `/addhtmlbox <table style="background-color: #45cc51; margin: 2px 0;border: 2px solid #0d4916;color: black" border=1><tr style="background-color: #209331"><th colspan="2">${scores[0].lb_name}</th></tr><tr style="background-color: #209331"><th style="width: 150px">User</th><th>Score</th></tr>`;
 	for(let i=0;i<scores.length;i++){
-		message = message + `<tr><td>${scores[i].display_name || scores[i].id1}</td><td>${scores[i].points}</td></tr>`;
+		message = message + `<tr><td>${makeHTMLFriendly(scores[i].display_name || scores[i].id1)}</td><td>${scores[i].points}</td></tr>`;
 	}
 	message = message + "</table>"
 
