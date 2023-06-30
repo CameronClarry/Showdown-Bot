@@ -272,7 +272,7 @@ class TriviaTrackerGame{
 		this.bpOpen = null;
 		if(shouldClearTimers) this.clearTimers();
 
-		if(shouldSendMessage) this.room.send(shouldClearTimers ? "**BP is now closed. Timers have been cleared.**" : "**BP is now closed.**");
+		if(shouldSendMessage) this.room.send(`**BP is now closed. It is ${this.curHist.active.name}'s turn to ask a question.${shouldClearTimers ? " Timers have been cleared." : ""}**`);
 	}
 
 	cantLockBp(user, rank){

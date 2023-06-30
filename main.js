@@ -1,6 +1,7 @@
 "use strict";
 console.log("Starting the bot");
 let fs = require("fs");
+const axios = require('axios');
 let helpers = require('./helperfuncs');
 
 global.moduleInfo = {};
@@ -146,7 +147,6 @@ stdin.addListener("data", function(d) {
 });
 
 
-let request = require("request");
 let WebSocketClient = require("websocket").client;
 let Connection = null;
 
@@ -256,7 +256,7 @@ global.send = function (data) {
 };
 
 
-function handle(message){
+async function handle(message){
 	let chunks = message.split("\n");
 	let roomName = "";
 	let room;
@@ -273,37 +273,68 @@ function handle(message){
 		}
 		if(args[1]=="challstr"){
 			info('challstr')
-			request.post(
-				{
-					url : "http://play.pokemonshowdown.com/action.php",
-					formData : {
-						act: "login",
-						name: bot.config.user.value,
-						pass: bot.config.pass.value,
-						challengekeyid: args[2],
-						challenge: args[3]
-					}
-				},
-				function(err, response, body){
-					let data;
-					if(!body||body.length < 1){
-						body = null;
-					}else{
-						if(body[0]=="]"){
-							body = body.substr(1);
-						}
+			try{
+				info('making axios request')
+			const {data} = await axios.post('https://play.pokemonshowdown.com/api/login', {act: "login", name: bot.config.user.value, pass:bot.config.pass.value, challstr: `${args[2]}|${args[3]}`}, {
+				  headers: {
+					      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+					    }
+			})
+				try{
+				info('finished axios request');
+				info(JSON.stringify(data));
+				info(data.substr(1));
+				info('about to parse data');
+				let dataobj = JSON.parse(data.substr(1));
+				if(dataobj && dataobj.curuser && dataobj.curuser.loggedin){
+					info('sending trn');
+					bot.assertion = dataobj.assertion;
+					send(`|/trn ${bot.config.user.value},0,${dataobj.assertion}`);
+				}else{
+					// We couldn't log in for some reason
+					error("Error logging in...");
+					process.exit(1);
+				}
+				}catch(err){
+					info(err)
+				}
+			info('end of axios post');
+			}catch(err){
+				info('axios request error');
+				info(JSON.stringify(err));
+			}
+			//request.post(
+				//{
+					//url : "https://play.pokemonshowdown.com/api/login",
+					//formData : {
+						//act: "login",
+						//name: bot.config.user.value,
+						//pass: bot.config.pass.value,
+						//challstr: `${args[2]}|${args[3]}`,
+						//challengekeyid: args[2],
+						//challenge: args[3]
+					//}
+				//},
+				//function(err, response, body){
+					//let data;
+					//if(!body||body.length < 1){
+						//body = null;
+					//}else{
+						//if(body[0]=="]"){
+							//body = body.substr(1);
+						//}
 						//info(body);
-						data = JSON.parse(body);
-					}
-					if(data && data.curuser && data.curuser.loggedin){
-						bot.assertion = data.assertion;
-						send(`|/trn ${bot.config.user.value},0,${data.assertion}`);
-					}else{
-						// We couldn't log in for some reason
-						error("Error logging in...");
-						process.exit(1);
-					}
-			});
+						//data = JSON.parse(body);
+					//}
+					//if(data && data.curuser && data.curuser.loggedin){
+						//bot.assertion = data.assertion;
+						//send(`|/trn ${bot.config.user.value},0,${data.assertion}`);
+					//}else{
+						//// We couldn't log in for some reason
+						//error("Error logging in...");
+						//process.exit(1);
+					//}
+			//});
 		}else if(args[1]=="updateuser"&&toId(args[2].substr(1).split("@")[0])==toId(bot.config.user.value)){
 			send("|/avatar 162");
 			for(let modulename in modules){
