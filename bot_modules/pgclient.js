@@ -255,7 +255,7 @@ class PGClient extends BaseModule{
 					return;
 				}
 
-				this.updatePointsByDbId(user.id, user.display_name, updateFunc, leaderboards, newCallback, client);
+				this.updatePointsByDbId(user.id, name, updateFunc, leaderboards, newCallback, client);
 			}, client);
 		})
 	}
