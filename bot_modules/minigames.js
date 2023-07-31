@@ -594,7 +594,7 @@ class TriviaTrackerGame{
 	onRoomMessage(user, rank, message){
 		if(this.bpOpen){
 			let text = toId(message);
-			if(text === 'bp' || text === 'me' || text === 'bpme'){
+			if(text === 'bp' || text === 'me' || text === 'bpme' || text === 'meow'){
 				if(this.cantClaimBp(user)){
 					// Could potentially PM the user here, but it is probably unnecessary
 				}else{
@@ -1090,6 +1090,7 @@ class AutoTrivia extends TriviaTrackerSingleAsker{
 let gameTypes = {
 	'triviatracker': TriviaTrackerGame,
 	'picturetrivia': PictureTrivia,
+	'imagetrivia': PictureTrivia,
 	'blitz': Blitz,
 	'ttsa': TriviaTrackerSingleAsker,
 	'duel': Duel,
