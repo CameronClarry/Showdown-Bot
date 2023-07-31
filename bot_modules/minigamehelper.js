@@ -219,7 +219,7 @@ class MinigameHelper extends BaseModule{
 		if(!this.cycleRemindTimer && this.config.officialReminders.value){
 			let timeDiff = getResetTime()
 			this.cycleRemindTimer = setTimeout(()=>{
-				this.remindTimer = null;
+				this.cycleRemindTimer = null;
 				this.cycleReminder();
 			}, timeDiff);
 			info("Set the cycle reminder for " + timeDiff/1000/60 + " minutes");
