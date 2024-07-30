@@ -44,6 +44,9 @@ let commands = {
 	wellgoogled: "yes", // Added for winning the 2022 Trivia awards
 	claro: "yes", // Added for CynicCyndaquil UGO 3rd place
 	woof: "yes", // Prize for BubidaJeffrey (2022-09-04) (UGO win)
+	y: "yes", // Prize for 1hfkqhwhrelk (2023-08-02) (UGO win)
+	healingwish: "yes", // Added for Sera doing PSPL stuff
+	yech: "yes", // Added for yech doing PSPL stuff
 	yes: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, this.config.manageBpRank.value)
 		let shouldUndo = hasRank && toId(args[1]) === "afk";
@@ -952,6 +955,7 @@ let commands = {
 		game.scores = {}
 		room.broadcast(user, "Cleared the current scores.", rank);
 	},
+	nom: "nominate",
 	nominate: function(message, args, user, rank, room, commandRank, commandRoom){
 		let nominee = toId(args[0]);
 		let entry = this.leaderboard.nominations[user.id];

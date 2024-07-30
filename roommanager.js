@@ -211,7 +211,7 @@ class Room{
 	checkAuthCount(){
 		let authCount = 0;
 		for(let id in this.users){
-			if(AuthManager.rankg(this.users[id].trueRank, '+') && this.users[id].trueRank !== '*') authCount++;
+			if(AuthManager.rankg(this.users[id].trueRank, '+') && this.users[id].trueRank !== '*' || this.users[id].trueRank === '§') authCount++;
 		}
 		return authCount;
 	}

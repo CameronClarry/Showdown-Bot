@@ -41,7 +41,7 @@ let commands = {
 let ttleaderboardCommands = {
 	list: function(message, args, user, rank, room, commandRank, commandRoom){
 		let lb = args[2] || "main";
-		let number = /^[\d]+$/.test(args[1]) ? parseInt(args[1], 10) : 5;
+		let number = /^[\d]+$/.test(args[1]) ? parseInt(args[1], 10) : 10;
 		let rows = [];
 		this.listLeaderboardEntries([number, lb], (err, res)=>{
 			if(err){
@@ -345,6 +345,30 @@ let ttleaderboardCommands = {
 		}
 	},
 	remove: function(message, args, user, rank, room, commandRank, commandRoom){
+		if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
+			room.broadcast(user, "Your rank is not high enough to change someone's score.", rank);
+		}else if(args.length<=2 || !toId(args[1])){
+			room.broadcast(user, "You must specify the user's name, and the number of points to remove.", rank);
+		}else if(!/^-?[\d]+$/.test(args[2])){
+			room.broadcast(user, "Invalid number format for the number of points.", rank);
+		}else{
+			let username = args[1];
+			let points = -parseInt(args[2], 10);
+			this.pgclient.updatePointsByPsId(toId(username), username, (oldPoints)=>{
+				return Math.max(oldPoints + points, 0);
+			}, 'enabled', (err, username, oldPoints, newPoints)=>{
+				if(err){
+					error(err);
+					room.broadcast(user, `Error: ${err}`);
+					return;
+				}
+
+				let response = `Updated ${oldPoints.length} scores for ${username}.`;
+				room.broadcast(user, response, rank);
+			});
+		}
+	},
+	removeuser: function(message, args, user, rank, room, commandRank, commandRoom){
 		if(!toId(args[1])){
 			room.broadcast(user, "You must specify a user.", rank);
 		}else if(!AuthManager.rankgeq(commandRank, this.config.editScoreRank.value)){
