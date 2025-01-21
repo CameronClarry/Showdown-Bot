@@ -5,6 +5,7 @@ class Bot extends BaseModule{
 			"user": new ConfigString(""),
 			"userId": new ConfigString(""),
 			"pass": new ConfigString(""),
+			"avatar": new ConfigString("lucas"),
 			"owner": new ConfigString(""),
 			"connection": new ConfigString("ws://sim.smogon.com/showdown/websocket"),
 			"log_receive": new ConfigBoolean(true),

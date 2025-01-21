@@ -336,7 +336,7 @@ async function handle(message){
 					//}
 			//});
 		}else if(args[1]=="updateuser"&&toId(args[2].substr(1).split("@")[0])==toId(bot.config.user.value)){
-			send("|/avatar 162");
+			send(`|/avatar ${bot.config.avatar.value}`);
 			for(let modulename in modules){
 				let module = modules[modulename];
 				if(module && module.onConnect){
