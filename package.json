@@ -2,10 +2,9 @@
 	"name": "Showdown-Bot",
 	"version": "0.0.1",
 	"dependencies": {
-		"axios": "^0.21.1",
+		"axios": "^1.7.9",
 		"colors": "1.0.3",
 		"pg": "^8.0.3",
-		"request": "^2.88.2",
 		"websocket": "^1.0.32"
 	},
 	"engines": {

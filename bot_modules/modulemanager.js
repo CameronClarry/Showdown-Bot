@@ -1,5 +1,4 @@
 let fs = require("fs");
-let request = require("request");
 
 let moduleRoomRank = function(user, moduleId){
 	let moduleRoomId = moduleInfo[moduleId] && moduleInfo[moduleId].room;
@@ -129,48 +128,7 @@ let configFuncs = {
 		}
 	},
 	update: function(message, args, user, rank, room, commandRank, commandRoom){
-		let name = toId(args[0]);
-		if(args.length<2){
-			room.broadcast(user, "You must give the module, and a link to a hastebin raw paste.", rank);
-		}else if(!name || !modules[name]){
-			room.broadcast(user, `The module '${name}' does not exist.`, rank);
-		}else if(/^(https?:\/\/)?(www\.)?hastebin.com\/raw\/[a-z]+$/.test(args[1])){
-			let module = modules[name];
-			let response = "Finished updating the configs.";
-			request.get(args[1],function(err, response2, body){
-				if(err){
-						error(err);
-						room.broadcast(user, err, rank);
-						return;
-				}
-				let configs = body.split("\n");
-				let moduleConfigs = module.getConfig();
-				for(let i=0;i<configs.length;i++){
-					let config = configs[i].split(":");
-					let property = config[0];
-					if(moduleConfigs[property]){
-						let value = getProperty(config[1].trim(), module.configTypes[property]);
-						if(value){
-							moduleConfigs[property] = value;
-						}else{
-							response = "Invalid value given for " + property + ".";
-							response = `Invalid value given for ${property}.`;
-							info(module.configTypes[property])
-							info(config[1]);
-							info(value);
-							error(response);
-						}
-					}else{
-						response = `The property ${property} doesn't exist.`;
-						error(response);
-					}
-				}
-				saveConfig(name);
-				room.broadcast(user, response, rank);
-			});
-		}else{
-			room.broadcast(user, "There was something wrong with your link, make sure it's only the raw paste.", rank);
-		}
+		room.broadcast(user, "The hastebin website has been killed by Toptal.")
 	}
 };
 
