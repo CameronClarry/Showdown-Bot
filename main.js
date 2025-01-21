@@ -255,6 +255,43 @@ global.send = function (data) {
 	}
 };
 
+async function login(challstr, delay=30000){
+	try{
+		info('making axios request')
+		const {data} = await axios.post('https://play.pokemonshowdown.com/api/login', {act: "login", name: bot.config.user.value, pass:bot.config.pass.value, challstr:challstr}, {
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+			}
+		})
+		try{
+			info('finished axios request');
+			info(JSON.stringify(data));
+			info(data.substr(1));
+			info('about to parse data');
+			let dataobj = JSON.parse(data.substr(1));
+			if(dataobj && dataobj.curuser && dataobj.curuser.loggedin){
+				info('sending trn');
+				bot.assertion = dataobj.assertion;
+				send(`|/trn ${bot.config.user.value},0,${dataobj.assertion}`);
+			}else{
+				// We couldn't log in for some reason
+				error("Error logging in...");
+				process.exit(1);
+			}
+		}catch(err){
+			info(err)
+		}
+		info('end of axios post');
+	}catch(err){
+		info('axios request error');
+		info(JSON.stringify(err));
+		info(`sending login request again in ${delay}ms`);
+		setTimeout(()=>{
+			login(challstr, delay*2);
+		}, delay);
+	}
+}
+
 
 async function handle(message){
 	let chunks = message.split("\n");
@@ -273,36 +310,7 @@ async function handle(message){
 		}
 		if(args[1]=="challstr"){
 			info('challstr')
-			try{
-				info('making axios request')
-			const {data} = await axios.post('https://play.pokemonshowdown.com/api/login', {act: "login", name: bot.config.user.value, pass:bot.config.pass.value, challstr: `${args[2]}|${args[3]}`}, {
-				  headers: {
-					      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-					    }
-			})
-				try{
-				info('finished axios request');
-				info(JSON.stringify(data));
-				info(data.substr(1));
-				info('about to parse data');
-				let dataobj = JSON.parse(data.substr(1));
-				if(dataobj && dataobj.curuser && dataobj.curuser.loggedin){
-					info('sending trn');
-					bot.assertion = dataobj.assertion;
-					send(`|/trn ${bot.config.user.value},0,${dataobj.assertion}`);
-				}else{
-					// We couldn't log in for some reason
-					error("Error logging in...");
-					process.exit(1);
-				}
-				}catch(err){
-					info(err)
-				}
-			info('end of axios post');
-			}catch(err){
-				info('axios request error');
-				info(JSON.stringify(err));
-			}
+			login(`${args[2]}|${args[3]}`)
 			//request.post(
 				//{
 					//url : "https://play.pokemonshowdown.com/api/login",

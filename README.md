@@ -77,8 +77,8 @@ Command|Usage|Required Rank
 `~ach award, [user], [achievement]`|Attempts to award the specified achievement.|@
 `~ach unaward, [user], [achievement]`|Attempts to revoke the specified achievement.|@
 
-Minigame helper commands:
-See https://trivia.cclarry.ca/minigames/
+Minigame commands and information:
+See https://trivia.cclarry.ca/index.php/Minigame:Main
 
 Misc commands:
 
