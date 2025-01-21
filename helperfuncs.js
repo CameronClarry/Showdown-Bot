@@ -140,7 +140,7 @@ global.millisToTime = function(millis){
 	if(hours>0){
 		response = `${hours} hour${hours === 1 ? "" : "s"} and ${minutes} minute${minutes === 1 ? "" : "s"}`;
 	}else{
-		response = `minutes} minute${minutes === 1 ? "" : "s"}`;
+		response = `${minutes} minute${minutes === 1 ? "" : "s"}`;
 	}
 	return response;
 };

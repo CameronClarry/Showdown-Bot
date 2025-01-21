@@ -1163,7 +1163,7 @@ class BlacklistManager{
 		let triviaRoom = RoomManager.getRoom('trivia');
 		if(triviaRoom){
 			let durationText = duration ? `for ${millisToTime(duration*60000)}` : "permanently";
-			triviaRoom.send(`/modnote ${username} (${id}) was added to the Trivia Tracker blacklist ${durationText} by ${giver.name}. (${reason})`);
+			triviaRoom.send(`/modnote ${username} [${id}] was added to the Trivia Tracker blacklist ${durationText} by ${giver.name}. (${reason})`);
 		}
 	}
 
