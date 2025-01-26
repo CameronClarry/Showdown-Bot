@@ -18,20 +18,19 @@ class TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
 	/// room: the room that the game should be started in
 	/// config: config settings for the tt module
-	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
+	constructor(user, room, config, ttDataManager, pgclient, achievements){
 		this.room = room;
 		this.host = user;
 		this.config = config;
 		this.curHist = {active: this.host};
 		this.history = [this.curHist];
 		this.maxHistLength = 10;
-		this.blacklistManager = blacklistManager;
+		this.ttDataManager = ttDataManager;
 		this.pgclient = pgclient;
 		this.achievements = achievements;
 		this.timers = {};
 		this.chatCommands = {};
 		this.scores = {};
-		this.customBp = customBp;
 		this.plist = [];
 		this.usePlist = false;
 		this.plmax = 0;
@@ -354,15 +353,16 @@ class TriviaTrackerGame{
 		let historyToAdd = this.makeHistory(user1, user2);
 		this.changeBp(user1, user2, historyToAdd);
 
-		let isBlacklisted = this.blacklistManager.getEntry(user2.id);
+		let isBlacklisted = this.ttDataManager.getEntry(user2.id);
 		if(isBlacklisted) this.doOpenBp('auth', false);
 
 		this.sendYes(user1, user2, undoAsker, isBlacklisted);
 	}
 
 	sendGenericBpChange(user){
-		if(this.customBp[user.id]){
-			this.room.send(`**${this.customBp[user.id]}**`);
+		let entry = this.ttDataManager.getCustomBp(user.id);
+		if(entry){
+			this.room.send(`**${entry.bp}**`);
 		}else{
 			this.room.send(`**It is now ${user.name}'s turn to ask a question.**`);
 		}
@@ -566,7 +566,7 @@ class TriviaTrackerGame{
 	}
 
 	cantClaimBp(user){
-		if(this.blacklistManager.getEntry(user.id)) return "You are on the blacklist and cannot claim BP.";
+		if(this.ttDataManager.getEntry(user.id)) return "You are on the blacklist and cannot claim BP.";
 
 		if(user.id === this.curHist.active.id && this.bpOpen !== 'claim') return "You are already the active player.";
 	}
@@ -652,8 +652,8 @@ exports.TriviaTrackerGame = TriviaTrackerGame;
 
 class Blitz extends TriviaTrackerGame{
 	
-	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
-		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+	constructor(user, room, config, ttDataManager, pgclient, achievements){
+		super(user, room, config, ttDataManager, pgclient, achievements);
 		this.remindTime = 60;
 		this.chatCommands['finals'] = this.doFinals;
 		this.chatCommands['hyperfinals'] = this.doHyperFinals;
@@ -742,8 +742,8 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 	/// user: the user that gave the command to start the game
 	/// room: the room that the game should be started in
 	/// config: config settings for the tt module
-	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
-		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+	constructor(user, room, config, ttDataManager, pgclient, achievements){
+		super(user, room, config, ttDataManager, pgclient, achievements);
 	}
 
 	setupData(){
@@ -889,8 +889,8 @@ class TriviaTrackerSingleAsker extends TriviaTrackerGame{
 
 class PictureTrivia extends TriviaTrackerSingleAsker{
 
-	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
-		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+	constructor(user, room, config, ttDataManager, pgclient, achievements){
+		super(user, room, config, ttDataManager, pgclient, achievements);
 	}
 
 	setupData(){
@@ -910,8 +910,8 @@ class PictureTrivia extends TriviaTrackerSingleAsker{
 
 class Duel extends TriviaTrackerSingleAsker{
 
-	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
-		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+	constructor(user, room, config, ttDataManager, pgclient, achievements){
+		super(user, room, config, ttDataManager, pgclient, achievements);
 		this.chatCommands['selectplayers'] = this.selectPlayers;
 		this.chatCommands['pick'] = this.selectPlayers;
 		this.chatCommands['startq'] = this.startQuestion;
@@ -1013,8 +1013,8 @@ class Duel extends TriviaTrackerSingleAsker{
 
 class SuspectSearch extends TriviaTrackerSingleAsker{
 
-	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
-		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+	constructor(user, room, config, ttDataManager, pgclient, achievements){
+		super(user, room, config, ttDataManager, pgclient, achievements);
 	}
 
 	sendStart(){
@@ -1033,8 +1033,8 @@ let baseQueries = queries.baseQueries;
 
 class AutoTrivia extends TriviaTrackerSingleAsker{
 
-	constructor(user, room, config, blacklistManager, customBp, pgclient, achievements){
-		super(user, room, config, blacklistManager, customBp, pgclient, achievements);
+	constructor(user, room, config, ttDataManager, pgclient, achievements){
+		super(user, room, config, ttDataManager, pgclient, achievements);
 		this.chatCommands['question'] = this.askQuestion;
 	}
 

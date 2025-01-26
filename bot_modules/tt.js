@@ -679,7 +679,7 @@ let commands = {
 		}else if(!minigames.gameTypes[gameType]){
 			room.broadcast(user, "That game type does not exist.");
 		}else{
-			this.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, this.config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
+			this.games[gameRoom.id] = new minigames.gameTypes[gameType](user, gameRoom, this.config, this.ttDataManager, this.pgclient, this.achievements);
 		}
 	},
 	mgend: "minigameend",
@@ -1044,16 +1044,19 @@ let commands = {
 	custbpadd: function(message, args, user, rank, room, commandRank, commandRoom){
 		let hasRank = AuthManager.rankgeq(commandRank, '@');
 		let id = toId(args[0]);
-		let bpMessage = args.slice(1).join(', ');;
-		
+		let duration = /^\d+$/.test(args[1]) ? parseInt(args[1]) : 0;
+		let bpMessage = args.slice(2).join(', ');
 		if(!hasRank){
 			room.broadcast(user, "Your rank is not high enough to set custom BP messages.");
 		}else if(!id || !bpMessage){
 			room.broadcast(user, "You must specify a user and a message.");
 		}else{
-			this.leaderboard.customBp[id] = bpMessage;
-			this.saveLeaderboard();
-			room.broadcast(user, "Successfully set their custom BP message.");
+			this.ttDataManger.setCustomBp(id, duration*24*60, bpMessage);
+			if(duration === 0){
+				room.broadcast(user, "Successfully set their custom BP message permanently.");
+			}else{
+				room.broadcast(user, `Successfully set their custom BP message for ${duration} days.`);
+			}
 		}
 	},
 	custbpremove: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1064,12 +1067,13 @@ let commands = {
 			room.broadcast(user, "Your rank is not high enough to remove custom BP messages.");
 		}else if(!id){
 			room.broadcast(user, "You must specify a user.");
-		}else if(!this.leaderboard.customBp[id]){
-			room.broadcast(user, "They do not have a custom BP message.");
 		}else{
-			delete this.leaderboard.customBp[id];
-			this.saveLeaderboard();
-			room.broadcast(user, "Successfully removed their custom BP message.");
+			let response = this.ttDataManager.removeCustomBp(id);
+			if(response){
+				room.broadcast(user, response);
+			}else{
+				room.broadcast(user, "Successfully removed their custom BP message.");
+			}
 		}
 	},
 	info: "help",
@@ -1104,7 +1108,7 @@ let ttCommands = {
 		}else if(!AuthManager.rankgeq(commandRank, this.config.startGameRank.value)){
 			room.broadcast(user, "Your rank is not high enough to start a game of Trivia Tracker.");
 		}else{
-			this.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, this.config, this.blacklistManager, this.leaderboard.customBp, this.pgclient, this.achievements);
+			this.games[targetRoom.id] = new minigames.TriviaTrackerGame(user, targetRoom, this.config, this.ttDataManager, this.pgclient, this.achievements);
 		}
 	},
 	endgame: function(message, args, user, rank, room, commandRank, commandRoom){
@@ -1122,37 +1126,42 @@ let ttCommands = {
 	}
 };
 
-class BlacklistManager{
+class TTDataManager{
 
 	constructor(){
-		this.blacklist = {};
+		this.data = {
+			blacklist: {},
+			customBp: {}
+		};
 	}
 
 	load(){
-		let path = "data/blacklist.json";
+		let path = "data/tt_data.json";
 		if(fs.existsSync(path)){
-			this.blacklist = JSON.parse(fs.readFileSync(path, 'utf8'));
+			this.data = JSON.parse(fs.readFileSync(path, 'utf8'));
 		}else{
-			this.blacklist = {};
+			this.data = {
+				blacklist: {},
+				customBp: {}
+			};
 		}
 	}
 
 	save(){
-		let path = "data/blacklist.json";
-		fs.writeFile(path, JSON.stringify(this.blacklist, null, "\t"), logIfError);
+		let path = "data/tt_data.json";
+		fs.writeFile(path, JSON.stringify(this.data, null, "\t"), logIfError);
 	}
 
 	addUser(username, duration, reason, giver){
 		let id = toId(username);
 		let entry = this.getEntry(id);
-		let currentDuration = this.getDuration(entry);
+		let currentDuration = this.getBLDuration(entry);
 
-		
 		if((duration*60000 <= currentDuration && duration > 0) || currentDuration == -1) return "The duration given isn't longer than their current blacklist length.";
 
 		if(duration < 0) duration = 0;
 		
-		this.blacklist[id] = {
+		this.data.blacklist[id] = {
 			displayName: username,
 			reason: reason,
 			duration: duration*60000,
@@ -1173,7 +1182,7 @@ class BlacklistManager{
 
 		if(!entry) return `The user ${username} is not on the TT blacklist.`;
 
-		delete this.blacklist[id];
+		delete this.data.blacklist[id];
 		this.save()
 		
 		let triviaRoom = RoomManager.getRoom('trivia');
@@ -1183,10 +1192,10 @@ class BlacklistManager{
 	}
 
 	getEntry(id){
-		let entry = this.blacklist[id];
+		let entry = this.data.blacklist[id];
 		if(!entry) return;
 		if(this.getDuration(entry) === 0){
-			delete this.blacklist[id];
+			delete this.data.blacklist[id];
 			this.save();
 			return;
 		}
@@ -1194,18 +1203,55 @@ class BlacklistManager{
 		return entry;
 	}
 
+	getCustomBp(id){
+		let entry = this.data.customBp[id];
+		if(!entry) return;
+		if(this.getDuration(entry) === 0){
+			delete this.data.customBp[id];
+			this.save();
+			return;
+		}
+
+		return entry;
+	}
+
+	setCustomBp(username, duration, customBp){
+		let id = toId(username);
+		let entry = this.getCustomBp(id);
+		let currentDuration = this.getDuration(entry);
+
+		if(duration < 0) duration = 0;
+		
+		this.data.customBp[id] = {
+			displayName: username,
+			duration: duration*60000,
+			bp: customBp,
+			time: Date.now()
+		};
+		this.save();
+	}
+
+	removeCustomBp(id){
+		let entry = this.getCustomBp(id);
+
+		if(!entry) return `The user ${username} does not have a custom BP.`;
+
+		delete this.data.customBp[id];
+		this.save()
+	}
+
 	getDuration(entry){
 		if(!entry) return 0;
 		if(!entry.duration) return -1;
 		let duration = entry.duration - Date.now() + entry.time;
 		duration = duration < 0 ? 0 : duration;
-		return duration
+		return duration;
 	}
 }
 
 let blacklistCommands = {
 	add: function(username, id, duration, reason, user, room, triviaRoom){
-		let response = this.blacklistManager.addUser(username, duration, reason, user);
+		let response = this.ttDataManager.addUser(username, duration, reason, user);
 		if(response){
 			room.broadcast(user, response);
 		}else{
@@ -1217,7 +1263,7 @@ let blacklistCommands = {
 		}
 	},
 	remove: function(username, id, duration, reason, user, room, triviaRoom){
-		let response = this.blacklistManager.removeUser(username, user);
+		let response = this.ttDataManager.removeUser(username, user);
 		if(response){
 			room.broadcast(user, response);
 		}else{
@@ -1225,7 +1271,7 @@ let blacklistCommands = {
 		}
 	},
 	check: function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = this.blacklistManager.getEntry(id);
+		let entry = this.ttDataManager.getEntry(id);
 		if(entry && !entry.duration){
 			room.broadcast(user, `The user ${entry.displayName} is permantently on the blacklist. Reason: ${entry.reason}.`);
 		}else if(entry){
@@ -1235,13 +1281,13 @@ let blacklistCommands = {
 		}
 	},
 	unmute:function(username, id, duration, reason, user, room, triviaRoom){
-		let entry = this.blacklistManager.getEntry(id);
+		let entry = this.ttDataManager.getEntry(id);
 		if(!entry){
 			room.broadcast(user, `The user ${username} is not on the blacklist.`);
 		}else if(!entry.duration || entry.duration > 60*60000){
 			room.broadcast(user, "That user is blacklisted for longer than a mute.");
 		}else{
-			this.blacklistManager.removeUser(username, user);
+			this.ttDataManager.removeUser(username, user);
 			room.broadcast(user, `Unmuted ${username}.`);
 		}
 	}
@@ -1275,8 +1321,8 @@ class TT extends BaseModule{
 		this.pendingAlts = {};
 		this.askToReset = '';
 		this.timers = {};
-		this.blacklistManager = new BlacklistManager();
-		this.blacklistManager.load()
+		this.ttDataManager = new TTDataManager();
+		this.ttDataManager.load()
 		this.loadFacts();
 		this.loadTopics();
 		this.loadLeaderboard();
@@ -1293,7 +1339,7 @@ class TT extends BaseModule{
 		this.pendingAlts = oldModule.pendingAlts;
 		this.askToReset = oldModule.askToReset;
 		this.timers = oldModule.timers;
-		this.blacklistManager = oldModule.blacklistManager;
+		this.ttDataManager = oldModule.ttDataManager;
 		this.facts = oldModule.facts;
 		this.topics = oldModule.topics;
 		this.leaderboard = oldModule.leaderboard;
@@ -1352,12 +1398,9 @@ class TT extends BaseModule{
 			if(!leaderboard.nominations){
 				leaderboard.nominations = {};
 			}
-			if(!leaderboard.customBp){
-				leaderboard.customBp = {};
-			}
 			this.leaderboard = leaderboard;
 		}else{
-			this.leaderboard = {blacklist:{},nominations:{},customBp:{}};
+			this.leaderboard = {nominations:{}};
 		}
 	};
 
