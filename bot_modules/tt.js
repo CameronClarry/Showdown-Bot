@@ -1051,7 +1051,7 @@ let commands = {
 		}else if(!id || !bpMessage){
 			room.broadcast(user, "You must specify a user and a message.");
 		}else{
-			this.ttDataManger.setCustomBp(id, duration*24*60, bpMessage);
+			this.ttDataManager.setCustomBp(id, duration*24*60, bpMessage);
 			if(duration === 0){
 				room.broadcast(user, "Successfully set their custom BP message permanently.");
 			}else{
@@ -1234,7 +1234,7 @@ class TTDataManager{
 	removeCustomBp(id){
 		let entry = this.getCustomBp(id);
 
-		if(!entry) return `The user ${username} does not have a custom BP.`;
+		if(!entry) return `The user ${id} does not have a custom BP.`;
 
 		delete this.data.customBp[id];
 		this.save()
