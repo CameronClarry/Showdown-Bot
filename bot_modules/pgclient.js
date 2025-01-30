@@ -237,7 +237,7 @@ class PGClient extends BaseModule{
 	updatePointsByPsId(psId, name, updateFunc, leaderboards, callback, client){
 		this.checkout((err, client, done)=>{
 			if(err){
-				client.end();
+				if(client) client.end();
 				done();
 				callback(err);
 				return;

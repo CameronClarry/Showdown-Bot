@@ -1155,7 +1155,7 @@ class TTDataManager{
 	addUser(username, duration, reason, giver){
 		let id = toId(username);
 		let entry = this.getEntry(id);
-		let currentDuration = this.getBLDuration(entry);
+		let currentDuration = this.getDuration(entry);
 
 		if((duration*60000 <= currentDuration && duration > 0) || currentDuration == -1) return "The duration given isn't longer than their current blacklist length.";
 
