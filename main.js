@@ -398,6 +398,7 @@ async function handle(message){
 				let name = parts[0];
 				let status = parts[1];
 				let user = room.userNameChange(name, toId(name), status, rank, args[3]);
+				if(!user) return;
 				for(let modulename in modules){
 					let module = modules[modulename];
 					try{

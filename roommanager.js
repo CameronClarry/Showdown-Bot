@@ -162,6 +162,10 @@ class Room{
 		// info("NAME: " + name + ", " + id + ", " + status + ", " + rank + ", " + prevId);
 		// info(JSON.stringify(this.getUserData(prevId)));
 		let user = this.getUserData(prevId);
+		if(!user){
+			info(`Username changed but no user found: ${prevId}`);
+			return;
+		}
 		user.updateData(name, rank, status);
 		if(id !== prevId){
 			this.users[id] = user;

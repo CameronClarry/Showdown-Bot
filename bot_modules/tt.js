@@ -476,10 +476,10 @@ let commands = {
 		}
 	},
 	//~timer [seconds], {message}, {room}
-	//~timer end, {room}
+	//~timer end/clear, {room}
 	timer: function(message, args, user, rank, room, commandRank, commandRoom){
 		let arg = toId(args[0]);
-		if(arg === "end"){
+		if(arg === "end" || arg === "clear"){
 			let roomId = toRoomId(args[1]) || room.id;
 			rank = AuthManager.getRank(user, RoomManager.getRoom(roomId));
 			if(!AuthManager.rankgeq(rank, this.config.timerRank.value)){
