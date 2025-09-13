@@ -117,9 +117,13 @@ class TriviaTrackerGame{
 	/// nextUser: the user who got the question correct:
 	givePoints(prevUser, nextUser){
 		let totalAskerPoints = (this.askPoints || 0) + (this.curHist.claimBonus || 0);
+		let askingUGOPoints = 2*(this.askPoints || 0) + (this.curHist.claimBonus || 0);
+		let answeringUGOPoints = 2*(this.answerPoints || 0);
 		if(totalAskerPoints){
 			if(this.leaderboards.length){
 				this.pgclient.updatePointsByPsId(prevUser.id, prevUser.name, (p)=>{return p + totalAskerPoints}, this.leaderboards, logIfError);
+				// For UGO, if we're adding points to the main leaderboard, also give UGO points
+				addUGOPoints(prevUser.id, askingUGOPoints, this.leaderboards);
 			}
 			if(this.scores[prevUser.id]){
 				this.scores[prevUser.id].score = this.scores[prevUser.id].score + totalAskerPoints;
@@ -130,6 +134,7 @@ class TriviaTrackerGame{
 		if(this.answerPoints){
 			if(this.leaderboards.length){
 				this.pgclient.updatePointsByPsId(nextUser.id, nextUser.name, (p)=>{return p + this.answerPoints}, this.leaderboards, logIfError);
+				addUGOPoints(nextUser.id, answeringUGOPoints, this.leaderboards);
 			}
 			if(this.scores[nextUser.id]){
 				this.scores[nextUser.id].score = this.scores[nextUser.id].score + this.answerPoints;
@@ -139,10 +144,14 @@ class TriviaTrackerGame{
 		}
 	}
 
-	makeUndoFunc(id, name, points, leaderboards){
+	makeUndoFunc(id, name, points, leaderboards, ugoPoints){
 		if(!points) return ()=>{};
 		return ()=>{
 			this.pgclient.updatePointsByPsId(id, name, (p)=>{return p - points}, leaderboards, logIfError);
+			// for UGO, also undo UGO points
+			if(ugoPoints){
+				addUGOPoints(id, -ugoPoints, leaderboards);
+			}
 			if(this.scores[id]){
 				this.scores[id].score = Math.max(0,this.scores[id].score - points);
 			}
@@ -457,10 +466,12 @@ class TriviaTrackerGame{
 
 	makeHistory(user1, user2){
 		let totalAskerPoints = (this.askPoints || 0) + (this.curHist.claimBonus || 0);
+		let askingUGOPoints = 2*(this.askPoints || 0) + (this.curHist.claimBonus || 0);
+		let answeringUGOPoints = 2*(this.answerPoints || 0);
 		return {
 			active:user2,
-			undoAsker: this.makeUndoFunc(this.curHist.active.id, this.curHist.active.name, totalAskerPoints, this.leaderboards),
-			undoAnswerer: this.makeUndoFunc(user2.id, user2.name, this.answerPoints, this.leaderboards)
+			undoAsker: this.makeUndoFunc(this.curHist.active.id, this.curHist.active.name, totalAskerPoints, this.leaderboards, askingUGOPoints),
+			undoAnswerer: this.makeUndoFunc(user2.id, user2.name, this.answerPoints, this.leaderboards, answeringUGOPoints)
 		};
 	}
 
@@ -1098,5 +1109,13 @@ let gameTypes = {
 	'suspectsearch': SuspectSearch,
 	'autotrivia': AutoTrivia
 };
+
+let addUGOPoints = function(user, points, leaderboards){
+	for(let i=0;i<leaderboards.length;i++){
+		if(leaderboards[i]==='main'){
+			send(`|/pm ugo, ;addpoints ${points}, trivia, ${user}`);
+		}
+	}
+}
 
 exports.gameTypes = gameTypes;
